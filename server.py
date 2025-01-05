@@ -47,7 +47,28 @@ def favicon():
 
 @app.route('/<path:filename>')
 def serve_static(filename):
-    return send_from_directory(BASE_DIR, filename)
+    # Set correct MIME types for different file extensions
+    mime_types = {
+        '.js': 'application/javascript',
+        '.css': 'text/css',
+        '.html': 'text/html',
+        '.ico': 'image/x-icon',
+        '.svg': 'image/svg+xml',
+        '.png': 'image/png',
+        '.jpg': 'image/jpeg',
+        '.jpeg': 'image/jpeg',
+        '.gif': 'image/gif',
+        '.woff': 'font/woff',
+        '.woff2': 'font/woff2',
+        '.ttf': 'font/ttf'
+    }
+    
+    # Get the file extension
+    _, ext = os.path.splitext(filename)
+    # Get the corresponding MIME type, default to binary stream if not found
+    mimetype = mime_types.get(ext.lower(), 'application/octet-stream')
+    
+    return send_from_directory(BASE_DIR, filename, mimetype=mimetype)
 
 @app.route('/css/<path:filename>')
 def serve_css(filename):
