@@ -168,15 +168,16 @@ def dict_factory(cursor, row):
     d = {}
     for idx, col in enumerate(cursor.description):
         value = row[idx]
-        if col[0] == 'full_data' and isinstance(value, str):
-            # Decompress if necessary
-            value = decompress_data(value)
-            # Parse JSON after decompression
-            try:
-                value = json.loads(value)
-            except json.JSONDecodeError:
-                app.logger.error(f"Error decoding JSON after decompression")
-                value = None
+        # Commented out full_data handling as it's currently unused
+        # if col[0] == 'full_data' and isinstance(value, str):
+        #     # Decompress if necessary
+        #     value = decompress_data(value)
+        #     # Parse JSON after decompression
+        #     try:
+        #         value = json.loads(value)
+        #     except json.JSONDecodeError:
+        #         app.logger.error(f"Error decoding JSON after decompression")
+        #         value = None
         d[col[0]] = value
     return d
 
@@ -437,7 +438,6 @@ def search():
                     s.controlling_power,
                     s.power_state,
                     s.distance,
-                    s.full_data,
                     ms.body_name,
                     ms.ring_name,
                     ms.ring_type,

@@ -315,14 +315,14 @@ def convert_json_to_sqlite(json_file: str, db_file: str, max_distance: float, ex
                 ))
             
             # Compress the full_data JSON if compression is enabled
-            try:
-                full_data = compress_data(json.dumps(system, cls=DecimalEncoder), compression)
-            except ImportError as e:
-                print(f"\nError: {str(e)}")
-                sys.exit(1)
-            except Exception as e:
-                print(f"\nError compressing data: {str(e)}")
-                sys.exit(1)
+            # try:
+            #     full_data = compress_data(json.dumps(system, cls=DecimalEncoder), compression)
+            # except ImportError as e:
+            #     print(f"\nError: {str(e)}")
+            #     sys.exit(1)
+            # except Exception as e:
+            #     print(f"\nError compressing data: {str(e)}")
+            #     sys.exit(1)
             
             # Extract key fields for indexed columns
             system_data = {
@@ -334,14 +334,14 @@ def convert_json_to_sqlite(json_file: str, db_file: str, max_distance: float, ex
                 'distance_from_sol': distance,
                 'controlling_power': system.get('controllingPower'),
                 'power_state': system.get('powerState'),
-                'full_data': full_data
+                # 'full_data': full_data
             }
             
             # Insert system data
             c.execute('''
                 INSERT OR REPLACE INTO systems 
-                (id64, name, x, y, z, distance_from_sol, controlling_power, power_state, full_data)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                (id64, name, x, y, z, distance_from_sol, controlling_power, power_state)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
                 system_data['id64'],
                 system_data['name'],
@@ -350,8 +350,7 @@ def convert_json_to_sqlite(json_file: str, db_file: str, max_distance: float, ex
                 system_data['z'],
                 system_data['distance_from_sol'],
                 system_data['controlling_power'],
-                system_data['power_state'],
-                system_data['full_data']
+                system_data['power_state']
             ))
             
             # Process mineral signals from bodies
