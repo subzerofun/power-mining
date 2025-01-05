@@ -68,7 +68,10 @@ def serve_static(filename):
     # Get the corresponding MIME type, default to binary stream if not found
     mimetype = mime_types.get(ext.lower(), 'application/octet-stream')
     
-    return send_from_directory(BASE_DIR, filename, mimetype=mimetype)
+    response = send_from_directory(BASE_DIR, filename, mimetype=mimetype)
+    if ext.lower() == '.js':
+        response.headers['Access-Control-Allow-Origin'] = '*'
+    return response
 
 @app.route('/css/<path:filename>')
 def serve_css(filename):
@@ -76,7 +79,9 @@ def serve_css(filename):
 
 @app.route('/js/<path:filename>')
 def serve_js(filename):
-    return send_from_directory(os.path.join(BASE_DIR, 'js'), filename, mimetype='application/javascript')
+    response = send_from_directory(os.path.join(BASE_DIR, 'js'), filename, mimetype='application/javascript')
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    return response
 
 @app.route('/fonts/<path:filename>')
 def serve_fonts(filename):
@@ -86,10 +91,48 @@ def serve_fonts(filename):
 def serve_images(filename):
     return send_from_directory(os.path.join(BASE_DIR, 'img'), filename)
 
+@app.route('/img/loading/<path:filename>')
+def serve_loading_js(filename):
+    if filename.endswith('.js'):
+        response = send_from_directory(os.path.join(BASE_DIR, 'img', 'loading'), filename, mimetype='application/javascript')
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        return response
+    return send_from_directory(os.path.join(BASE_DIR, 'img', 'loading'), filename)
+
 @app.route('/Config.ini')
 def serve_config():
     """Serve the Config.ini file."""
-    return send_from_directory(BASE_DIR, 'Config.ini', mimetype='text/plain')
+    try:
+        config_path = os.path.join(BASE_DIR, 'Config.ini')
+        if not os.path.exists(config_path):
+            # If Config.ini doesn't exist, create a default one
+            default_config = """[Defaults]
+system = Harma
+controlling_power = Archon Delaine
+max_distance = 200
+search_results = 30
+system_database = systems.db"""
+            with open(config_path, 'w') as f:
+                f.write(default_config)
+        
+        response = send_from_directory(BASE_DIR, 'Config.ini', mimetype='text/plain')
+        # Add headers to prevent caching
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        return response
+    except Exception as e:
+        app.logger.error(f"Error serving Config.ini: {str(e)}")
+        # Return a default configuration as JSON if file serving fails
+        return jsonify({
+            'Defaults': {
+                'system': 'Harma',
+                'controlling_power': 'Archon Delaine',
+                'max_distance': '200',
+                'search_results': '30',
+                'system_database': 'systems.db'
+            }
+        })
 
 def decompress_data(data: str) -> str:
     """Decompress data if it was compressed during conversion."""
