@@ -76,7 +76,7 @@ def serve_css(filename):
 
 @app.route('/js/<path:filename>')
 def serve_js(filename):
-    return send_from_directory(os.path.join(BASE_DIR, 'js'), filename)
+    return send_from_directory(os.path.join(BASE_DIR, 'js'), filename, mimetype='application/javascript')
 
 @app.route('/fonts/<path:filename>')
 def serve_fonts(filename):
