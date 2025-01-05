@@ -1,0 +1,41 @@
+Material,Abbreviation,Ring Type,Additional Conditions,Typical Value
+Aluminium,ALU,Metal-Rich/Metallic,Higher yields in Pristine metallic,Yes
+Beryllium,BER,Metal-Rich/Metallic,Higher yields in Pristine metallic,Yes
+Bismuth,BIS,Metal-Rich/Metallic,Higher yields in Pristine metallic,Yes
+Bauxite,BAU,Rocky,Common in all rocky rings,Low
+Bertrandite,BRT,Rocky/Icy,More common in rocky rings,Medium
+Cobalt,COB,Metallic/Metal Rich,Higher yields in pristine metallic,Medium
+Coltan,CLT,Rocky/Metal Rich,More common in Metal Rich,Medium
+Cryolite,CRY,Icy,Best in Pristine reserves,Unknown
+Copper,COP,Metallic/Metal Rich,Higher yields in pristine metallic,Medium
+Gallite,GAL,Rocky/Metallic,More common in metallic,Low
+Gallium,GLM,Metallic/Metal Rich,Higher yields in pristine metallic,Medium
+Gold,GLD,Metallic,Best yields in pristine reserves,High
+Goslarite,GOS,Icy,Best in Pristine reserves,Unknown
+Hafnium 178,HAF,Metal-Rich/Metallic,Higher yields in Pristine metallic,Unknown
+Indium,IND,Metal-Rich/Metallic,Higher yields in Pristine metallic,Unknown
+Indite,IDT,Rocky/Metal Rich,More common in Metal Rich,Low
+Jadeite,JAD,Rocky,Best in Pristine reserves,Unknown
+Lanthanum,LAN,Metal-Rich/Metallic,Higher yields in Pristine metallic,Yes
+Lepidolite,LEP,Rocky,Common in all rocky rings,Low
+Lithium,LIT,Metal-Rich/Metallic,Higher yields in Pristine metallic,Yes
+Lithium Hydroxide,LHY,Icy,Best in Pristine reserves,Unknown
+Methanol Monohydrate,MNL,Icy,Common in all icy rings,Low
+Methane Clathrate,MCL,Icy,Common in all icy rings,Low
+Moissanite,MOI,Rocky,Best in Pristine reserves,Unknown
+Osmium,OSM,Metallic,Best yields in pristine metallic rings,High
+Palladium,PAL,Metallic,Best yields in Pristine reserves,Yes
+Praseodymium,PRA,Metal-Rich/Metallic,Higher yields in Pristine metallic,Yes
+Pyrophyllite,PYR,Rocky,Best in Pristine reserves,Unknown
+Rutile,RUT,Metal Rich/Rocky,More common in Metal Rich,Low
+Samarium,SAM,Metal-Rich/Metallic,Higher yields in Pristine metallic,Unknown
+Silver,SIL,Metallic/Metal Rich,Higher yields in pristine metallic,Medium-High
+Taaffeite,TAF,Rocky,Best in Pristine reserves,Unknown
+Tantalum,TAN,Metal-Rich/Metallic,Higher yields in Pristine metallic,Yes
+Thallium,THL,Metal-Rich/Metallic,Higher yields in Pristine metallic,Yes
+Thorium,THR,Metal-Rich/Metallic,Higher yields in Pristine metallic,Yes
+Titanium,TIT,Metal-Rich/Metallic,Higher yields in Pristine metallic,Yes
+Uranium,URN,Metal-Rich/Metallic,Higher yields in Pristine metallic,Yes
+Uraninite,URT,Rocky/Metal Rich,Higher yields in Metal Rich,Medium-High
+Water,H2O,Icy,Common in all icy rings,Low
+Void Opal,VOP,Icy,Best in Pristine reserves,Unknown

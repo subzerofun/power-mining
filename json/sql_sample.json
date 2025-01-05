@@ -1,0 +1,212 @@
+{
+    "id64": 79196817779,
+    "name": "HIP 104504",
+    "coords": {
+        "x": -47.6875,
+        "y": -107.09375,
+        "z": 112.65625
+    },
+    "allegiance": "Federation",
+    "government": "Corporate",
+    "primaryEconomy": "Industrial",
+    "secondaryEconomy": "Extraction",
+    "security": "Low",
+    "population": 34116621,
+    "bodyCount": 44,
+    "controllingFaction": {
+        "name": "Erion Corp.",
+        "government": "Corporate",
+        "allegiance": "Federation"
+    },
+    "factions": [
+        {
+            "name": "Erion Corp.",
+            "allegiance": "Federation",
+            "government": "Corporate",
+            "influence": 0.927146,
+            "state": "Boom"
+        },
+        {
+            "name": "Green Party of HIP 104504",
+            "allegiance": "Independent",
+            "government": "Democracy",
+            "influence": 0.010978,
+            "state": "None"
+        },
+        {
+            "name": "HIP 104504 Bridge Corp.",
+            "allegiance": "Independent",
+            "government": "Corporate",
+            "influence": 0.038922,
+            "state": "None"
+        },
+        {
+            "name": "HIP 104504 Imperial Society",
+            "allegiance": "Empire",
+            "government": "Patronage",
+            "influence": 0.00998,
+            "state": "None"
+        },
+        {
+            "name": "League of HIP 104504 Autocracy",
+            "allegiance": "Independent",
+            "government": "Dictatorship",
+            "influence": 0.012974,
+            "state": "None"
+        }
+    ],
+    "controllingPower": "Archon Delaine",
+    "powers": [
+        "Archon Delaine"
+    ],
+    "powerState": "Fortified",
+    "timestamps": {
+        "controllingPower": "2024-12-25T18:16:19Z",
+        "powerState": "2024-12-25T18:16:19Z",
+        "powers": "2024-12-25T18:16:19Z"
+    },
+    "date": "2024-12-25 18:17:36+00",
+    "stations": [
+        {
+            "name": "Baillaud Ring",
+            "id": 3225378048,
+            "updateTime": "2024-12-25 21:20:22+00",
+            "controllingFaction": "Erion Corp.",
+            "controllingFactionState": null,
+            "distanceToArrival": 57.948753,
+            "primaryEconomy": "Industrial",
+            "economies": {
+                "Extraction": 23,
+                "Industrial": 77
+            },
+            "allegiance": "Federation",
+            "government": "Corporate",
+            "services": [
+                "Dock",
+                "Autodock",
+                "Black Market",
+                "Market",
+                "Contacts",
+                "Universal Cartographics",
+                "Missions",
+                "Outfitting",
+                "Crew Lounge",
+                "Restock",
+                "Refuel",
+                "Repair",
+                "Shipyard",
+                "Tuning",
+                "Workshop",
+                "Missions Generated",
+                "Interstellar Factors Contact",
+                "Flight Controller",
+                "Station Operations",
+                "Powerplay",
+                "Search and Rescue",
+                "Station Menu",
+                "Shop",
+                "Livery",
+                "Social Space",
+                "Bartender",
+                "Vista Genomics",
+                "Pioneer Supplies",
+                "Apex Interstellar",
+                "Frontline Solutions"
+            ],
+            "type": "Ocellus Starport",
+            "landingPads": {
+                "large": 9,
+                "medium": 18,
+                "small": 17
+            }
+        },
+        {
+            "name": "Shajn Orbital",
+            "id": 3225378560,
+            "updateTime": "2024-12-12 00:11:59+00",
+            "controllingFaction": "Erion Corp.",
+            "controllingFactionState": null,
+            "distanceToArrival": 139.574808,
+            "primaryEconomy": "Extraction",
+            "economies": {
+                "Extraction": 54,
+                "Industrial": 46
+            },
+            "allegiance": "Federation",
+            "government": "Corporate",
+            "services": [
+                "Dock",
+                "Autodock",
+                "Black Market",
+                "Market",
+                "Contacts",
+                "Universal Cartographics",
+                "Missions",
+                "Refuel",
+                "Repair",
+                "Tuning",
+                "Workshop",
+                "Missions Generated",
+                "Interstellar Factors Contact",
+                "Flight Controller",
+                "Station Operations",
+                "Powerplay",
+                "Search and Rescue",
+                "Station Menu",
+                "Social Space",
+                "Bartender",
+                "Pioneer Supplies",
+                "Apex Interstellar"
+            ],
+            "type": "Outpost",
+            "landingPads": {
+                "large": 0,
+                "medium": 1,
+                "small": 2
+            }
+        },
+        {
+            "name": "Stein City",
+            "id": 3225378304,
+            "updateTime": "2024-12-25 18:18:07+00",
+            "controllingFaction": "Erion Corp.",
+            "controllingFactionState": null,
+            "distanceToArrival": 57.831142,
+            "primaryEconomy": "Industrial",
+            "economies": {
+                "Extraction": 38,
+                "Industrial": 62
+            },
+            "allegiance": "Federation",
+            "government": "Corporate",
+            "services": [
+                "Dock",
+                "Autodock",
+                "Black Market",
+                "Market",
+                "Contacts",
+                "Universal Cartographics",
+                "Missions",
+                "Repair",
+                "Workshop",
+                "Missions Generated",
+                "Interstellar Factors Contact",
+                "Flight Controller",
+                "Station Operations",
+                "Powerplay",
+                "Search and Rescue",
+                "Station Menu",
+                "Social Space",
+                "Bartender",
+                "Pioneer Supplies",
+                "Apex Interstellar"
+            ],
+            "type": "Outpost",
+            "landingPads": {
+                "large": 0,
+                "medium": 1,
+                "small": 3
+            }
+        }
+    ]
+}

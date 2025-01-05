@@ -1,0 +1,14 @@
+# ignore ALL .log files
+*.log
+*.db
+
+# ignore ALL files in ANY directory named *
+backup/
+scripts/
+json/galaxy_stations*.*
+json/stations.json
+json/systemsPopulated.json
+json/systemsWithCoordinates.json
+json/powerPlay.json
+img/*.psd
+__pycache__/

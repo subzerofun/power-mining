@@ -1,0 +1,1090 @@
+[
+    {
+      "commodity": "Alexandrite",
+      "hasHotspot": true,
+      "Rocky": {
+        "core": true,
+        "surfaceLaserMining": false,
+        "surfaceDeposit": false,
+        "subSurfaceDeposit": false,
+        "cdfb": "0.1%"
+      },
+      "Metal Rich": {
+        "core": true,
+        "surfaceLaserMining": false,
+        "surfaceDeposit": false,
+        "subSurfaceDeposit": false,
+        "cdfb": "0.1%"
+      },
+      "Metallic": {
+        "core": false,
+        "surfaceLaserMining": false,
+        "surfaceDeposit": false,
+        "subSurfaceDeposit": false,
+        "cdfb": ""
+      },
+      "Icy": {
+        "core": true,
+        "surfaceLaserMining": false,
+        "surfaceDeposit": false,
+        "subSurfaceDeposit": false,
+        "cdfb": "0.1%"
+      }
+    },
+    {
+      "commodity": "Bauxite",
+      "hasHotspot": false,
+      "Rocky": {
+        "core": false,
+        "surfaceLaserMining": true,
+        "surfaceDeposit": true,
+        "subSurfaceDeposit": true,
+        "cdfb": ""
+      },
+      "Metal Rich": {
+        "core": false,
+        "surfaceLaserMining": false,
+        "surfaceDeposit": false,
+        "subSurfaceDeposit": false,
+        "cdfb": ""
+      },
+      "Metallic": {
+        "core": false,
+        "surfaceLaserMining": false,
+        "surfaceDeposit": false,
+        "subSurfaceDeposit": false,
+        "cdfb": ""
+      },
+      "Icy": {
+        "core": false,
+        "surfaceLaserMining": false,
+        "surfaceDeposit": false,
+        "subSurfaceDeposit": false,
+        "cdfb": ""
+      }
+    },
+    {
+      "commodity": "Benitoite",
+      "hasHotspot": true,
+      "Rocky": {
+        "core": true,
+        "surfaceLaserMining": false,
+        "surfaceDeposit": false,
+        "subSurfaceDeposit": false,
+        "cdfb": "0.1%"
+      },
+      "Metal Rich": {
+        "core": false,
+        "surfaceLaserMining": false,
+        "surfaceDeposit": false,
+        "subSurfaceDeposit": false,
+        "cdfb": ""
+      },
+      "Metallic": {
+        "core": false,
+        "surfaceLaserMining": false,
+        "surfaceDeposit": false,
+        "subSurfaceDeposit": false,
+        "cdfb": ""
+      },
+      "Icy": {
+        "core": false,
+        "surfaceLaserMining": false,
+        "surfaceDeposit": false,
+        "subSurfaceDeposit": false,
+        "cdfb": ""
+      }
+    },
+    {
+      "commodity": "Bertrandite",
+      "hasHotspot": false,
+      "Rocky": {
+        "core": false,
+        "surfaceLaserMining": false,
+        "surfaceDeposit": false,
+        "subSurfaceDeposit": false,
+        "cdfb": ""
+      },
+      "Metal Rich": {
+        "core": false,
+        "surfaceLaserMining": true,
+        "surfaceDeposit": true,
+        "subSurfaceDeposit": true,
+        "cdfb": ""
+      },
+      "Metallic": {
+        "core": false,
+        "surfaceLaserMining": true,
+        "surfaceDeposit": true,
+        "subSurfaceDeposit": true,
+        "cdfb": "23.0%"
+      },
+      "Icy": {
+        "core": false,
+        "surfaceLaserMining": false,
+        "surfaceDeposit": false,
+        "subSurfaceDeposit": false,
+        "cdfb": ""
+      }
+    },
+    {
+      "commodity": "Bromellite",
+      "hasHotspot": true,
+      "Rocky": {
+        "core": false,
+        "surfaceLaserMining": false,
+        "surfaceDeposit": false,
+        "subSurfaceDeposit": false,
+        "cdfb": ""
+      },
+      "Metal Rich": {
+        "core": false,
+        "surfaceLaserMining": false,
+        "surfaceDeposit": false,
+        "subSurfaceDeposit": false,
+        "cdfb": ""
+      },
+      "Metallic": {
+        "core": false,
+        "surfaceLaserMining": false,
+        "surfaceDeposit": false,
+        "subSurfaceDeposit": false,
+        "cdfb": ""
+      },
+      "Icy": {
+        "core": true,
+        "surfaceLaserMining": true,
+        "surfaceDeposit": true,
+        "subSurfaceDeposit": true,
+        "cdfb": "17.8%"
+      }
+    },
+    {
+      "commodity": "Cobalt",
+      "hasHotspot": false,
+      "Rocky": {
+        "core": false,
+        "surfaceLaserMining": true,
+        "surfaceDeposit": true,
+        "subSurfaceDeposit": true,
+        "cdfb": ""
+      },
+      "Metal Rich": {
+        "core": false,
+        "surfaceLaserMining": false,
+        "surfaceDeposit": false,
+        "subSurfaceDeposit": false,
+        "cdfb": ""
+      },
+      "Metallic": {
+        "core": false,
+        "surfaceLaserMining": false,
+        "surfaceDeposit": false,
+        "subSurfaceDeposit": false,
+        "cdfb": ""
+      },
+      "Icy": {
+        "core": false,
+        "surfaceLaserMining": false,
+        "surfaceDeposit": false,
+        "subSurfaceDeposit": false,
+        "cdfb": ""
+      }
+    },
+    {
+      "commodity": "Coltan",
+      "hasHotspot": false,
+      "Rocky": {
+        "core": false,
+        "surfaceLaserMining": true,
+        "surfaceDeposit": true,
+        "subSurfaceDeposit": true,
+        "cdfb": ""
+      },
+      "Metal Rich": {
+        "core": false,
+        "surfaceLaserMining": true,
+        "surfaceDeposit": true,
+        "subSurfaceDeposit": true,
+        "cdfb": ""
+      },
+      "Metallic": {
+        "core": false,
+        "surfaceLaserMining": false,
+        "surfaceDeposit": false,
+        "subSurfaceDeposit": false,
+        "cdfb": ""
+      },
+      "Icy": {
+        "core": false,
+        "surfaceLaserMining": false,
+        "surfaceDeposit": false,
+        "subSurfaceDeposit": false,
+        "cdfb": ""
+      }
+    },
+    {
+      "commodity": "Gallite",
+      "hasHotspot": false,
+      "Rocky": {
+        "core": false,
+        "surfaceLaserMining": true,
+        "surfaceDeposit": true,
+        "subSurfaceDeposit": true,
+        "cdfb": ""
+      },
+      "Metal Rich": {
+        "core": false,
+        "surfaceLaserMining": true,
+        "surfaceDeposit": true,
+        "subSurfaceDeposit": true,
+        "cdfb": ""
+      },
+      "Metallic": {
+        "core": false,
+        "surfaceLaserMining": true,
+        "surfaceDeposit": true,
+        "subSurfaceDeposit": true,
+        "cdfb": "33.8%"
+      },
+      "Icy": {
+        "core": false,
+        "surfaceLaserMining": false,
+        "surfaceDeposit": false,
+        "subSurfaceDeposit": false,
+        "cdfb": ""
+      }
+    },
+    {
+      "commodity": "Gold",
+      "hasHotspot": false,
+      "Rocky": {
+        "core": false,
+        "surfaceLaserMining": false,
+        "surfaceDeposit": false,
+        "subSurfaceDeposit": false,
+        "cdfb": ""
+      },
+      "Metal Rich": {
+        "core": false,
+        "surfaceLaserMining": true,
+        "surfaceDeposit": true,
+        "subSurfaceDeposit": true,
+        "cdfb": ""
+      },
+      "Metallic": {
+        "core": false,
+        "surfaceLaserMining": true,
+        "surfaceDeposit": true,
+        "subSurfaceDeposit": true,
+        "cdfb": "15.0%"
+      },
+      "Icy": {
+        "core": false,
+        "surfaceLaserMining": false,
+        "surfaceDeposit": false,
+        "subSurfaceDeposit": false,
+        "cdfb": ""
+      }
+    },
+    {
+      "commodity": "Grandidierite",
+      "hasHotspot": true,
+      "Rocky": {
+        "core": false,
+        "surfaceLaserMining": false,
+        "surfaceDeposit": false,
+        "subSurfaceDeposit": false,
+        "cdfb": ""
+      },
+      "Metal Rich": {
+        "core": false,
+        "surfaceLaserMining": false,
+        "surfaceDeposit": false,
+        "subSurfaceDeposit": false,
+        "cdfb": ""
+      },
+      "Metallic": {
+        "core": false,
+        "surfaceLaserMining": false,
+        "surfaceDeposit": false,
+        "subSurfaceDeposit": false,
+        "cdfb": ""
+      },
+      "Icy": {
+        "core": true,
+        "surfaceLaserMining": false,
+        "surfaceDeposit": false,
+        "subSurfaceDeposit": false,
+        "cdfb": "0.1%"
+      }
+    },
+    {
+      "commodity": "Hydrogen Peroxide",
+      "hasHotspot": false,
+      "Rocky": {
+        "core": false,
+        "surfaceLaserMining": false,
+        "surfaceDeposit": false,
+        "subSurfaceDeposit": false,
+        "cdfb": ""
+      },
+      "Metal Rich": {
+        "core": false,
+        "surfaceLaserMining": false,
+        "surfaceDeposit": false,
+        "subSurfaceDeposit": false,
+        "cdfb": ""
+      },
+      "Metallic": {
+        "core": false,
+        "surfaceLaserMining": false,
+        "surfaceDeposit": false,
+        "subSurfaceDeposit": false,
+        "cdfb": ""
+      },
+      "Icy": {
+        "core": false,
+        "surfaceLaserMining": true,
+        "surfaceDeposit": true,
+        "subSurfaceDeposit": true,
+        "cdfb": "19.6%"
+      }
+    },
+    {
+      "commodity": "Indite",
+      "hasHotspot": false,
+      "Rocky": {
+        "core": false,
+        "surfaceLaserMining": true,
+        "surfaceDeposit": true,
+        "subSurfaceDeposit": true,
+        "cdfb": ""
+      },
+      "Metal Rich": {
+        "core": false,
+        "surfaceLaserMining": true,
+        "surfaceDeposit": true,
+        "subSurfaceDeposit": true,
+        "cdfb": ""
+      },
+      "Metallic": {
+        "core": false,
+        "surfaceLaserMining": true,
+        "surfaceDeposit": true,
+        "subSurfaceDeposit": true,
+        "cdfb": "25.7%"
+      },
+      "Icy": {
+        "core": false,
+        "surfaceLaserMining": false,
+        "surfaceDeposit": false,
+        "subSurfaceDeposit": false,
+        "cdfb": ""
+      }
+    },
+    {
+      "commodity": "Lepidolite",
+      "hasHotspot": false,
+      "Rocky": {
+        "core": false,
+        "surfaceLaserMining": true,
+        "surfaceDeposit": true,
+        "subSurfaceDeposit": true,
+        "cdfb": ""
+      },
+      "Metal Rich": {
+        "core": false,
+        "surfaceLaserMining": true,
+        "surfaceDeposit": true,
+        "subSurfaceDeposit": true,
+        "cdfb": ""
+      },
+      "Metallic": {
+        "core": false,
+        "surfaceLaserMining": false,
+        "surfaceDeposit": false,
+        "subSurfaceDeposit": false,
+        "cdfb": ""
+      },
+      "Icy": {
+        "core": false,
+        "surfaceLaserMining": false,
+        "surfaceDeposit": false,
+        "subSurfaceDeposit": false,
+        "cdfb": ""
+      }
+    },
+    {
+      "commodity": "Liquid oxygen",
+      "hasHotspot": false,
+      "Rocky": {
+        "core": false,
+        "surfaceLaserMining": false,
+        "surfaceDeposit": false,
+        "subSurfaceDeposit": false,
+        "cdfb": ""
+      },
+      "Metal Rich": {
+        "core": false,
+        "surfaceLaserMining": false,
+        "surfaceDeposit": false,
+        "subSurfaceDeposit": false,
+        "cdfb": ""
+      },
+      "Metallic": {
+        "core": false,
+        "surfaceLaserMining": false,
+        "surfaceDeposit": false,
+        "subSurfaceDeposit": false,
+        "cdfb": ""
+      },
+      "Icy": {
+        "core": false,
+        "surfaceLaserMining": true,
+        "surfaceDeposit": true,
+        "subSurfaceDeposit": true,
+        "cdfb": "11.3%"
+      }
+    },
+    {
+        "commodity": "Lithium Hydroxide",
+        "hasHotspot": false,
+        "Rocky": {
+          "core": false,
+          "surfaceLaserMining": false,
+          "surfaceDeposit": false,
+          "subSurfaceDeposit": false,
+          "cdfb": ""
+        },
+        "Metal Rich": {
+          "core": false,
+          "surfaceLaserMining": false,
+          "surfaceDeposit": false,
+          "subSurfaceDeposit": false,
+          "cdfb": ""
+        },
+        "Metallic": {
+          "core": false,
+          "surfaceLaserMining": false,
+          "surfaceDeposit": false,
+          "subSurfaceDeposit": false,
+          "cdfb": ""
+        },
+        "Icy": {
+          "core": false,
+          "surfaceLaserMining": true,
+          "surfaceDeposit": false,
+          "subSurfaceDeposit": true,
+          "cdfb": "20.2%"
+        }
+      },
+      {
+        "commodity": "Low Temperature Diamonds",
+        "hasHotspot": true,
+        "Rocky": {
+          "core": false,
+          "surfaceLaserMining": false,
+          "surfaceDeposit": false,
+          "subSurfaceDeposit": false,
+          "cdfb": ""
+        },
+        "Metal Rich": {
+          "core": false,
+          "surfaceLaserMining": false,
+          "surfaceDeposit": false,
+          "subSurfaceDeposit": false,
+          "cdfb": ""
+        },
+        "Metallic": {
+          "core": false,
+          "surfaceLaserMining": false,
+          "surfaceDeposit": false,
+          "subSurfaceDeposit": false,
+          "cdfb": ""
+        },
+        "Icy": {
+          "core": true,
+          "surfaceLaserMining": true,
+          "surfaceDeposit": true,
+          "subSurfaceDeposit": true,
+          "cdfb": "0.9%"
+        }
+      },
+      {
+        "commodity": "Methane Clathrate",
+        "hasHotspot": false,
+        "Rocky": {
+          "core": false,
+          "surfaceLaserMining": false,
+          "surfaceDeposit": false,
+          "subSurfaceDeposit": false,
+          "cdfb": ""
+        },
+        "Metal Rich": {
+          "core": false,
+          "surfaceLaserMining": false,
+          "surfaceDeposit": false,
+          "subSurfaceDeposit": false,
+          "cdfb": ""
+        },
+        "Metallic": {
+          "core": false,
+          "surfaceLaserMining": false,
+          "surfaceDeposit": false,
+          "subSurfaceDeposit": false,
+          "cdfb": ""
+        },
+        "Icy": {
+          "core": false,
+          "surfaceLaserMining": true,
+          "surfaceDeposit": true,
+          "subSurfaceDeposit": true,
+          "cdfb": "24.9%"
+        }
+      },
+      {
+        "commodity": "Methanol Monohydrate",
+        "hasHotspot": false,
+        "Rocky": {
+          "core": false,
+          "surfaceLaserMining": false,
+          "surfaceDeposit": false,
+          "subSurfaceDeposit": false,
+          "cdfb": ""
+        },
+        "Metal Rich": {
+          "core": false,
+          "surfaceLaserMining": false,
+          "surfaceDeposit": false,
+          "subSurfaceDeposit": false,
+          "cdfb": ""
+        },
+        "Metallic": {
+          "core": false,
+          "surfaceLaserMining": false,
+          "surfaceDeposit": false,
+          "subSurfaceDeposit": false,
+          "cdfb": ""
+        },
+        "Icy": {
+          "core": false,
+          "surfaceLaserMining": true,
+          "surfaceDeposit": true,
+          "subSurfaceDeposit": true,
+          "cdfb": "20.0%"
+        }
+      },
+      {
+        "commodity": "Monazite",
+        "hasHotspot": true,
+        "Rocky": {
+          "core": true,
+          "surfaceLaserMining": false,
+          "surfaceDeposit": false,
+          "subSurfaceDeposit": false,
+          "cdfb": "0.1%"
+        },
+        "Metal Rich": {
+          "core": true,
+          "surfaceLaserMining": false,
+          "surfaceDeposit": false,
+          "subSurfaceDeposit": false,
+          "cdfb": "0.1%"
+        },
+        "Metallic": {
+          "core": true,
+          "surfaceLaserMining": false,
+          "surfaceDeposit": false,
+          "subSurfaceDeposit": false,
+          "cdfb": "0.1%"
+        },
+        "Icy": {
+          "core": false,
+          "surfaceLaserMining": false,
+          "surfaceDeposit": false,
+          "subSurfaceDeposit": false,
+          "cdfb": ""
+        }
+      },
+      {
+        "commodity": "Musgravite",
+        "hasHotspot": true,
+        "Rocky": {
+          "core": true,
+          "surfaceLaserMining": false,
+          "surfaceDeposit": false,
+          "subSurfaceDeposit": false,
+          "cdfb": "0.1%"
+        },
+        "Metal Rich": {
+          "core": false,
+          "surfaceLaserMining": false,
+          "surfaceDeposit": false,
+          "subSurfaceDeposit": false,
+          "cdfb": ""
+        },
+        "Metallic": {
+          "core": false,
+          "surfaceLaserMining": false,
+          "surfaceDeposit": false,
+          "subSurfaceDeposit": false,
+          "cdfb": ""
+        },
+        "Icy": {
+          "core": false,
+          "surfaceLaserMining": false,
+          "surfaceDeposit": false,
+          "subSurfaceDeposit": false,
+          "cdfb": ""
+        }
+      },
+      {
+        "commodity": "Osmium",
+        "hasHotspot": false,
+        "Rocky": {
+          "core": false,
+          "surfaceLaserMining": false,
+          "surfaceDeposit": false,
+          "subSurfaceDeposit": false,
+          "cdfb": ""
+        },
+        "Metal Rich": {
+          "core": false,
+          "surfaceLaserMining": true,
+          "surfaceDeposit": true,
+          "subSurfaceDeposit": true,
+          "cdfb": ""
+        },
+        "Metallic": {
+          "core": false,
+          "surfaceLaserMining": true,
+          "surfaceDeposit": true,
+          "subSurfaceDeposit": true,
+          "cdfb": "12.4%"
+        },
+        "Icy": {
+          "core": false,
+          "surfaceLaserMining": false,
+          "surfaceDeposit": false,
+          "subSurfaceDeposit": false,
+          "cdfb": ""
+        }
+      },
+      {
+        "commodity": "Painite",
+        "hasHotspot": true,
+        "Rocky": {
+          "core": false,
+          "surfaceLaserMining": false,
+          "surfaceDeposit": false,
+          "subSurfaceDeposit": false,
+          "cdfb": ""
+        },
+        "Metal Rich": {
+          "core": true,
+          "surfaceLaserMining": false,
+          "surfaceDeposit": false,
+          "subSurfaceDeposit": false,
+          "cdfb": "0.1%"
+        },
+        "Metallic": {
+          "core": true,
+          "surfaceLaserMining": true,
+          "surfaceDeposit": true,
+          "subSurfaceDeposit": true,
+          "cdfb": ""
+        },
+        "Icy": {
+          "core": false,
+          "surfaceLaserMining": false,
+          "surfaceDeposit": false,
+          "subSurfaceDeposit": false,
+          "cdfb": ""
+        }
+      },
+      {
+        "commodity": "Palladium",
+        "hasHotspot": false,
+        "Rocky": {
+          "core": false,
+          "surfaceLaserMining": false,
+          "surfaceDeposit": false,
+          "subSurfaceDeposit": false,
+          "cdfb": ""
+        },
+        "Metal Rich": {
+          "core": false,
+          "surfaceLaserMining": false,
+          "surfaceDeposit": false,
+          "subSurfaceDeposit": false,
+          "cdfb": ""
+        },
+        "Metallic": {
+          "core": false,
+          "surfaceLaserMining": true,
+          "surfaceDeposit": true,
+          "subSurfaceDeposit": true,
+          "cdfb": "10.3%"
+        },
+        "Icy": {
+          "core": false,
+          "surfaceLaserMining": false,
+          "surfaceDeposit": false,
+          "subSurfaceDeposit": false,
+          "cdfb": ""
+        }
+      },
+      {
+        "commodity": "Platinum",
+        "hasHotspot": true,
+        "Rocky": {
+          "core": false,
+          "surfaceLaserMining": false,
+          "surfaceDeposit": false,
+          "subSurfaceDeposit": false,
+          "cdfb": ""
+        },
+        "Metal Rich": {
+          "core": true,
+          "surfaceLaserMining": false,
+          "surfaceDeposit": false,
+          "subSurfaceDeposit": false,
+          "cdfb": "0.1%"
+        },
+        "Metallic": {
+          "core": true,
+          "surfaceLaserMining": true,
+          "surfaceDeposit": true,
+          "subSurfaceDeposit": true,
+          "cdfb": "10.3%"
+        },
+        "Icy": {
+          "core": false,
+          "surfaceLaserMining": false,
+          "surfaceDeposit": false,
+          "subSurfaceDeposit": false,
+          "cdfb": ""
+        }
+      },
+      {
+        "commodity": "Praseodymium",
+        "hasHotspot": false,
+        "Rocky": {
+          "core": false,
+          "surfaceLaserMining": false,
+          "surfaceDeposit": false,
+          "subSurfaceDeposit": false,
+          "cdfb": ""
+        },
+        "Metal Rich": {
+          "core": false,
+          "surfaceLaserMining": true,
+          "surfaceDeposit": true,
+          "subSurfaceDeposit": true,
+          "cdfb": ""
+        },
+        "Metallic": {
+          "core": false,
+          "surfaceLaserMining": true,
+          "surfaceDeposit": true,
+          "subSurfaceDeposit": true,
+          "cdfb": "17.5%"
+        },
+        "Icy": {
+          "core": false,
+          "surfaceLaserMining": false,
+          "surfaceDeposit": false,
+          "subSurfaceDeposit": false,
+          "cdfb": ""
+        }
+      },
+      {
+        "commodity": "Rhodplumsite",
+        "hasHotspot": true,
+        "Rocky": {
+          "core": true,
+          "surfaceLaserMining": false,
+          "surfaceDeposit": false,
+          "subSurfaceDeposit": false,
+          "cdfb": "0.1%"
+        },
+        "Metal Rich": {
+          "core": true,
+          "surfaceLaserMining": false,
+          "surfaceDeposit": false,
+          "subSurfaceDeposit": false,
+          "cdfb": "0.1%"
+        },
+        "Metallic": {
+          "core": true,
+          "surfaceLaserMining": false,
+          "surfaceDeposit": false,
+          "subSurfaceDeposit": false,
+          "cdfb": "0.1%"
+        },
+        "Icy": {
+          "core": false,
+          "surfaceLaserMining": false,
+          "surfaceDeposit": false,
+          "subSurfaceDeposit": false,
+          "cdfb": ""
+        }
+      },
+      {
+        "commodity": "Rutile",
+        "hasHotspot": false,
+        "Rocky": {
+          "core": false,
+          "surfaceLaserMining": true,
+          "surfaceDeposit": true,
+          "subSurfaceDeposit": true,
+          "cdfb": ""
+        },
+        "Metal Rich": {
+          "core": false,
+          "surfaceLaserMining": false,
+          "surfaceDeposit": false,
+          "subSurfaceDeposit": false,
+          "cdfb": ""
+        },
+        "Metallic": {
+          "core": false,
+          "surfaceLaserMining": false,
+          "surfaceDeposit": false,
+          "subSurfaceDeposit": false,
+          "cdfb": ""
+        },
+        "Icy": {
+          "core": false,
+          "surfaceLaserMining": false,
+          "surfaceDeposit": false,
+          "subSurfaceDeposit": false,
+          "cdfb": ""
+        }
+      },
+      {
+        "commodity": "Samarium",
+        "hasHotspot": false,
+        "Rocky": {
+          "core": false,
+          "surfaceLaserMining": true,
+          "surfaceDeposit": true,
+          "subSurfaceDeposit": true,
+          "cdfb": ""
+        },
+        "Metal Rich": {
+          "core": false,
+          "surfaceLaserMining": true,
+          "surfaceDeposit": true,
+          "subSurfaceDeposit": true,
+          "cdfb": ""
+        },
+        "Metallic": {
+          "core": false,
+          "surfaceLaserMining": true,
+          "surfaceDeposit": true,
+          "subSurfaceDeposit": true,
+          "cdfb": "16.0%"
+        },
+        "Icy": {
+          "core": false,
+          "surfaceLaserMining": false,
+          "surfaceDeposit": false,
+          "subSurfaceDeposit": false,
+          "cdfb": ""
+        }
+      },
+      {
+        "commodity": "Serendibite",
+        "hasHotspot": true,
+        "Rocky": {
+          "core": true,
+          "surfaceLaserMining": false,
+          "surfaceDeposit": false,
+          "subSurfaceDeposit": false,
+          "cdfb": "0.1%"
+        },
+        "Metal Rich": {
+          "core": true,
+          "surfaceLaserMining": false,
+          "surfaceDeposit": false,
+          "subSurfaceDeposit": false,
+          "cdfb": "0.1%"
+        },
+        "Metallic": {
+          "core": true,
+          "surfaceLaserMining": false,
+          "surfaceDeposit": false,
+          "subSurfaceDeposit": false,
+          "cdfb": "0.1%"
+        },
+        "Icy": {
+          "core": false,
+          "surfaceLaserMining": false,
+          "surfaceDeposit": false,
+          "subSurfaceDeposit": false,
+          "cdfb": ""
+        }
+      },
+      {
+        "commodity": "Silver",
+        "hasHotspot": false,
+        "Rocky": {
+          "core": false,
+          "surfaceLaserMining": false,
+          "surfaceDeposit": false,
+          "subSurfaceDeposit": false,
+          "cdfb": ""
+        },
+        "Metal Rich": {
+          "core": false,
+          "surfaceLaserMining": true,
+          "surfaceDeposit": true,
+          "subSurfaceDeposit": true,
+          "cdfb": ""
+        },
+        "Metallic": {
+          "core": false,
+          "surfaceLaserMining": true,
+          "surfaceDeposit": true,
+          "subSurfaceDeposit": true,
+          "cdfb": "16.4%"
+        },
+        "Icy": {
+          "core": false,
+          "surfaceLaserMining": false,
+          "surfaceDeposit": false,
+          "subSurfaceDeposit": false,
+          "cdfb": ""
+        }
+      },
+      {
+        "commodity": "Tritium",
+        "hasHotspot": true,
+        "Rocky": {
+          "core": false,
+          "surfaceLaserMining": false,
+          "surfaceDeposit": false,
+          "subSurfaceDeposit": false,
+          "cdfb": ""
+        },
+        "Metal Rich": {
+          "core": false,
+          "surfaceLaserMining": false,
+          "surfaceDeposit": false,
+          "subSurfaceDeposit": false,
+          "cdfb": ""
+        },
+        "Metallic": {
+          "core": false,
+          "surfaceLaserMining": false,
+          "surfaceDeposit": false,
+          "subSurfaceDeposit": false,
+          "cdfb": ""
+        },
+        "Icy": {
+          "core": false,
+          "surfaceLaserMining": true,
+          "surfaceDeposit": true,
+          "subSurfaceDeposit": true,
+          "cdfb": "14.9%"
+        }
+      },
+      {
+        "commodity": "Uraninite",
+        "hasHotspot": false,
+        "Rocky": {
+          "core": false,
+          "surfaceLaserMining": true,
+          "surfaceDeposit": true,
+          "subSurfaceDeposit": true,
+          "cdfb": ""
+        },
+        "Metal Rich": {
+          "core": false,
+          "surfaceLaserMining": true,
+          "surfaceDeposit": true,
+          "subSurfaceDeposit": true,
+          "cdfb": ""
+        },
+        "Metallic": {
+          "core": false,
+          "surfaceLaserMining": false,
+          "surfaceDeposit": false,
+          "subSurfaceDeposit": false,
+          "cdfb": ""
+        },
+        "Icy": {
+          "core": false,
+          "surfaceLaserMining": false,
+          "surfaceDeposit": false,
+          "subSurfaceDeposit": false,
+          "cdfb": ""
+        }
+      },
+      {
+        "commodity": "Void Opals",
+        "hasHotspot": true,
+        "Rocky": {
+          "core": false,
+          "surfaceLaserMining": false,
+          "surfaceDeposit": false,
+          "subSurfaceDeposit": false,
+          "cdfb": ""
+        },
+        "Metal Rich": {
+          "core": false,
+          "surfaceLaserMining": false,
+          "surfaceDeposit": false,
+          "subSurfaceDeposit": false,
+          "cdfb": ""
+        },
+        "Metallic": {
+          "core": false,
+          "surfaceLaserMining": false,
+          "surfaceDeposit": false,
+          "subSurfaceDeposit": false,
+          "cdfb": ""
+        },
+        "Icy": {
+          "core": true,
+          "surfaceLaserMining": false,
+          "surfaceDeposit": false,
+          "subSurfaceDeposit": false,
+          "cdfb": "0.1%"
+        }
+      },
+      {
+        "commodity": "Water",
+        "hasHotspot": false,
+        "Rocky": {
+          "core": false,
+          "surfaceLaserMining": false,
+          "surfaceDeposit": false,
+          "subSurfaceDeposit": false,
+          "cdfb": ""
+        },
+        "Metal Rich": {
+          "core": false,
+          "surfaceLaserMining": false,
+          "surfaceDeposit": false,
+          "subSurfaceDeposit": false,
+          "cdfb": ""
+        },
+        "Metallic": {
+          "core": false,
+          "surfaceLaserMining": false,
+          "surfaceDeposit": false,
+          "subSurfaceDeposit": false,
+          "cdfb": ""
+        },
+        "Icy": {
+          "core": false,
+          "surfaceLaserMining": true,
+          "surfaceDeposit": true,
+          "subSurfaceDeposit": true,
+          "cdfb": "36.5%"
+        }
+    }
+]

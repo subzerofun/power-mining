@@ -1,0 +1,15 @@
+ST L = Station Total Large all stations, which "landingPads" : { "large": > 0 } only include type: "Coriolis Starport", "Orbis Starport", "Ocellus Starport", "Asteroid base" only count the numbers of stations matching the criteria
+
+ST M = Station Total Medium only include type: "Outpost" only count the numbers of stations matching the criteria
+
+SFPRT (Surface Port Total) include all type: "Surface Port", "Planetary Outpost", "Settlement" only count the numbers of stations matching the criteria
+
+All station names should have small white icons - based on station type - before them, they are under img/icons:
+"Coriolis Starport" Coriolis_sm.svg
+"Orbis Starport" Orbis_sm.svg
+"Ocellus Starport" Ocellus_sm.svg
+"Asteroid base" Asteroid_Station.svg
+"Outpost" Outpost_sm.svg
+"Surface Port" surface_port_sm.svg
+"Planetary Outpost" surface_port_sm.svg
+"Settlement" settlement_sm.svg

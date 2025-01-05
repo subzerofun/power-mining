@@ -1,0 +1,59 @@
+.dank-ass-loader {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    transform: scale(5);
+}
+
+.dank-ass-loader .row {
+    display: flex;
+}
+
+.arrow {
+    width: 0;
+    height: 0;
+    margin: 0 -2px;
+    border-left: 4px solid transparent;
+    border-right: 4px solid transparent;
+    border-bottom: 7.2px solid #fd7000;
+    animation: blink 1s infinite;
+    filter: drop-shadow(0 0 6px #fd7000);
+}
+
+.arrow.down {
+    transform: rotate(180deg);
+}
+
+@keyframes blink {
+    0% { opacity: 0.1; }
+    30% { opacity: 1; }
+    100% { opacity: 0.1; }
+}
+
+/* Animation delays for outer arrows */
+.arrow.outer-1 { animation-delay: -0.0556s; }
+.arrow.outer-2 { animation-delay: -0.1111s; }
+.arrow.outer-3 { animation-delay: -0.1667s; }
+.arrow.outer-4 { animation-delay: -0.2222s; }
+.arrow.outer-5 { animation-delay: -0.2778s; }
+.arrow.outer-6 { animation-delay: -0.3333s; }
+.arrow.outer-7 { animation-delay: -0.3889s; }
+.arrow.outer-8 { animation-delay: -0.4444s; }
+.arrow.outer-9 { animation-delay: -0.5000s; }
+.arrow.outer-10 { animation-delay: -0.5556s; }
+.arrow.outer-11 { animation-delay: -0.6111s; }
+.arrow.outer-12 { animation-delay: -0.6667s; }
+.arrow.outer-13 { animation-delay: -0.7222s; }
+.arrow.outer-14 { animation-delay: -0.7778s; }
+.arrow.outer-15 { animation-delay: -0.8333s; }
+.arrow.outer-16 { animation-delay: -0.8889s; }
+.arrow.outer-17 { animation-delay: -0.9444s; }
+.arrow.outer-18 { animation-delay: -1.0000s; }
+
+/* Animation delays for inner arrows */
+.arrow.inner-1 { animation-delay: -0.1667s; }
+.arrow.inner-2 { animation-delay: -0.3333s; }
+.arrow.inner-3 { animation-delay: -0.5000s; }
+.arrow.inner-4 { animation-delay: -0.6667s; }
+.arrow.inner-5 { animation-delay: -0.8333s; }
+.arrow.inner-6 { animation-delay: -1.0000s; }
