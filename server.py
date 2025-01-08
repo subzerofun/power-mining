@@ -18,6 +18,18 @@ from mining_data import (
     NON_HOTSPOT_MATERIALS
 )
 import res_data
+import sys
+import subprocess
+import signal
+import threading
+import argparse
+import atexit
+import psutil
+import asyncio
+import websockets
+import io  # Add io import here
+from datetime import datetime, timedelta
+import time
 
 # Optional compression libraries
 try:
@@ -31,6 +43,333 @@ try:
     LZ4_AVAILABLE = True
 except ImportError:
     LZ4_AVAILABLE = False
+
+# ANSI color codes
+YELLOW = '\033[93m'
+BLUE = '\033[94m'
+RESET = '\033[0m'
+
+# Global variables for processes
+updater_process = None
+daily_process = None
+live_update_requested = False  # New module-level variable
+
+# Global state for EDDN status
+eddn_status = {
+    "state": None,  # Don't set a default state
+    "last_db_update": None
+}
+
+# Global state for daily update status
+daily_status = {
+    "state": "offline",  # offline, downloading, extracting, deleting, processing
+    "progress": 0,
+    "total": 0,
+    "message": "",
+    "last_update": None
+}
+
+def kill_updater_process():
+    """Forcefully kill the updater process and all its children"""
+    global updater_process
+    if updater_process:
+        try:
+            # Get the process object for more control
+            process = psutil.Process(updater_process.pid)
+            
+            # Kill all child processes first
+            children = process.children(recursive=True)
+            for child in children:
+                try:
+                    child.kill()
+                except psutil.NoSuchProcess:
+                    pass
+                    
+            # Kill the main process
+            if os.name == 'nt':
+                updater_process.send_signal(signal.CTRL_BREAK_EVENT)
+            else:
+                updater_process.terminate()
+            
+            # Wait for process to terminate
+            try:
+                updater_process.wait(timeout=3)  # Wait up to 3 seconds
+            except subprocess.TimeoutExpired:
+                # If process doesn't terminate, force kill it
+                if os.name == 'nt':
+                    os.kill(updater_process.pid, signal.SIGTERM)
+                else:
+                    updater_process.kill()
+                    
+            updater_process = None
+            # Don't set status to offline here - let the handle_output function manage the state
+        except (psutil.NoSuchProcess, ProcessLookupError):
+            pass  # Process already terminated
+        except Exception as e:
+            print(f"Error killing updater process: {e}", file=sys.stderr)
+
+def kill_daily_process():
+    """Forcefully kill the daily update process"""
+    global daily_process, daily_status
+    if daily_process:
+        try:
+            # Get the process object for more control
+            process = psutil.Process(daily_process.pid)
+            
+            # Kill all child processes first
+            children = process.children(recursive=True)
+            for child in children:
+                try:
+                    child.kill()
+                except psutil.NoSuchProcess:
+                    pass
+                    
+            # Kill the main process
+            if os.name == 'nt':
+                daily_process.send_signal(signal.CTRL_BREAK_EVENT)
+            else:
+                daily_process.terminate()
+            
+            # Wait for process to terminate
+            try:
+                daily_process.wait(timeout=3)  # Wait up to 3 seconds
+            except subprocess.TimeoutExpired:
+                # If process doesn't terminate, force kill it
+                if os.name == 'nt':
+                    os.kill(daily_process.pid, signal.SIGTERM)
+                else:
+                    daily_process.kill()
+                    
+            daily_process = None
+            daily_status["state"] = "offline"  # Update status when process is killed
+        except (psutil.NoSuchProcess, ProcessLookupError):
+            pass  # Process already terminated
+        except Exception as e:
+            print(f"Error killing daily process: {e}", file=sys.stderr)
+
+def stop_updater():
+    """Stop the EDDN updater process"""
+    global eddn_status
+    eddn_status["state"] = "offline"  # Only set offline when intentionally stopping
+    kill_updater_process()
+
+def stop_daily_update():
+    """Stop the daily update process"""
+    kill_daily_process()
+
+def cleanup_handler(signum, frame):
+    """Handle cleanup on various signals"""
+    print("\nReceived signal to shutdown...")
+    print("Stopping EDDN Update Service...")
+    stop_updater()
+    print("Stopping Daily Update Service...")
+    stop_daily_update()
+    print("Stopping Web Server...")
+    # Force exit after cleanup
+    os._exit(0)
+
+# Register cleanup handlers
+atexit.register(kill_updater_process)
+signal.signal(signal.SIGINT, cleanup_handler)   # Ctrl+C
+signal.signal(signal.SIGTERM, cleanup_handler)  # Termination
+if os.name == 'nt':  # Windows specific signals
+    signal.signal(signal.SIGBREAK, cleanup_handler)  # Ctrl+Break
+    signal.signal(signal.SIGABRT, cleanup_handler)   # Abnormal termination
+
+def handle_output(line):
+    """Handle output from update_live.py and update status"""
+    global eddn_status
+    line = line.strip()
+    
+    # Print with appropriate color
+    if "[INIT]" in line or "[STOPPING]" in line or "[TERMINATED]" in line:
+        print(f"{YELLOW}{line}{RESET}", flush=True)  # Yellow
+    else:
+        print(f"{BLUE}{line}{RESET}", flush=True)  # Blue
+    
+    # Update status based on output
+    if "[INIT]" in line:
+        eddn_status["state"] = "starting"  # Yellow when starting
+    elif "Loaded" in line and "commodities from CSV" in line:
+        eddn_status["state"] = "starting"  # Still starting while loading commodities
+    elif "Listening to EDDN" in line:
+        eddn_status["state"] = "running"  # Green when connected
+    elif "[DATABASE] Writing to Database starting..." in line:  # Exact match for database start
+        eddn_status["state"] = "updating"  # Cyan when updating
+        eddn_status["last_db_update"] = datetime.now().isoformat()
+        eddn_status["update_start_time"] = time.time()  # Record when update started
+    elif "[DATABASE] Writing to Database finished." in line or "Writing to Database finished. Updated" in line:  # Match both formats
+        # Ensure "updating" status shows for at least 1 second
+        if "update_start_time" in eddn_status:
+            elapsed = time.time() - eddn_status["update_start_time"]
+            if elapsed < 1:
+                time.sleep(1 - elapsed)  # Sleep for the remaining time to make 1 second
+            del eddn_status["update_start_time"]
+        eddn_status["state"] = "running"  # Back to green after update
+    elif "[STOPPING]" in line or "[TERMINATED]" in line:
+        eddn_status["state"] = "offline"  # Red when stopped
+        print(f"{YELLOW}[STATUS] EDDN updater stopped{RESET}", flush=True)
+    elif "Error:" in line:
+        eddn_status["state"] = "error"  # Red for errors
+        print(f"{YELLOW}[STATUS] EDDN updater encountered an error{RESET}", flush=True)
+
+def clean_ansi_codes(message):
+    """Clean ANSI escape codes from a message"""
+    for code in ['\033[93m', '\033[94m', '\033[92m', '\033[91m', '\033[0m']:
+        message = message.replace(code, '')
+    return message.strip()
+
+def handle_daily_output(line):
+    """Handle output from update_daily.py and update status"""
+    global daily_status, eddn_status, updater_process, live_update_requested
+    line = line.strip()
+    
+    # Check for completion signal first
+    if "[COMPLETED]" in line:
+        print(f"{YELLOW}[DEBUG] Received completion signal{RESET}", flush=True)
+        # Set the status to updated with today's date
+        daily_status["state"] = "updated"
+        daily_status["last_update"] = datetime.now().strftime("%Y-%m-%d")
+        # If live update was requested, start it now
+        if updater_process is None and live_update_requested:
+            print(f"{YELLOW}[DEBUG] Live update was requested and no updater running{RESET}", flush=True)
+            print(f"{YELLOW}Daily update completed. Starting live EDDN updates...{RESET}")
+            eddn_status["state"] = "starting"
+            start_updater()
+            time.sleep(0.5)
+        else:
+            print(f"{YELLOW}[DEBUG] Skipping live update start: updater_process={updater_process}, live_update_requested={live_update_requested}{RESET}", flush=True)
+        return
+    
+    # For progress updates, print on same line
+    if "[STATUS]" in line:
+        if any(x in line for x in ["Downloading", "Extracting", "Processing entries"]):
+            # If the last line wasn't a progress line, add a newline first
+            if daily_status.get("last_line_type") != "progress":
+                print("", flush=True)  # Add empty line
+            # Clear the entire line before printing new status
+            print(f"\r{' ' * 100}\r{YELLOW}{line}{RESET}", end="", flush=True)
+            daily_status["last_line_type"] = "progress"
+        else:
+            # For non-progress status messages, always start on a new line
+            if daily_status.get("last_line_type") == "progress":
+                print("", flush=True)  # Add empty line
+            print(f"{YELLOW}{line}{RESET}", flush=True)
+            daily_status["last_line_type"] = "status"
+    else:
+        # For non-status messages (like DEBUG), always start on a new line
+        if daily_status.get("last_line_type") == "progress":
+            print("", flush=True)  # Add empty line
+        print(f"{YELLOW}{line}{RESET}", flush=True)
+        daily_status["last_line_type"] = "other"
+    
+    # Update status based on output
+    if "[STATUS]" in line:
+        if "Downloading" in line:
+            daily_status["state"] = "downloading"
+            try:
+                daily_status["progress"] = int(line.split("%")[0].split()[-1])
+            except:
+                daily_status["progress"] = 0
+        elif "Extracting" in line:
+            daily_status["state"] = "extracting"
+            try:
+                daily_status["progress"] = int(line.split("%")[0].split()[-1])
+            except:
+                daily_status["progress"] = 0
+        elif "Processing entries" in line:
+            daily_status["state"] = "processing"
+            try:
+                parts = line.split("(")[1].split(")")[0].split("/")
+                current = int(parts[0])
+                total = int(parts[1])
+                daily_status["progress"] = current
+                daily_status["total"] = total
+            except:
+                pass
+        elif "Updated:" in line:
+            daily_status["state"] = "updated"
+            daily_status["message"] = clean_ansi_codes(line.split("[STATUS]")[1])
+            daily_status["last_update"] = datetime.now().isoformat()
+        elif "error" in line.lower():
+            daily_status["state"] = "error"
+            daily_status["message"] = clean_ansi_codes(line.split("[STATUS]")[1])
+        elif "Saving batch" in line or "Batch saved" in line:
+            # Keep the processing state but update the message
+            daily_status["message"] = clean_ansi_codes(line.split("[STATUS]")[1])
+
+def start_daily_update():
+    """Start the daily update process"""
+    global daily_process, daily_status
+    
+    # Set initial status
+    daily_status["state"] = "starting"
+    daily_status["progress"] = 0
+    daily_status["total"] = 0
+    daily_status["message"] = "Starting daily update..."
+    
+    def handle_output_stream(pipe, stream_name):
+        try:
+            print(f"{YELLOW}[DEBUG] Starting {stream_name} stream handler{RESET}", flush=True)
+            with io.TextIOWrapper(pipe, encoding='utf-8', errors='replace') as text_pipe:
+                while True:
+                    line = text_pipe.readline()
+                    if not line:
+                        break
+                    if line.strip():  # Only process non-empty lines
+                        handle_daily_output(line.strip())
+        except Exception as e:
+            print(f"Error in daily update {stream_name} stream: {e}", file=sys.stderr)
+    
+    try:
+        print(f"{YELLOW}[DEBUG] Starting daily update process{RESET}", flush=True)
+        # Start the daily update process
+        daily_process = subprocess.Popen(
+            [sys.executable, "update_daily.py", "--auto", "--fast"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            universal_newlines=False,
+            creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if os.name == 'nt' else 0
+        )
+        
+        # Create threads to handle stdout and stderr
+        stdout_thread = threading.Thread(target=handle_output_stream, args=(daily_process.stdout, "stdout"), daemon=True)
+        stderr_thread = threading.Thread(target=handle_output_stream, args=(daily_process.stderr, "stderr"), daemon=True)
+        
+        stdout_thread.start()
+        stderr_thread.start()
+        
+        print(f"{YELLOW}[DEBUG] Daily update process started with PID {daily_process.pid}{RESET}", flush=True)
+        return daily_process
+        
+    except Exception as e:
+        print(f"Error starting daily update: {e}", file=sys.stderr)
+        daily_status["state"] = "error"
+        daily_status["message"] = str(e)
+        return None
+
+async def handle_websocket(websocket):
+    """Handle WebSocket connections and send status updates"""
+    try:
+        while True:
+            # Read the daily update status file
+            try:
+                with open(os.path.join('json', 'daily_update_status.json'), 'r') as f:
+                    daily_status_file = json.load(f)
+                    # Always update the daily_status with file data if available
+                    if daily_status_file.get("last_update"):
+                        daily_status["last_update"] = daily_status_file["last_update"]
+            except Exception as e:
+                print(f"Error reading status file: {e}", file=sys.stderr)
+            
+            # Send both EDDN and daily update status
+            await websocket.send(json.dumps({
+                "eddn": eddn_status,
+                "daily": daily_status
+            }))
+            await asyncio.sleep(0.1)  # 100ms interval
+    except websockets.exceptions.ConnectionClosed:
+        pass
 
 # Get the absolute path of the directory containing server.py
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -1062,5 +1401,134 @@ def search_high_yield_platinum():
         app.logger.error(f"High yield platinum search error: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
+def run_server(host, port, args):
+    """Run the HTTP server with appropriate update mode"""
+    global live_update_requested, daily_process, eddn_status
+    app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
+    print(f"Running on http://{host}:{port}")
+    
+    # Set live_update_requested flag before anything else
+    if args.live_update:
+        live_update_requested = True
+        print(f"{YELLOW}[DEBUG] Set live_update_requested to True{RESET}", flush=True)
+    
+    if args.daily_update:
+        # Start daily update in background
+        daily_process = start_daily_update()  # This now updates the global variable
+        if daily_process:
+            time.sleep(0.5)  # Give the daily update a moment to start
+            if args.live_update:
+                eddn_status["state"] = "offline"  # Keep it offline until daily update finishes
+    elif args.live_update:
+        # Only live updates requested, no daily update running
+        eddn_status["state"] = "starting"  # Set initial state before starting
+        start_updater()
+        time.sleep(0.5)  # Give the updater a moment to start and connect
+    else:
+        # No updates requested
+        eddn_status["state"] = "offline"
+    
+    return app
+
+async def main():
+    """Run both HTTP and WebSocket servers"""
+    parser = argparse.ArgumentParser(description='Power Mining Web Server')
+    parser.add_argument('--host', default='127.0.0.1', help='Host to bind to')
+    parser.add_argument('--port', type=int, default=5000, help='Port to bind to')
+    parser.add_argument('--live-update', action='store_true', help='Enable live EDDN updates')
+    parser.add_argument('--daily-update', action='store_true', help='Run daily database update')
+    args = parser.parse_args()
+
+    # Start WebSocket server
+    ws_server = await websockets.serve(handle_websocket, args.host, 8765)
+    
+    # Start Flask server with appropriate update mode
+    app = run_server(args.host, args.port, args)
+    
+    # Create task for input handling
+    async def check_quit():
+        while True:
+            try:
+                if await asyncio.get_event_loop().run_in_executor(None, lambda: sys.stdin.readline().strip()) == 'q':
+                    print("\nQuitting...")
+                    print("Stopping EDDN Update Service...")
+                    kill_updater_process()
+                    print("Stopping Web Server...")
+                    ws_server.close()
+                    os._exit(0)
+            except (EOFError, KeyboardInterrupt):
+                break
+            await asyncio.sleep(0.1)
+    
+    try:
+        # Run both servers and input handler
+        await asyncio.gather(
+            ws_server.wait_closed(),
+            asyncio.to_thread(lambda: app.run(
+                host=args.host, 
+                port=args.port,
+                use_reloader=False,    # Disable reloader
+                debug=False,           # Disable debug mode
+                processes=1            # Force single process
+            )),
+            check_quit()
+        )
+    except (KeyboardInterrupt, SystemExit):
+        print("\nShutting down...")
+        print("Stopping EDDN Update Service...")
+        kill_updater_process()
+        print("Stopping Web Server...")
+        ws_server.close()
+        os._exit(0)
+
+def start_updater():
+    """Start the EDDN updater process"""
+    global updater_process, eddn_status
+    
+    # Set initial status to "starting"
+    eddn_status["state"] = "starting"
+    
+    def handle_output_stream(pipe, color):
+        try:
+            with io.TextIOWrapper(pipe, encoding='utf-8', errors='replace') as text_pipe:
+                while True:
+                    line = text_pipe.readline()
+                    if not line:
+                        break
+                    if line.strip():  # Only process non-empty lines
+                        handle_output(line.strip())  # This will handle both printing and status updates
+        except Exception as e:
+            print(f"Error in output stream: {e}", file=sys.stderr)
+    
+    try:
+        # Start the updater process
+        updater_process = subprocess.Popen(
+            [sys.executable, "update_live.py", "--auto"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            universal_newlines=False,
+            creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if os.name == 'nt' else 0
+        )
+        
+        print(f"{YELLOW}[STATUS] Starting EDDN Live Update (PID: {updater_process.pid}){RESET}", flush=True)
+        
+        # Create threads to handle stdout and stderr
+        threading.Thread(target=handle_output_stream, args=(updater_process.stdout, BLUE), daemon=True).start()
+        threading.Thread(target=handle_output_stream, args=(updater_process.stderr, BLUE), daemon=True).start()
+        
+        # Wait a moment to ensure process starts
+        time.sleep(0.5)
+        
+        # Check if process is still running
+        if updater_process.poll() is None:
+            eddn_status["state"] = "starting"  # Process is running, waiting for connection
+        else:
+            eddn_status["state"] = "error"  # Process failed to start
+            print(f"{YELLOW}[ERROR] EDDN updater failed to start{RESET}", file=sys.stderr)
+        
+    except Exception as e:
+        print(f"Error starting updater: {e}", file=sys.stderr)
+        eddn_status["state"] = "error"
+
 if __name__ == '__main__':
-    app.run(debug=True, port=5000) 
+    asyncio.run(main()) 

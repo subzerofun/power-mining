@@ -10,6 +10,8 @@ json/stations.json
 json/systemsPopulated.json
 json/systemsWithCoordinates.json
 json/powerPlay.json
+json/Commodity-*
+json/old/*
 img/*.psd
 __pycache__/
 json/Commodity-2025-01-04.jsonl

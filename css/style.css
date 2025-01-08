@@ -125,7 +125,7 @@ button {
     background-color: var(--main-color);
     color: white;
     border: none;
-    padding: 10px 20px;
+    padding: 8px 16px;
     border-radius: 4px;
     cursor: pointer;
     font-weight: bold;
@@ -704,7 +704,7 @@ button:not(:hover) {
 }
 
 .database-selector {
-    margin-left: auto;
+    margin-left: 30px;
     display: flex;
     align-items: center;
     gap: 10px;
@@ -722,12 +722,13 @@ button:not(:hover) {
 }
 
 .database-selector input[type="text"] {
-    width: 150px;
+    width: 90px;
     padding: 5px;
     border: 1px solid var(--main-color);
     border-radius: 4px;
     background: var(--bg-dark);
     color: var(--main-color);
+    font-size: 0.9em;
 }
 
 .database-selector .btn-secondary {
@@ -981,4 +982,155 @@ button:not(:hover) {
 
 #ring_type_filter {
     max-width: 180px;
+}
+
+.eddn-status {
+    display: flex;
+    flex-direction: column;
+    gap: 0px;
+    font-size: 14px;
+    width: 140px;
+    margin-left: auto;
+}
+
+.eddn-status:first-child {
+    margin-right: 20px;
+}
+
+.eddn-title {
+    color: var(--main-color);
+    white-space: nowrap;
+    margin-bottom: 0px;
+    height: 20px;
+}
+
+.status-indicator {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 80px;
+    height: 20px;
+}
+
+.status-circle {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background-color: #ff3b3b;  /* Default red for offline */
+    box-shadow: 0 0 5px currentColor;
+}
+
+.status-text {
+    margin-left: 4px;  /* Add margin between circle and text */
+    color: var(--main-color);
+}
+
+.status-circle.starting {
+    background-color: #f1c40f;
+    color: #f1c40f;
+}
+
+.status-circle.running {
+    background-color: #2ecc71;
+    color: #2ecc71;
+}
+
+.status-circle.error {
+    background-color: #f1c40f;
+    color: #f1c40f;
+}
+
+/* EDDN live update state */
+.eddn-circle.updating {
+    background-color: #00bcd4;  /* Cyan for EDDN live updates */
+    color: #00bcd4;
+}
+
+/* Daily update states */
+.daily-circle.updating {
+    background-color: #f1c40f;  /* Yellow for daily update processing */
+    color: #f1c40f;
+    animation: pulse 1s infinite;
+}
+
+.status-circle.downloading,
+.status-circle.extracting {
+    background-color: #f1c40f;  /* Yellow color */
+    color: #f1c40f;
+    animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.5; }
+    100% { opacity: 1; }
+}
+
+.status-text {
+    text-align: left;  /* Left align the text */
+    flex-grow: 1;      /* Take remaining space */
+    min-width: 120px;   /* Minimum width to prevent jumping */
+    white-space: nowrap;  /* Prevent wrapping */
+}
+
+.database-selector label {
+    white-space: nowrap;
+    margin: 0;
+}
+
+.status-container {
+    display: flex;
+    gap: 20px;
+    margin-left: auto;
+}
+
+.eddn-status {
+    display: flex;
+    flex-direction: column;
+    gap: 0px;
+    font-size: 14px;
+    min-width: 140px;
+}
+
+.daily-status {
+    min-width: 180px;
+}
+
+.eddn-title {
+    color: var(--main-color);
+    white-space: nowrap;
+    margin-bottom: 0px;
+    height: 20px;
+}
+
+.status-indicator {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 80px;
+    height: 20px;
+}
+
+.station-entry {
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    padding: 5px;
+}
+
+.status-circle.starting,
+.eddn-circle.starting {
+    background-color: #ffa500;  /* Orange color for starting state */
+    animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.5; }
+    100% { opacity: 1; }
+}
+
+.other-commodities {
+    flex: 1;
+    margin-left: 20px;
 }

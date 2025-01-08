@@ -132,11 +132,13 @@ def create_database(db_path: str):
     # Table for station commodity prices
     c.execute('''CREATE TABLE IF NOT EXISTS station_commodities (
         system_id64 INTEGER,
+        station_id INTEGER,
         station_name TEXT,
         commodity_name TEXT,
         sell_price INTEGER,
         demand INTEGER,
-        FOREIGN KEY(system_id64) REFERENCES systems(id64)
+        FOREIGN KEY(system_id64) REFERENCES systems(id64),
+        FOREIGN KEY(system_id64, station_id) REFERENCES stations(system_id64, station_id)
     )''')
     
     # Create indices for common searches
@@ -380,10 +382,11 @@ def convert_json_to_sqlite(json_file: str, db_file: str, max_distance: float, ex
                     for commodity in extract_station_commodities(station):
                         c.execute('''
                             INSERT INTO station_commodities 
-                            (system_id64, station_name, commodity_name, sell_price, demand)
-                            VALUES (?, ?, ?, ?, ?)
+                            (system_id64, station_id, station_name, commodity_name, sell_price, demand)
+                            VALUES (?, ?, ?, ?, ?, ?)
                         ''', (
                             system_data['id64'],
+                            station.get('id'),
                             commodity['station_name'],
                             commodity['commodity_name'],
                             commodity['sell_price'],
