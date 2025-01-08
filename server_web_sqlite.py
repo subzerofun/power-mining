@@ -180,7 +180,7 @@ def dict_factory(cursor,row):
 
 def get_db_connection():
     """Get a database connection"""
-    db_url = request.args.get('database', os.getenv('DATABASE_URL', 'postgresql://postgres:elephant9999!@localhost:5432/power_mining'))
+    db_url = request.args.get('database', os.getenv('DATABASE_URL', 'postgresql://power_user:your_password@localhost:5432/power_mining'))
     try:
         conn = psycopg2.connect(db_url)
         conn.cursor_factory = DictCursor  # This provides dict-like access similar to sqlite3's dict_factory
@@ -765,59 +765,64 @@ def get_price_comparison_endpoint():
 
 @app.route('/search_res_hotspots', methods=['POST'])
 def search_res_hotspots():
+    """Handle RES hotspot search functionality."""
     try:
-        ref_system=request.args.get('system','Sol')
-        database=request.json.get('database','systems.db')
-        conn=get_db_connection()
-        if not conn: return jsonify({'error':'Database connection failed'}),500
-        c=conn.cursor(); c.row_factory=res_data.dict_factory
-        c.execute('SELECT x,y,z FROM systems WHERE name=?',(ref_system,))
-        ref_coords=c.fetchone()
-        if not ref_coords: conn.close(); return jsonify({'error':'Reference system not found'}),404
-        rx,ry,rz=ref_coords['x'],ref_coords['y'],ref_coords['z']
-        hotspot_data=res_data.load_res_data(database)
-        results=[]
-        for e in hotspot_data:
-            c.execute('''SELECT s.*,sqrt(((s.x-?)*(s.x-?))+((s.y-?)*(s.y-?))+((s.z-?)*(s.z-?))) distance
-                         FROM systems s WHERE s.name=?''',(rx,rx,ry,ry,rz,rz,e['system']))
-            system=c.fetchone(); 
-            if not system: continue
-            st=res_data.get_station_commodities(conn,system['id64'])
-            results.append({'system':e['system'],'power':system['controlling_power'] or 'None',
-                            'distance':float(system['distance']),'ring':e['ring'],'ls':e['ls'],
-                            'res_zone':e['res_zone'],'comment':e['comment'],'stations':st})
-        conn.close(); return jsonify(results)
+        # Get reference system and database
+        ref_system = request.args.get('system', 'Sol')
+        
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'error': 'Database connection failed'}), 500
+            
+        cur = conn.cursor()
+        
+        # Get reference system coordinates
+        cur.execute('SELECT x, y, z FROM systems WHERE name = %s', (ref_system,))
+        ref_coords = cur.fetchone()
+        if not ref_coords:
+            conn.close()
+            return jsonify({'error': 'Reference system not found'}), 404
+        
+        ref_x, ref_y, ref_z = ref_coords['x'], ref_coords['y'], ref_coords['z']
+        
+        # Load RES hotspot data
+        hotspot_data = res_data.load_res_data()
+        
+        # Process each system
+        results = []
+        for entry in hotspot_data:
+            # Get system info from database
+            cur.execute("""
+                SELECT s.*, 
+                    SQRT(POWER(s.x - %s, 2) + POWER(s.y - %s, 2) + POWER(s.z - %s, 2)) as distance
+                FROM systems s
+                WHERE s.name = %s
+            """, (ref_x, ref_x, ref_y, ref_y, ref_z, ref_z, entry['system']))
+            
+            system = cur.fetchone()
+            if not system:
+                continue
+                
+            # Get station data
+            stations = res_data.get_station_commodities(conn, system['id64'])
+            
+            results.append({
+                'system': entry['system'],
+                'power': system['controlling_power'] or 'None',
+                'distance': float(system['distance']),
+                'ring': entry['ring'],
+                'ls': entry['ls'],
+                'res_zone': entry['res_zone'],
+                'comment': entry['comment'],
+                'stations': stations
+            })
+            
+        conn.close()
+        return jsonify(results)
+    
     except Exception as e:
         app.logger.error(f"RES hotspot search error: {str(e)}")
-        return jsonify({'error':f'Search error: {str(e)}'}),500
-
-@app.route('/search_high_yield_platinum', methods=['POST'])
-def search_high_yield_platinum():
-    try:
-        ref_system=request.args.get('system','Sol')
-        database=request.json.get('database','systems.db')
-        conn=get_db_connection()
-        if not conn: return jsonify({'error':'Database connection failed'}),500
-        c=conn.cursor(); c.row_factory=res_data.dict_factory
-        c.execute('SELECT x,y,z FROM systems WHERE name=?',(ref_system,))
-        ref_coords=c.fetchone()
-        if not ref_coords: conn.close(); return jsonify({'error':'Reference system not found'}),404
-        rx,ry,rz=ref_coords['x'],ref_coords['y'],ref_coords['z']
-        data=res_data.load_high_yield_platinum()
-        results=[]
-        for e in data:
-            c.execute('''SELECT s.*,sqrt(((s.x-?)*(s.x-?))+((s.y-?)*(s.y-?))+((s.z-?)*(s.z-?))) distance
-                         FROM systems s WHERE s.name=?''',(rx,rx,ry,ry,rz,rz,e['system']))
-            system=c.fetchone(); 
-            if not system: continue
-            st=res_data.get_station_commodities(conn,system['id64'])
-            results.append({'system':e['system'],'power':system['controlling_power'] or 'None',
-                            'distance':float(system['distance']),'ring':e['ring'],
-                            'percentage':e['percentage'],'comment':e['comment'],'stations':st})
-        conn.close(); return jsonify(results)
-    except Exception as e:
-        app.logger.error(f"High yield platinum search error: {str(e)}")
-        return jsonify({'error':str(e)}),500
+        return jsonify({'error': f'Search error: {str(e)}'}), 500
 
 def run_server(host,port,args):
     global live_update_requested, eddn_status
