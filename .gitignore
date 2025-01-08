@@ -1,6 +1,8 @@
-# ignore ALL .log files
+# ignore ALL .log and db files
 *.log
 *.db
+*.db-shm
+*.db-wal
 
 # ignore ALL files in ANY directory named *
 backup/
