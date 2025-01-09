@@ -848,8 +848,10 @@ async def main():
     parser.add_argument('--port',type=int,default=5000,help='Port to bind to')
     parser.add_argument('--live-update',action='store_true',help='Enable live EDDN updates')
     args=parser.parse_args()
-    ws_server=await websockets.serve(handle_websocket,args.host,8765)
-    app_obj=run_server(args.host,args.port,args)
+    
+    # Bind websocket to all interfaces but web server to specified host
+    ws_server = await websockets.serve(handle_websocket, '0.0.0.0', 8765)
+    app_obj = run_server(args.host, args.port, args)
     async def check_quit():
         while True:
             try:
