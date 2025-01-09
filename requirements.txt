@@ -9,3 +9,4 @@ lz4==4.3.2
 gunicorn==21.2.0
 tqdm==4.66.1
 ijson==3.3.0
+flask-sock==0.7.0

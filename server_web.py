@@ -2,7 +2,8 @@ import os, sys, math, json, zlib, time, signal, atexit, argparse, asyncio, subpr
 from psycopg2.extras import DictCursor
 from datetime import datetime
 from flask import Flask, render_template, request, jsonify, send_from_directory
-import psutil, websockets, io
+from flask_sock import Sock
+import psutil
 from typing import Dict, List, Optional
 import mining_data_web as mining_data, res_data_web as res_data
 from mining_data_web import (
@@ -18,13 +19,8 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 # Environment variables for configuration
 DATABASE_URL = None  # Will be set from args or env in main()
 
-# Always bind to all interfaces (0.0.0.0) for the websocket server
-WEBSOCKET_PORT = int(os.getenv('WEBSOCKET_PORT', '8765'))
-
-# Process ID file for update_live_web.py
-PID_FILE = os.path.join(BASE_DIR, 'update_live_web.pid')
-
 app = Flask(__name__, template_folder=BASE_DIR, static_folder=None)
+sock = Sock(app)
 updater_process = None
 live_update_requested = False
 eddn_status = {"state": None, "last_db_update": None}
@@ -97,12 +93,13 @@ def handle_output(line):
         eddn_status["state"] = "error"
         print(f"{YELLOW}[STATUS] EDDN updater encountered an error{RESET}", flush=True)
 
-async def handle_websocket(websocket):
+@sock.route('/ws')
+def handle_websocket(ws):
     try:
         while True:
-            await websocket.send(json.dumps(eddn_status))
-            await asyncio.sleep(0.1)
-    except websockets.exceptions.ConnectionClosed:
+            ws.send(json.dumps(eddn_status))
+            time.sleep(0.1)
+    except Exception:
         pass
 
 @app.route('/favicon.ico')
