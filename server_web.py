@@ -321,34 +321,11 @@ def search():
         if is_non_hotspot:
             # Get ring types from NON_HOTSPOT_MATERIALS dictionary
             ring_types = mining_data.NON_HOTSPOT_MATERIALS.get(signal_type, [])
-            query = """
-            WITH relevant_systems AS (
-                SELECT s.*, SQRT(POWER(s.x - %s, 2) + POWER(s.y - %s, 2) + POWER(s.z - %s, 2)) as distance
-                FROM systems s
-                WHERE POWER(s.x - %s, 2) + POWER(s.y - %s, 2) + POWER(s.z - %s, 2) <= POWER(%s, 2)
-            ),
-            relevant_stations AS (
-                SELECT sc.system_id64, sc.station_name, sc.sell_price, sc.demand
-                FROM station_commodities sc
-                WHERE (sc.commodity_name = %s OR (%s = 'LowTemperatureDiamond' AND sc.commodity_name = 'Low Temperature Diamonds'))
-                AND sc.demand > 0 AND sc.sell_price > 0
-            )
-            SELECT DISTINCT s.name as system_name, s.id64 as system_id64, s.controlling_power,
-                s.power_state, s.distance, ms.body_name, ms.ring_name, ms.ring_type,
-                ms.mineral_type, ms.signal_count, ms.reserve_level, rs.station_name,
-                st.landing_pad_size, st.distance_to_arrival as station_distance,
-                st.station_type, rs.demand, rs.sell_price, st.update_time,
-                rs.sell_price as sort_price
-            FROM relevant_systems s
-            JOIN mineral_signals ms ON s.id64 = ms.system_id64
-            LEFT JOIN relevant_stations rs ON s.id64 = rs.system_id64
-            LEFT JOIN stations st ON s.id64 = st.system_id64 AND rs.station_name = st.station_name
-            WHERE ms.ring_type = ANY(%s::text[])
-            """
-            params = [rx, rx, ry, ry, rz, rz, max_dist, signal_type, signal_type, ring_types]
-
-            # Build WHERE clause
+            
+            # Build WHERE clause conditions
             where_conditions = ["ms.ring_type = ANY(%s::text[])"]
+            params = [rx, rx, ry, ry, rz, rz, max_dist, signal_type, signal_type, ring_types]
+            
             if controlling_power:
                 where_conditions.append("s.controlling_power = %s")
                 params.append(controlling_power)
@@ -621,7 +598,7 @@ def search_highest():
             
         cur = conn.cursor()
         
-        # Build the base WHERE clause
+        # Build WHERE clause conditions
         where_conditions = ["sc.demand > 0", "sc.sell_price > 0"]
         power_filter_params = []
         
@@ -638,12 +615,12 @@ def search_highest():
         
         # Get the list of non-hotspot materials
         non_hotspot = get_non_hotspot_materials_list()
-        non_hotspot_str = ','.join("'" + material + "'" for material in non_hotspot)
+        non_hotspot_str = "'" + "','".join(non_hotspot) + "'"
         
         # Build ring type case statement
         ring_type_cases = []
         for material, ring_types in mining_data.NON_HOTSPOT_MATERIALS.items():
-            ring_types_str = ','.join("'" + rt + "'" for rt in ring_types)
+            ring_types_str = "'" + "','".join(ring_types) + "'"
             ring_type_cases.append(f"WHEN hp.commodity_name = '{material}' AND ms.ring_type IN ({ring_types_str}) THEN 1")
         ring_type_case = '\n'.join(ring_type_cases)
         
