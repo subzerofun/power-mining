@@ -367,8 +367,12 @@ def search():
         else:
             # Build all WHERE conditions first
             where_conditions = ["1=1"]  # Start with a dummy condition
-            params = [rx, rx, ry, ry, rz, rz, max_dist, signal_type, signal_type]
+            params = [rx, rx, ry, ry, rz, rz, max_dist]  # Base distance params
 
+            # Add signal_type params for relevant_stations CTE
+            params.extend([signal_type, signal_type])
+
+            # Build the main query conditions
             if controlling_power:
                 where_conditions.append("s.controlling_power::text = %s::text")
                 params.append(controlling_power)
@@ -408,7 +412,7 @@ def search():
 
             if ring_type_filter != 'Without Hotspots':
                 query += " JOIN mineral_signals ms ON s.id64 = ms.system_id64 AND ms.mineral_type = %s"
-                params.append(signal_type)
+                params.append(signal_type)  # Add signal_type for the JOIN condition
             else:
                 query += " JOIN mineral_signals ms ON s.id64 = ms.system_id64"
 
