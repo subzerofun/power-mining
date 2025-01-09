@@ -86,8 +86,12 @@ def handle_output(line):
     """Handle output from the EDDN updater process"""
     global eddn_status
     line = line.strip()
-    print(f"{YELLOW if '[INIT]' in line or '[STOPPING]' in line or '[TERMINATED]' in line else BLUE}{line}{RESET}", flush=True)
     
+    # Only print output if we started the process (--live-update)
+    if live_update_requested:
+        print(f"{YELLOW if '[INIT]' in line or '[STOPPING]' in line or '[TERMINATED]' in line else BLUE}{line}{RESET}", flush=True)
+    
+    # Always process status updates
     if "[INIT]" in line:
         eddn_status["state"] = "starting"
     elif "Loaded" in line and "commodities from CSV" in line:
@@ -107,10 +111,12 @@ def handle_output(line):
         eddn_status["state"] = "running"
     elif "[STOPPING]" in line or "[TERMINATED]" in line:
         eddn_status["state"] = "offline"
-        print(f"{YELLOW}[STATUS] EDDN updater stopped{RESET}", flush=True)
+        if live_update_requested:
+            print(f"{YELLOW}[STATUS] EDDN updater stopped{RESET}", flush=True)
     elif "Error:" in line or "[ERROR]" in line:
         eddn_status["state"] = "error"
-        print(f"{YELLOW}[STATUS] EDDN updater encountered an error{RESET}", flush=True)
+        if live_update_requested:
+            print(f"{YELLOW}[STATUS] EDDN updater encountered an error{RESET}", flush=True)
 
 @sock.route('/ws')
 def handle_websocket(ws):
@@ -916,62 +922,103 @@ async def main():
 
 def check_existing_process():
     """Check if another instance is running"""
-    if os.path.exists(PID_FILE):
-        try:
+    try:
+        if os.path.exists(PID_FILE):
             with open(PID_FILE, 'r') as f:
                 old_pid = int(f.read().strip())
             try:
-                # Check if process exists and is actually update_live_web.py
                 p = psutil.Process(old_pid)
                 if "update_live_web.py" in p.cmdline():
-                    print(f"{YELLOW}[STATUS] Update service already running with PID: {old_pid}{RESET}")
+                    print(f"{YELLOW}[UPDATE-CHECK] Update service found running with PID: {old_pid}{RESET}")
                     return True
                 else:
+                    print(f"{YELLOW}[UPDATE-CHECK] Found stale PID file, removing{RESET}")
                     os.remove(PID_FILE)
             except (psutil.NoSuchProcess, psutil.AccessDenied):
+                print(f"{YELLOW}[UPDATE-CHECK] Process {old_pid} not found, removing stale PID file{RESET}")
                 os.remove(PID_FILE)
-        except:
-            if os.path.exists(PID_FILE):
-                os.remove(PID_FILE)
+        
+        # Even if no PID file, check for any running update_live_web.py process
+        for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+            try:
+                if "update_live_web.py" in proc.info['cmdline']:
+                    pid = proc.info['pid']
+                    print(f"{YELLOW}[UPDATE-CHECK] Found running update service (PID: {pid}){RESET}")
+                    # Update PID file
+                    with open(PID_FILE, 'w') as f:
+                        f.write(str(pid))
+                    return True
+            except (psutil.NoSuchProcess, psutil.AccessDenied, KeyError):
+                continue
+    except Exception as e:
+        print(f"{YELLOW}[UPDATE-CHECK] Error checking for existing process: {e}{RESET}")
+    
+    print(f"{YELLOW}[UPDATE-CHECK] No running update service found{RESET}")
     return False
 
-def start_updater():
-    global updater_process, eddn_status, DATABASE_URL
-    
-    # Only start if explicitly requested
-    if not live_update_requested and not os.getenv('ENABLE_LIVE_UPDATE', 'false').lower() == 'true':
-        return
-    
-    # Check for existing process
-    if check_existing_process():
-        return
-    
-    eddn_status["state"] = "starting"
-    
-    def monitor_process():
-        """Monitor the updater process and restart it if it dies"""
-        while True:
-            if updater_process and updater_process.poll() is not None:
-                print(f"{YELLOW}[STATUS] EDDN updater terminated unexpectedly, restarting...{RESET}")
-                if not check_existing_process():  # Only restart if no other process is running
-                    start_updater_process()
-            time.sleep(5)  # Check every 5 seconds
-    
-    def handle_output_stream(pipe):
-        """Handle output from the EDDN updater process"""
+def monitor_process():
+    """Monitor the updater process and restart it if it dies"""
+    while True:
         try:
-            with io.TextIOWrapper(pipe, encoding='utf-8', errors='replace') as tp:
-                while True:
-                    line = tp.readline()
-                    if not line:
-                        break
-                    if line.strip():
-                        handle_output(line.strip())
+            # First check if our known process is still running
+            if updater_process:
+                if updater_process.poll() is not None:
+                    print(f"{YELLOW}[UPDATE-CHECK] EDDN updater terminated unexpectedly{RESET}")
+                    # Don't restart immediately, let check_existing_process handle it
+                    time.sleep(1)
+            
+            # Check for any running update_live_web.py process
+            if not check_existing_process():
+                print(f"{YELLOW}[UPDATE-CHECK] No update service running, starting new instance{RESET}")
+                start_updater_process()
+            
+            # Check Redis connection/messages
+            try:
+                # TODO: Add Redis check here if needed
+                pass
+            except Exception as e:
+                print(f"{YELLOW}[UPDATE-CHECK] Redis connection error: {e}{RESET}")
+            
         except Exception as e:
-            print(f"Error in output stream: {e}", file=sys.stderr)
+            print(f"{YELLOW}[UPDATE-CHECK] Error in process monitor: {e}{RESET}")
+        
+        time.sleep(5)  # Check every 5 seconds
+
+def handle_output_stream(pipe):
+    """Handle output from the EDDN updater process"""
+    try:
+        with io.TextIOWrapper(pipe, encoding='utf-8', errors='replace') as tp:
+            while True:
+                line = tp.readline()
+                if not line:
+                    break
+                if line.strip():
+                    handle_output(line.strip())
+    except Exception as e:
+        print(f"Error in output stream: {e}", file=sys.stderr)
     
     def start_updater_process():
-        global updater_process
+        global updater_process, eddn_status, DATABASE_URL
+        
+        # Check for existing process first
+        if check_existing_process():
+            return
+        
+        eddn_status["state"] = "starting"
+        
+        def handle_output_stream(pipe):
+            """Handle output from the EDDN updater process"""
+            try:
+                with io.TextIOWrapper(pipe, encoding='utf-8', errors='replace') as tp:
+                    while True:
+                        line = tp.readline()
+                        if not line:
+                            break
+                        if line.strip():
+                            handle_output(line.strip())
+            except Exception as e:
+                print(f"{YELLOW}[UPDATE-CHECK] Error in output stream: {e}{RESET}", file=sys.stderr)
+        
         try:
             cmd = [sys.executable, "update_live_web.py", "--auto"]
             if DATABASE_URL:
@@ -990,28 +1037,34 @@ def start_updater():
                 with open(PID_FILE, 'w') as f:
                     f.write(str(updater_process.pid))
             except Exception as e:
-                print(f"Warning: Could not write PID file: {e}", file=sys.stderr)
+                print(f"{YELLOW}[UPDATE-CHECK] Warning: Could not write PID file: {e}{RESET}", file=sys.stderr)
             
-            print(f"{YELLOW}[STATUS] Starting EDDN Live Update (PID: {updater_process.pid}){RESET}", flush=True)
+            print(f"{YELLOW}[UPDATE-CHECK] Starting EDDN Live Update (PID: {updater_process.pid}){RESET}", flush=True)
             
             # Start output handling threads
             threading.Thread(target=handle_output_stream, args=(updater_process.stdout,), daemon=True).start()
             threading.Thread(target=handle_output_stream, args=(updater_process.stderr,), daemon=True).start()
             
+            # Wait a moment to ensure process starts
             time.sleep(0.5)
+            
             if updater_process.poll() is None:
                 eddn_status["state"] = "starting"
+                # Start the monitor thread if not already running
+                if not any(t.name == "monitor_thread" for t in threading.enumerate()):
+                    monitor_thread = threading.Thread(target=monitor_process, name="monitor_thread", daemon=True)
+                    monitor_thread.start()
             else:
                 eddn_status["state"] = "error"
-                print(f"{YELLOW}[ERROR] EDDN updater failed to start{RESET}", file=sys.stderr)
+                print(f"{YELLOW}[UPDATE-CHECK] EDDN updater failed to start{RESET}", file=sys.stderr)
                 if os.path.exists(PID_FILE):
                     try:
                         os.remove(PID_FILE)
                     except:
                         pass
-                        
+                    
         except Exception as e:
-            print(f"Error starting updater: {e}", file=sys.stderr)
+            print(f"{YELLOW}[UPDATE-CHECK] Error starting updater: {e}{RESET}", file=sys.stderr)
             eddn_status["state"] = "error"
             if os.path.exists(PID_FILE):
                 try:
