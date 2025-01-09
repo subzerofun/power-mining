@@ -11,7 +11,6 @@ import msgspec
 import psycopg2
 import zmq
 from psycopg2.extras import DictCursor
-import redis
 
 # ANSI color codes
 YELLOW = '\033[93m'
@@ -22,6 +21,7 @@ RESET = '\033[0m'
 
 # Constants
 DATABASE_URL = None  # Will be set from args or env in main()
+STATUS_PORT = int(os.getenv('STATUS_PORT', '5557'))
 
 COMMODITIES_CSV = os.path.join("data", "commodities_mining.csv")
 EDDN_RELAY = "tcp://eddn.edcd.io:9500"
@@ -38,18 +38,19 @@ commodity_buffer = {}
 commodity_map = {}
 reverse_map = {}
 
-# Redis setup
-REDIS_URL = os.getenv('REDIS_URL', 'redis://localhost:6379')
-redis_client = redis.from_url(REDIS_URL)
+# ZMQ setup
+zmq_context = zmq.Context()
+status_publisher = zmq_context.socket(zmq.PUB)
+status_publisher.bind(f"tcp://*:{STATUS_PORT}")
 
 def publish_status(state, last_db_update=None):
-    """Publish status update to Redis"""
+    """Publish status update via ZMQ"""
     try:
         status = {
             "state": state,
             "last_db_update": last_db_update.isoformat() if last_db_update else None
         }
-        redis_client.publish('eddn_status', json.dumps(status))
+        status_publisher.send_string(json.dumps(status))
     except Exception as e:
         print(f"{RED}[ERROR] Failed to publish status: {e}{RESET}", file=sys.stderr)
 

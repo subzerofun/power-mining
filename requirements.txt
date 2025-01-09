@@ -10,4 +10,3 @@ gunicorn==21.2.0
 tqdm==4.66.1
 ijson==3.3.0
 flask-sock==0.7.0
-redis==5.0.1

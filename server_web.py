@@ -3,7 +3,7 @@ from psycopg2.extras import DictCursor
 from datetime import datetime
 from flask import Flask, render_template, request, jsonify, send_from_directory
 from flask_sock import Sock
-import redis
+import zmq
 import psutil
 from typing import Dict, List, Optional
 import mining_data_web as mining_data, res_data_web as res_data
@@ -23,15 +23,15 @@ DATABASE_URL = None  # Will be set from args or env in main()
 # Process ID file for update_live_web.py
 PID_FILE = os.path.join(BASE_DIR, 'update_live_web.pid')
 
+# ZMQ setup for status updates
+STATUS_PORT = int(os.getenv('STATUS_PORT', '5557'))
+zmq_context = zmq.Context()
+
 app = Flask(__name__, template_folder=BASE_DIR, static_folder=None)
 sock = Sock(app)
 updater_process = None
 live_update_requested = False
-eddn_status = {"state": None, "last_db_update": None}
-
-# Redis setup
-REDIS_URL = os.getenv('REDIS_URL', 'redis://localhost:6379')
-redis_client = redis.from_url(REDIS_URL)
+eddn_status = {"state": "offline", "last_db_update": None}
 
 def kill_updater_process():
     global updater_process
@@ -107,23 +107,27 @@ def handle_output(line):
 @sock.route('/ws')
 def handle_websocket(ws):
     try:
-        pubsub = redis_client.pubsub()
-        pubsub.subscribe('eddn_status')
+        # Create ZMQ subscriber for status updates
+        subscriber = zmq_context.socket(zmq.SUB)
+        subscriber.connect(f"tcp://localhost:{STATUS_PORT}")
+        subscriber.setsockopt_string(zmq.SUBSCRIBE, "")
         
         # Send initial status
         ws.send(json.dumps({"state": "offline", "last_db_update": None}))
         
-        for message in pubsub.listen():
-            if message['type'] == 'message':
-                ws.send(message['data'].decode('utf-8'))
+        while True:
+            try:
+                # Use poll to avoid blocking forever
+                if subscriber.poll(100):  # 100ms timeout
+                    message = subscriber.recv_string()
+                    ws.send(message)
+            except zmq.ZMQError:
+                continue
+            
     except Exception as e:
         print(f"WebSocket error: {e}")
     finally:
-        try:
-            pubsub.unsubscribe('eddn_status')
-            pubsub.close()
-        except:
-            pass
+        subscriber.close()
 
 @app.route('/favicon.ico')
 def favicon():
