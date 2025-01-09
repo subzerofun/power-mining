@@ -65,3 +65,4 @@ log/
 .DS_Store
 Thumbs.db
 .env.example
+server_web_old.py

@@ -600,15 +600,17 @@ def search():
 
 @app.route('/search_highest')
 def search_highest():
-    """Handle the highest price search functionality."""
     try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-        
-        # Get search parameters
+        # Get power filters
         controlling_power = request.args.get('controlling_power')
         power_states = request.args.getlist('power_state[]')
         limit = int(request.args.get('limit', '30'))
+        
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'error': 'Database connection failed'}), 500
+            
+        cur = conn.cursor()
         
         # Build power state filter
         power_state_filter = ''
@@ -625,12 +627,12 @@ def search_highest():
         
         # Get the list of non-hotspot materials
         non_hotspot = get_non_hotspot_materials_list()
-        non_hotspot_str = ', '.join(f"'{material}'" for material in non_hotspot)
+        non_hotspot_str = "'" + "','".join(non_hotspot) + "'"
         
-        # Build the ring type case statement
+        # Build ring type case statement
         ring_type_cases = []
         for material, ring_types in mining_data.NON_HOTSPOT_MATERIALS.items():
-            ring_types_str = ', '.join(f"'{rt}'" for rt in ring_types)
+            ring_types_str = "'" + "','".join(ring_types) + "'"
             ring_type_cases.append(f"WHEN hp.commodity_name = '{material}' AND ms.ring_type IN ({ring_types_str}) THEN 1")
         ring_type_case = '\n'.join(ring_type_cases)
         
@@ -700,24 +702,7 @@ def search_highest():
         
         power_filter_params.append(limit)
         cur.execute(query, power_filter_params)
-        
-        # Format results to match server.py
-        results = []
-        for row in cur.fetchall():
-            results.append({
-                'commodity_name': row['commodity_name'],
-                'max_price': int(row['max_price']) if row['max_price'] is not None else 0,
-                'system_name': row['system_name'],
-                'controlling_power': row['controlling_power'],
-                'power_state': row['power_state'],
-                'landing_pad_size': row['landing_pad_size'],
-                'distance_to_arrival': float(row['distance_to_arrival']) if row['distance_to_arrival'] is not None else 0,
-                'demand': int(row['demand']) if row['demand'] is not None else 0,
-                'reserve_level': row['reserve_level'],
-                'station_name': row['station_name'],
-                'station_type': row['station_type'],
-                'update_time': row['update_time'].isoformat() if row['update_time'] is not None else None
-            })
+        results = cur.fetchall()
         
         conn.close()
         return jsonify(results)
