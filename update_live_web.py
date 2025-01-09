@@ -19,6 +19,15 @@ GREEN = '\033[92m'
 RED = '\033[91m'
 RESET = '\033[0m'
 
+def get_timestamp():
+    """Get current timestamp in YYYY:MM:DD-HH:MM:SS format"""
+    return datetime.now().strftime("%Y:%m:%d-%H:%M:%S")
+
+def log_message(color, tag, message):
+    """Print a log message with timestamp and color"""
+    timestamp = get_timestamp()
+    print(f"{color}[{timestamp}] [{tag}] {message}{RESET}", flush=True)
+
 # Constants
 DATABASE_URL = None  # Will be set from args or env in main()
 STATUS_PORT = int(os.getenv('STATUS_PORT', '5557'))
@@ -52,12 +61,12 @@ def publish_status(state, last_db_update=None):
         }
         status_publisher.send_string(json.dumps(status))
     except Exception as e:
-        print(f"{RED}[ERROR] Failed to publish status: {e}{RESET}", file=sys.stderr)
+        log_message(RED, "ERROR", f"Failed to publish status: {e}")
 
 def signal_handler(signum, frame):
     """Handle shutdown signals"""
     global running
-    print(f"\n{YELLOW}[STOPPING] EDDN Update Service{RESET}", flush=True)
+    log_message(YELLOW, "STOPPING", "EDDN Update Service")
     publish_status("offline")
     running = False
 
@@ -67,7 +76,7 @@ signal.signal(signal.SIGTERM, signal_handler)
 
 def load_commodity_map():
     """Load commodity mapping from CSV"""
-    print(f"{BLUE}[INIT] Loading commodity mapping from {COMMODITIES_CSV}{RESET}", flush=True)
+    log_message(BLUE, "INIT", f"Loading commodity mapping from {COMMODITIES_CSV}")
     commodity_map = {}
     reverse_map = {}
     with open(COMMODITIES_CSV, "r", encoding="utf-8") as f:
@@ -80,7 +89,7 @@ def load_commodity_map():
                 local_name = "Void Opal"
             commodity_map[eddn_id] = local_name
             reverse_map[local_name] = eddn_id
-    print(f"{GREEN}[INIT] Loaded {len(commodity_map)} commodities from CSV (mapping EDDN ID -> local name){RESET}", flush=True)
+    log_message(GREEN, "INIT", f"Loaded {len(commodity_map)} commodities from CSV (mapping EDDN ID -> local name)")
     return commodity_map, reverse_map
 
 def flush_commodities_to_db(conn, commodity_buffer, auto_commit=False):
@@ -94,7 +103,7 @@ def flush_commodities_to_db(conn, commodity_buffer, auto_commit=False):
     total_stations = len(commodity_buffer)
 
     try:
-        print(f"{YELLOW}[DATABASE] Writing to Database starting...{RESET}", flush=True)
+        log_message(YELLOW, "DATABASE", "Writing to Database starting...")
         
         # Process each station's commodities
         for station_name, new_map in commodity_buffer.items():
@@ -142,14 +151,14 @@ def flush_commodities_to_db(conn, commodity_buffer, auto_commit=False):
             # Commit every 10 stations
             if stations_processed % 10 == 0:
                 conn.commit()
-                print(f"{YELLOW}[DATABASE] Processed {stations_processed} of {total_stations} stations{RESET}", flush=True)
+                log_message(YELLOW, "DATABASE", f"Processed {stations_processed} of {total_stations} stations")
 
         # Final commit
         conn.commit()
-        print(f"{GREEN}[DATABASE] Writing to Database finished. Updated {stations_processed} stations with {total_commodities} commodities{RESET}", flush=True)
+        log_message(GREEN, "DATABASE", f"Writing to Database finished. Updated {stations_processed} stations with {total_commodities} commodities")
         
     except Exception as e:
-        print(f"{RED}[ERROR] Database error: {str(e)}{RESET}", file=sys.stderr)
+        log_message(RED, "ERROR", f"Database error: {str(e)}")
         conn.rollback()
         return 0, 0
         
@@ -166,14 +175,14 @@ def process_message(message, commodity_map):
         if message.get("stationType") == "FleetCarrier" or \
            (message.get("economies") and message["economies"][0].get("name") == "Carrier"):
             if DEBUG:
-                print(f"{YELLOW}[DEBUG] Skipped Fleet Carrier Data: {message.get('stationName')}{RESET}", flush=True)
+                log_message(YELLOW, "DEBUG", f"Skipped Fleet Carrier Data: {message.get('stationName')}")
             return None, None
             
         station_name = message.get("stationName")
         market_id = message.get("marketId")
         
         if market_id is None and DEBUG:
-            print(f"{YELLOW}[DEBUG] Live update without marketId: {station_name}{RESET}", flush=True)
+            log_message(YELLOW, "DEBUG", f"Live update without marketId: {station_name}")
         
         if not station_name:
             return None, None
@@ -196,7 +205,7 @@ def process_message(message, commodity_map):
             return station_name, station_commodities
             
     except Exception as e:
-        print(f"{RED}[ERROR] Error processing message: {str(e)}{RESET}", file=sys.stderr)
+        log_message(RED, "ERROR", f"Error processing message: {str(e)}")
         
     return None, None
 
@@ -212,11 +221,11 @@ def main():
     # Set DATABASE_URL from argument or environment variable
     DATABASE_URL = args.db or os.getenv('DATABASE_URL')
     if not DATABASE_URL:
-        print(f"{RED}[ERROR] Database URL must be provided via --db argument or DATABASE_URL environment variable{RESET}")
+        log_message(RED, "ERROR", "Database URL must be provided via --db argument or DATABASE_URL environment variable")
         return 1
     
     try:
-        print(f"{BLUE}[INIT] Starting Live EDDN Update every {DB_UPDATE_INTERVAL} seconds{RESET}", flush=True)
+        log_message(BLUE, "INIT", f"Starting Live EDDN Update every {DB_UPDATE_INTERVAL} seconds")
         
         publish_status("starting")
         
@@ -238,8 +247,8 @@ def main():
         subscriber.connect(EDDN_RELAY)
         subscriber.setsockopt_string(zmq.SUBSCRIBE, "")  # subscribe to all messages
         
-        print(f"{GREEN}[CONNECTED] Listening to EDDN. Flush changes every {DB_UPDATE_INTERVAL}s. (Press Ctrl+C to stop){RESET}", flush=True)
-        print(f"{BLUE}Mode: {'automatic' if args.auto else 'manual'}{RESET}", flush=True)
+        log_message(GREEN, "CONNECTED", f"Listening to EDDN. Flush changes every {DB_UPDATE_INTERVAL}s. (Press Ctrl+C to stop)")
+        log_message(BLUE, "MODE", "automatic" if args.auto else "manual")
         
         last_flush = time.time()
         messages_processed = 0
@@ -264,35 +273,35 @@ def main():
                     
                     # Print status every 100 messages
                     if messages_processed % 100 == 0:
-                        print(f"{YELLOW}[STATUS] Processed {messages_processed} messages{RESET}", flush=True)
+                        log_message(YELLOW, "STATUS", f"Processed {messages_processed} messages")
                     
                     # Flush to database every DB_UPDATE_INTERVAL seconds
                     current_time = time.time()
                     if current_time - last_flush >= DB_UPDATE_INTERVAL:
-                        print(f"{YELLOW}[DATABASE] Writing to Database starting...{RESET}", flush=True)
+                        log_message(YELLOW, "DATABASE", "Writing to Database starting...")
                         publish_status("updating", datetime.now(timezone.utc))
                         stations, commodities = flush_commodities_to_db(conn, commodity_buffer)
                         if stations > 0:
-                            print(f"{GREEN}[DATABASE] Writing to Database finished. Updated {stations} stations with {commodities} commodities{RESET}", flush=True)
+                            log_message(GREEN, "DATABASE", f"Writing to Database finished. Updated {stations} stations with {commodities} commodities")
                         publish_status("running", datetime.now(timezone.utc))
                         last_flush = current_time
                         
             except Exception as e:
-                print(f"{RED}[ERROR] Error processing message: {str(e)}{RESET}", file=sys.stderr)
+                log_message(RED, "ERROR", f"Error processing message: {str(e)}")
                 publish_status("error")
                 continue
                     
         # Final flush on exit
         if commodity_buffer:
-            print(f"{YELLOW}[DATABASE] Writing to Database starting...{RESET}", flush=True)
+            log_message(YELLOW, "DATABASE", "Writing to Database starting...")
             publish_status("updating", datetime.now(timezone.utc))
             stations, commodities = flush_commodities_to_db(conn, commodity_buffer)
             if stations > 0:
-                print(f"{GREEN}[DATABASE] Writing to Database finished. Updated {stations} stations with {commodities} commodities{RESET}", flush=True)
+                log_message(GREEN, "DATABASE", f"Writing to Database finished. Updated {stations} stations with {commodities} commodities")
             publish_status("running", datetime.now(timezone.utc))
                 
     except Exception as e:
-        print(f"{RED}[ERROR] Fatal error: {str(e)}{RESET}", file=sys.stderr)
+        log_message(RED, "ERROR", f"Fatal error: {str(e)}")
         publish_status("error")
         return 1
         
@@ -300,7 +309,7 @@ def main():
         if 'conn' in locals():
             conn.close()
         publish_status("offline")
-        print(f"{YELLOW}[TERMINATED] EDDN Update Service{RESET}", flush=True)
+        log_message(YELLOW, "TERMINATED", "EDDN Update Service")
         
     return 0
 
