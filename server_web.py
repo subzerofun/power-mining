@@ -360,7 +360,7 @@ def search():
             JOIN mineral_signals ms ON s.id64 = ms.system_id64
             LEFT JOIN relevant_stations rs ON s.id64 = rs.system_id64
             LEFT JOIN stations st ON s.id64 = st.system_id64 AND rs.station_name = st.station_name
-            WHERE {" AND ".join(where_conditions)}
+            WHERE """ + " AND ".join(where_conditions) + """
             ORDER BY sort_price DESC NULLS LAST, s.distance ASC"""
 
         else:
@@ -433,8 +433,9 @@ def search():
             else:
                 query += " ORDER BY sort_price DESC NULLS LAST, s.distance ASC"
 
-            query += " LIMIT %s"
-            params.append(limit)
+            if limit:
+                query += " LIMIT %s"
+                params.append(limit)
 
         cur.execute(query, params)
         rows = cur.fetchall()
