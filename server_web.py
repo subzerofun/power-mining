@@ -16,21 +16,13 @@ YELLOW, BLUE, RESET = '\033[93m', '\033[94m', '\033[0m'
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # Environment variables for configuration
-DATABASE_URL = os.getenv('DATABASE_URL', 'postgresql://wlwrgnlxqabffodl:ageujqzrvdqoqfid@138.199.149.152:8001/elyztbqfgbdsjtnl')
+DATABASE_URL = None  # Will be set from args or env in main()
+
 WEBSOCKET_HOST = os.getenv('WEBSOCKET_HOST', '127.0.0.1')
 WEBSOCKET_PORT = int(os.getenv('WEBSOCKET_PORT', '8765'))
 
 # Process ID file for update_live_web.py
 PID_FILE = os.path.join(BASE_DIR, 'update_live_web.pid')
-
-try:
-    import zstandard; ZSTD_AVAILABLE = True
-except ImportError:
-    ZSTD_AVAILABLE = False
-try:
-    import lz4.frame; LZ4_AVAILABLE = True
-except ImportError:
-    LZ4_AVAILABLE = False
 
 app = Flask(__name__, template_folder=BASE_DIR, static_folder=None)
 updater_process = None
@@ -163,22 +155,6 @@ def serve_config():
         app.logger.error(f"Error serving Config.ini: {str(e)}")
         return jsonify({'Defaults':{'system':'Harma','controlling_power':'Archon Delaine','max_distance':'200','search_results':'30'}})
 
-def decompress_data(data:str)->str:
-    if not data.startswith('__compressed__'): return data
-    try:
-        _,method,comp_hex=data.split('__',2)
-        c=bytes.fromhex(comp_hex)
-        if method=='zlib': d=zlib.decompress(c)
-        elif method=='zstandard':
-            if not ZSTD_AVAILABLE: raise ImportError("zstandard not installed")
-            d=zstandard.ZstdDecompressor().decompress(c)
-        elif method=='lz4':
-            if not LZ4_AVAILABLE: raise ImportError("lz4 not installed")
-            d=lz4.frame.decompress(c)
-        else: raise ValueError(f"Unknown compression method: {method}")
-        return d.decode('utf-8')
-    except Exception as e:
-        app.logger.error(f"Error decompressing data: {str(e)}"); return data
 
 def dict_factory(cursor,row):
     d = {}
@@ -843,12 +819,20 @@ def run_server(host,port,args):
     return app
 
 async def main():
-    parser=argparse.ArgumentParser(description='Power Mining Web Server')
-    parser.add_argument('--host',default='127.0.0.1',help='Host to bind to')
-    parser.add_argument('--port',type=int,default=5000,help='Port to bind to')
-    parser.add_argument('--live-update',action='store_true',help='Enable live EDDN updates')
-    args=parser.parse_args()
-    
+    parser = argparse.ArgumentParser(description='Power Mining Web Server')
+    parser.add_argument('--host', default='127.0.0.1', help='Host to bind to')
+    parser.add_argument('--port', type=int, default=5000, help='Port to bind to')
+    parser.add_argument('--live-update', action='store_true', help='Enable live EDDN updates')
+    parser.add_argument('--db', help='Database URL (e.g. postgresql://user:pass@host:port/dbname)')
+    args = parser.parse_args()
+
+    # Set DATABASE_URL from argument or environment variable
+    global DATABASE_URL
+    DATABASE_URL = args.db or os.getenv('DATABASE_URL')
+    if not DATABASE_URL:
+        print("ERROR: Database URL must be provided via --db argument or DATABASE_URL environment variable")
+        return 1
+
     # Bind websocket to all interfaces but web server to specified host
     ws_server = await websockets.serve(handle_websocket, '0.0.0.0', 8765)
     app_obj = run_server(args.host, args.port, args)
@@ -873,7 +857,7 @@ async def main():
         ws_server.close(); os._exit(0)
 
 def start_updater():
-    global updater_process, eddn_status
+    global updater_process, eddn_status, DATABASE_URL
     
     # Check if another instance is running
     if os.path.exists(PID_FILE):
@@ -906,8 +890,13 @@ def start_updater():
             print(f"Error in output stream: {e}", file=sys.stderr)
     
     try:
+        # Pass database URL when starting locally
+        cmd = [sys.executable, "update_live_web.py", "--auto"]
+        if DATABASE_URL:
+            cmd.extend(["--db", DATABASE_URL])
+            
         updater_process = subprocess.Popen(
-            [sys.executable, "update_live_web.py", "--auto"],
+            cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             universal_newlines=False,

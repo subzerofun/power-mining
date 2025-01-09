@@ -20,7 +20,8 @@ RED = '\033[91m'
 RESET = '\033[0m'
 
 # Constants
-DATABASE_URL = os.getenv('DATABASE_URL', 'postgresql://wlwrgnlxqabffodl:ageujqzrvdqoqfid@138.199.149.152:8001/elyztbqfgbdsjtnl')
+DATABASE_URL = None  # Will be set from args or env in main()
+
 COMMODITIES_CSV = os.path.join("data", "commodities_mining.csv")
 EDDN_RELAY = "tcp://eddn.edcd.io:9500"
 
@@ -183,11 +184,18 @@ def process_message(message, commodity_map):
 
 def main():
     """Main function"""
-    global running, commodity_buffer, commodity_map, reverse_map
+    global running, commodity_buffer, commodity_map, reverse_map, DATABASE_URL
     
     parser = argparse.ArgumentParser(description='EDDN Live Update Service')
     parser.add_argument('--auto', action='store_true', help='Automatically commit changes')
+    parser.add_argument('--db', help='Database URL (e.g. postgresql://user:pass@host:port/dbname)')
     args = parser.parse_args()
+    
+    # Set DATABASE_URL from argument or environment variable
+    DATABASE_URL = args.db or os.getenv('DATABASE_URL')
+    if not DATABASE_URL:
+        print(f"{RED}[ERROR] Database URL must be provided via --db argument or DATABASE_URL environment variable{RESET}")
+        return 1
     
     try:
         print(f"{BLUE}[INIT] Starting Live EDDN Update every {DB_UPDATE_INTERVAL} seconds{RESET}", flush=True)

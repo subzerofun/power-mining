@@ -9,4 +9,3 @@ lz4==4.3.2
 gunicorn==21.2.0
 tqdm==4.66.1
 ijson==3.3.0
-python-dotenv==1.0.0
