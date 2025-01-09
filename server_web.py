@@ -364,6 +364,10 @@ def search():
             WHERE """ + " AND ".join(where_conditions) + """
             ORDER BY sort_price DESC NULLS LAST, s.distance ASC"""
 
+            if limit:
+                query += " LIMIT %s"
+                params.append(limit)
+
         else:
             # Build all WHERE conditions first
             where_conditions = ["1=1"]  # Start with a dummy condition
@@ -375,33 +379,44 @@ def search():
             # Add signal_type params for relevant_stations CTE
             params.extend([signal_type, signal_type])
             
-            # Build the main query conditions and their parameters in order
-            main_params = []
-            
+            # Build the main query conditions
             if controlling_power:
-                where_conditions.append("s.controlling_power::text = %s::text")
-                main_params.append(controlling_power)
+                where_conditions.append("s.controlling_power = %s")
+                params.append(controlling_power)
 
             if power_states:
                 where_conditions.append("s.power_state = ANY(%s::text[])")
-                main_params.append(power_states)
+                params.append(power_states)
 
             if mining_cond:
                 where_conditions.append(mining_cond)
-                main_params.extend(mining_params)
+                params.extend(mining_params)
 
             if ring_cond:
                 where_conditions.append(ring_cond.lstrip(" AND "))
-                main_params.extend(ring_params)
+                params.extend(ring_params)
 
-            # Add the mineral_type condition parameter if needed
-            mineral_type_param = []
+            # Add mineral_type parameter if needed
             if ring_type_filter != 'Without Hotspots':
-                mineral_type_param.append(signal_type)
+                params.append(signal_type)
 
-            # Combine all parameters in the correct order
-            params.extend(main_params)
-            params.extend(mineral_type_param)
+            # Determine ORDER BY clause based on is_ring_material
+            order_by = ""
+            if is_ring_material:
+                order_by = """
+                ORDER BY 
+                    CASE 
+                        WHEN ms.reserve_level = 'Pristine' THEN 1
+                        WHEN ms.reserve_level = 'Major' THEN 2
+                        WHEN ms.reserve_level = 'Common' THEN 3
+                        WHEN ms.reserve_level = 'Low' THEN 4
+                        WHEN ms.reserve_level = 'Depleted' THEN 5
+                        ELSE 6 
+                    END,
+                    rs.sell_price DESC NULLS LAST,
+                    s.distance ASC"""
+            else:
+                order_by = " ORDER BY sort_price DESC NULLS LAST, s.distance ASC"
 
             query = f"""
             WITH relevant_systems AS (
@@ -432,24 +447,7 @@ def search():
             query += """
             LEFT JOIN relevant_stations rs ON s.id64 = rs.system_id64
             LEFT JOIN stations st ON s.id64 = st.system_id64 AND rs.station_name = st.station_name
-            WHERE """ + " AND ".join(where_conditions)
-
-            if is_ring_material:
-                query += """
-                ORDER BY 
-                    CASE 
-                        WHEN ms.reserve_level = 'Pristine' THEN 1
-                        WHEN ms.reserve_level = 'Major' THEN 2
-                        WHEN ms.reserve_level = 'Common' THEN 3
-                        WHEN ms.reserve_level = 'Low' THEN 4
-                        WHEN ms.reserve_level = 'Depleted' THEN 5
-                        ELSE 6 
-                    END,
-                    rs.sell_price DESC NULLS LAST,
-                    s.distance ASC
-                """
-            else:
-                query += " ORDER BY sort_price DESC NULLS LAST, s.distance ASC"
+            WHERE """ + " AND ".join(where_conditions) + order_by
 
             if limit:
                 query += " LIMIT %s"
