@@ -618,7 +618,8 @@ def search_highest():
         ring_type_case = []
         for material, ring_types in mining_data.NON_HOTSPOT_MATERIALS.items():
             ring_type_str = "ARRAY[" + ",".join("'" + rt.replace("'", "") + "'" for rt in ring_types) + "]"
-            ring_type_case.append(f"WHEN hp.commodity_name = '{material.replace('\'', '')}' AND ms.ring_type = ANY({ring_type_str}) THEN 1")
+            material_name = material.replace("'", "")
+            ring_type_case.append(f"WHEN hp.commodity_name = '{material_name}' AND ms.ring_type = ANY({ring_type_str}) THEN 1")
         ring_type_case = "\n".join(ring_type_case)
         
         # Build the query
