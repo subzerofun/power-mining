@@ -26,6 +26,7 @@ def create_postgres_schema(pg_conn):
                 z DOUBLE PRECISION,
                 controlling_power TEXT,
                 power_state TEXT,
+                distance_from_sol DOUBLE PRECISION,
                 CONSTRAINT unique_system_name UNIQUE (name)
             )
         """)
@@ -50,8 +51,11 @@ def create_postgres_schema(pg_conn):
         cur.execute("""
             CREATE TABLE stations (
                 system_id64 BIGINT NOT NULL,
+                station_id BIGINT,
+                body TEXT,
                 station_name TEXT NOT NULL,
                 station_type TEXT,
+                primary_economy TEXT,
                 distance_to_arrival DOUBLE PRECISION,
                 landing_pad_size TEXT,
                 update_time TIMESTAMP,
@@ -65,6 +69,7 @@ def create_postgres_schema(pg_conn):
         cur.execute("""
             CREATE TABLE station_commodities (
                 system_id64 BIGINT NOT NULL,
+                station_id BIGINT,
                 station_name TEXT NOT NULL,
                 commodity_name TEXT NOT NULL,
                 sell_price INTEGER,

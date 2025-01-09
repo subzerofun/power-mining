@@ -1,11 +1,11 @@
-import os, sys, math, json, zlib, time, signal, atexit, argparse, asyncio, subprocess, threading, sqlite3, psycopg2
+import os, sys, math, json, zlib, time, signal, atexit, argparse, asyncio, subprocess, threading, psycopg2
 from psycopg2.extras import DictCursor
 from datetime import datetime
 from flask import Flask, render_template, request, jsonify, send_from_directory
 import psutil, websockets, io
 from typing import Dict, List, Optional
-import mining_data, res_data
-from mining_data import (
+import mining_data_web as mining_data, res_data_web as res_data
+from mining_data_web import (
     get_material_ring_types, get_non_hotspot_materials_list,
     get_ring_type_case_statement, get_mining_type_conditions,
     get_price_comparison, normalize_commodity_name,
@@ -16,7 +16,7 @@ YELLOW, BLUE, RESET = '\033[93m', '\033[94m', '\033[0m'
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # Environment variables for configuration
-DATABASE_URL = os.getenv('DATABASE_URL', 'systems.db')
+DATABASE_URL = os.getenv('DATABASE_URL', 'postgresql://wlwrgnlxqabffodl:ageujqzrvdqoqfid@138.199.149.152:8001/elyztbqfgbdsjtnl')
 WEBSOCKET_HOST = os.getenv('WEBSOCKET_HOST', '127.0.0.1')
 WEBSOCKET_PORT = int(os.getenv('WEBSOCKET_PORT', '8765'))
 
@@ -76,31 +76,39 @@ if os.name == 'nt':
     signal.signal(signal.SIGABRT, cleanup_handler)
 
 def handle_output(line):
+    """Handle output from the EDDN updater process"""
     global eddn_status
     line = line.strip()
     print(f"{YELLOW if '[INIT]' in line or '[STOPPING]' in line or '[TERMINATED]' in line else BLUE}{line}{RESET}", flush=True)
-    if "[INIT]" in line: eddn_status["state"] = "starting"
-    elif "Loaded" in line and "commodities from CSV" in line: eddn_status["state"] = "starting"
-    elif "Listening to EDDN" in line: eddn_status["state"] = "running"
+    
+    if "[INIT]" in line:
+        eddn_status["state"] = "starting"
+    elif "Loaded" in line and "commodities from CSV" in line:
+        eddn_status["state"] = "starting"
+    elif "Listening to EDDN" in line:
+        eddn_status["state"] = "running"
     elif "[DATABASE] Writing to Database starting..." in line:
-        eddn_status["state"] = "updating"; eddn_status["last_db_update"] = datetime.now().isoformat(); eddn_status["update_start_time"] = time.time()
-    elif "[DATABASE] Writing to Database finished." in line or "Writing to Database finished. Updated" in line:
+        eddn_status["state"] = "updating"
+        eddn_status["last_db_update"] = datetime.now().isoformat()
+        eddn_status["update_start_time"] = time.time()
+    elif "[DATABASE] Writing to Database finished." in line:
         if "update_start_time" in eddn_status:
             elapsed = time.time() - eddn_status["update_start_time"]
-            if elapsed < 1: time.sleep(1 - elapsed)
+            if elapsed < 1:
+                time.sleep(1 - elapsed)
             del eddn_status["update_start_time"]
         eddn_status["state"] = "running"
     elif "[STOPPING]" in line or "[TERMINATED]" in line:
         eddn_status["state"] = "offline"
         print(f"{YELLOW}[STATUS] EDDN updater stopped{RESET}", flush=True)
-    elif "Error:" in line:
+    elif "Error:" in line or "[ERROR]" in line:
         eddn_status["state"] = "error"
         print(f"{YELLOW}[STATUS] EDDN updater encountered an error{RESET}", flush=True)
 
 async def handle_websocket(websocket):
     try:
         while True:
-            await websocket.send(json.dumps({"eddn": eddn_status}))
+            await websocket.send(json.dumps(eddn_status))
             await asyncio.sleep(0.1)
     except websockets.exceptions.ConnectionClosed:
         pass
@@ -147,13 +155,13 @@ def serve_config():
     try:
         path = os.path.join(BASE_DIR,'Config.ini')
         if not os.path.exists(path):
-            with open(path, 'w') as f: f.write("[Defaults]\nsystem = Harma\ncontrolling_power = Archon Delaine\nmax_distance = 200\nsearch_results = 30\nsystem_database = systems.db\n")
+            with open(path, 'w') as f: f.write("[Defaults]\nsystem = Harma\ncontrolling_power = Archon Delaine\nmax_distance = 200\nsearch_results = 30\n")
         r = send_from_directory(BASE_DIR, 'Config.ini', mimetype='text/plain')
         r.headers['Cache-Control']='no-cache, no-store, must-revalidate'; r.headers['Pragma']='no-cache'; r.headers['Expires']='0'
         return r
     except Exception as e:
         app.logger.error(f"Error serving Config.ini: {str(e)}")
-        return jsonify({'Defaults':{'system':'Harma','controlling_power':'Archon Delaine','max_distance':'200','search_results':'30','system_database':'systems.db'}})
+        return jsonify({'Defaults':{'system':'Harma','controlling_power':'Archon Delaine','max_distance':'200','search_results':'30'}})
 
 def decompress_data(data:str)->str:
     if not data.startswith('__compressed__'): return data
@@ -180,9 +188,8 @@ def dict_factory(cursor,row):
 
 def get_db_connection():
     """Get a database connection"""
-    db_url = request.args.get('database', os.getenv('DATABASE_URL', 'postgresql://postgres:elephant9999!@localhost:5432/power_mining'))
     try:
-        conn = psycopg2.connect(db_url)
+        conn = psycopg2.connect(DATABASE_URL)
         conn.cursor_factory = DictCursor  # This provides dict-like access similar to sqlite3's dict_factory
         return conn
     except Exception as e:
@@ -204,7 +211,7 @@ def get_ring_materials():
     return rm
 
 @app.route('/')
-def index(): return render_template('index.html')
+def index(): return render_template('index_web.html')
 
 @app.route('/autocomplete')
 def autocomplete():
@@ -605,13 +612,13 @@ def search_highest():
         
         # Get non-hotspot materials
         non_hotspot = get_non_hotspot_materials_list()
-        non_hotspot_str = "'" + "','".join(non_hotspot) + "'"
+        non_hotspot_str = "ARRAY[" + ",".join(f"'{mat.replace('\'', '')}'" for mat in non_hotspot) + "]"
         
         # Build ring type case for non-hotspot materials
         ring_type_case = []
         for material, ring_types in mining_data.NON_HOTSPOT_MATERIALS.items():
-            ring_type_str = "'" + "','".join(ring_types) + "'"
-            ring_type_case.append(f"WHEN hp.commodity_name = '{material}' AND ms.ring_type IN ({ring_type_str}) THEN 1")
+            ring_type_str = "ARRAY[" + ",".join(f"'{rt.replace('\'', '')}'" for rt in ring_types) + "]"
+            ring_type_case.append(f"WHEN hp.commodity_name = '{material.replace('\'', '')}' AND ms.ring_type = ANY({ring_type_str}) THEN 1")
         ring_type_case = "\n".join(ring_type_case)
         
         # Build the query
@@ -641,7 +648,7 @@ def search_highest():
             SELECT hp.*,
                 ms.reserve_level,
                 CASE
-                    WHEN hp.commodity_name NOT IN ({non_hotspot_str})
+                    WHEN hp.commodity_name NOT IN (SELECT unnest({non_hotspot_str}))
                         AND ms.mineral_type = hp.commodity_name THEN 1
                     WHEN hp.commodity_name = 'Low Temperature Diamonds' 
                         AND ms.mineral_type = 'LowTemperatureDiamond' THEN 1
@@ -674,71 +681,30 @@ def search_highest():
         cur.execute(query, power_filter_params)
         results = cur.fetchall()
         
+        # Format results to ensure proper data types
+        formatted_results = []
+        for row in results:
+            formatted_results.append({
+                'commodity_name': row['commodity_name'],
+                'max_price': int(row['max_price']) if row['max_price'] is not None else 0,
+                'system_name': row['system_name'],
+                'controlling_power': row['controlling_power'],
+                'power_state': row['power_state'],
+                'landing_pad_size': row['landing_pad_size'],
+                'distance_to_arrival': float(row['distance_to_arrival']) if row['distance_to_arrival'] is not None else 0,
+                'demand': int(row['demand']) if row['demand'] is not None else 0,
+                'reserve_level': row['reserve_level'],
+                'station_name': row['station_name'],
+                'station_type': row['station_type'],
+                'update_time': row['update_time'].isoformat() if row['update_time'] is not None else None
+            })
+        
         conn.close()
-        return jsonify(results)
+        return jsonify(formatted_results)
         
     except Exception as e:
         app.logger.error(f"Search highest error: {str(e)}")
         return jsonify({'error': f'Search highest error: {str(e)}'}), 500
-
-@app.route('/search_high_yield_platinum', methods=['POST'])
-def search_high_yield_platinum():
-    try:
-        # Get reference system and database
-        ref_system = request.args.get('system', 'Sol')
-        
-        conn = get_db_connection()
-        if not conn:
-            return jsonify({'error': 'Database connection failed'}), 500
-            
-        cur = conn.cursor()
-        
-        # Get reference system coordinates
-        cur.execute('SELECT x, y, z FROM systems WHERE name = %s', (ref_system,))
-        ref_coords = cur.fetchone()
-        if not ref_coords:
-            conn.close()
-            return jsonify({'error': 'Reference system not found'}), 404
-        
-        ref_x, ref_y, ref_z = ref_coords['x'], ref_coords['y'], ref_coords['z']
-        
-        # Load high yield platinum data
-        data = res_data.load_high_yield_platinum()
-        
-        # Process each system
-        results = []
-        for entry in data:
-            # Get system info from database
-            cur.execute("""
-                SELECT s.*, 
-                    SQRT(POWER(s.x - %s, 2) + POWER(s.y - %s, 2) + POWER(s.z - %s, 2)) as distance
-                FROM systems s
-                WHERE s.name = %s
-            """, (ref_x, ref_x, ref_y, ref_y, ref_z, ref_z, entry['system']))
-            
-            system = cur.fetchone()
-            if not system:
-                continue
-                
-            # Get station data
-            stations = res_data.get_station_commodities(conn, system['id64'])
-            
-            results.append({
-                'system': entry['system'],
-                'power': system['controlling_power'] or 'None',
-                'distance': float(system['distance']),
-                'ring': entry['ring'],
-                'percentage': entry['percentage'],  # Include the percentage from CSV
-                'comment': entry['comment'],
-                'stations': stations
-            })
-            
-        conn.close()
-        return jsonify(results)
-        
-    except Exception as e:
-        app.logger.error(f"Search high yield platinum error: {str(e)}")
-        return jsonify({'error': f'Search high yield platinum error: {str(e)}'}), 500
 
 @app.route('/get_price_comparison', methods=['POST'])
 def get_price_comparison_endpoint():
@@ -766,58 +732,101 @@ def get_price_comparison_endpoint():
 @app.route('/search_res_hotspots', methods=['POST'])
 def search_res_hotspots():
     try:
-        ref_system=request.args.get('system','Sol')
-        database=request.json.get('database','systems.db')
-        conn=get_db_connection()
-        if not conn: return jsonify({'error':'Database connection failed'}),500
-        c=conn.cursor(); c.row_factory=res_data.dict_factory
-        c.execute('SELECT x,y,z FROM systems WHERE name=?',(ref_system,))
-        ref_coords=c.fetchone()
-        if not ref_coords: conn.close(); return jsonify({'error':'Reference system not found'}),404
-        rx,ry,rz=ref_coords['x'],ref_coords['y'],ref_coords['z']
-        hotspot_data=res_data.load_res_data(database)
-        results=[]
+        # Get reference system from query parameters
+        ref_system = request.args.get('system', 'Sol')
+        
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'error': 'Database connection failed'}), 500
+        c = conn.cursor()
+        
+        c.execute('SELECT x, y, z FROM systems WHERE name = %s', (ref_system,))
+        ref_coords = c.fetchone()
+        if not ref_coords:
+            conn.close()
+            return jsonify({'error': 'Reference system not found'}), 404
+            
+        rx, ry, rz = ref_coords['x'], ref_coords['y'], ref_coords['z']
+        hotspot_data = res_data.load_res_data()
+        if not hotspot_data:
+            conn.close()
+            return jsonify({'error': 'No RES hotspot data available'}), 404
+            
+        results = []
         for e in hotspot_data:
-            c.execute('''SELECT s.*,sqrt(((s.x-?)*(s.x-?))+((s.y-?)*(s.y-?))+((s.z-?)*(s.z-?))) distance
-                         FROM systems s WHERE s.name=?''',(rx,rx,ry,ry,rz,rz,e['system']))
-            system=c.fetchone(); 
-            if not system: continue
-            st=res_data.get_station_commodities(conn,system['id64'])
-            results.append({'system':e['system'],'power':system['controlling_power'] or 'None',
-                            'distance':float(system['distance']),'ring':e['ring'],'ls':e['ls'],
-                            'res_zone':e['res_zone'],'comment':e['comment'],'stations':st})
-        conn.close(); return jsonify(results)
+            c.execute('''SELECT s.*, sqrt(power(s.x - %s, 2) + power(s.y - %s, 2) + power(s.z - %s, 2)) as distance
+                        FROM systems s WHERE s.name = %s''', 
+                     (rx, ry, rz, e['system']))
+            system = c.fetchone()
+            if not system:
+                continue
+                
+            st = res_data.get_station_commodities(conn, system['id64'])
+            results.append({
+                'system': e['system'],
+                'power': system['controlling_power'] or 'None',
+                'distance': float(system['distance']),
+                'ring': e['ring'],
+                'ls': e['ls'],
+                'res_zone': e['res_zone'],
+                'comment': e['comment'],
+                'stations': st
+            })
+            
+        conn.close()
+        return jsonify(results)
     except Exception as e:
         app.logger.error(f"RES hotspot search error: {str(e)}")
-        return jsonify({'error':f'Search error: {str(e)}'}),500
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/search_high_yield_platinum', methods=['POST'])
 def search_high_yield_platinum():
     try:
-        ref_system=request.args.get('system','Sol')
-        database=request.json.get('database','systems.db')
-        conn=get_db_connection()
-        if not conn: return jsonify({'error':'Database connection failed'}),500
-        c=conn.cursor(); c.row_factory=res_data.dict_factory
-        c.execute('SELECT x,y,z FROM systems WHERE name=?',(ref_system,))
-        ref_coords=c.fetchone()
-        if not ref_coords: conn.close(); return jsonify({'error':'Reference system not found'}),404
-        rx,ry,rz=ref_coords['x'],ref_coords['y'],ref_coords['z']
-        data=res_data.load_high_yield_platinum()
-        results=[]
+        # Get reference system from query parameters
+        ref_system = request.args.get('system', 'Sol')
+        
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'error': 'Database connection failed'}), 500
+        c = conn.cursor()
+        
+        c.execute('SELECT x, y, z FROM systems WHERE name = %s', (ref_system,))
+        ref_coords = c.fetchone()
+        if not ref_coords:
+            conn.close()
+            return jsonify({'error': 'Reference system not found'}), 404
+            
+        rx, ry, rz = ref_coords['x'], ref_coords['y'], ref_coords['z']
+        data = res_data.load_high_yield_platinum()
+        if not data:
+            conn.close()
+            return jsonify({'error': 'No high yield platinum data available'}), 404
+            
+        results = []
         for e in data:
-            c.execute('''SELECT s.*,sqrt(((s.x-?)*(s.x-?))+((s.y-?)*(s.y-?))+((s.z-?)*(s.z-?))) distance
-                         FROM systems s WHERE s.name=?''',(rx,rx,ry,ry,rz,rz,e['system']))
-            system=c.fetchone(); 
-            if not system: continue
-            st=res_data.get_station_commodities(conn,system['id64'])
-            results.append({'system':e['system'],'power':system['controlling_power'] or 'None',
-                            'distance':float(system['distance']),'ring':e['ring'],
-                            'percentage':e['percentage'],'comment':e['comment'],'stations':st})
-        conn.close(); return jsonify(results)
+            c.execute('''SELECT s.*, sqrt(power(s.x - %s, 2) + power(s.y - %s, 2) + power(s.z - %s, 2)) as distance
+                        FROM systems s WHERE s.name = %s''', 
+                     (rx, ry, rz, e['system']))
+            system = c.fetchone()
+            if not system:
+                continue
+                
+            st = res_data.get_station_commodities(conn, system['id64'])
+            results.append({
+                'system': e['system'],
+                'power': system['controlling_power'] or 'None',
+                'distance': float(system['distance']),
+                'ring': e['ring'],
+                'percentage': e['percentage'],
+                'comment': e['comment'],
+                'stations': st
+            })
+            
+        conn.close()
+        return jsonify(results)
     except Exception as e:
         app.logger.error(f"High yield platinum search error: {str(e)}")
-        return jsonify({'error':str(e)}),500
+        return jsonify({'error': str(e)}), 500
 
 def run_server(host,port,args):
     global live_update_requested, eddn_status
