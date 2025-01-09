@@ -309,12 +309,12 @@ def search():
 
         non_hotspot = get_non_hotspot_materials_list()
         is_non_hotspot = signal_type in non_hotspot
-        non_hotspot_str = ', '.join(f"'{material}'" for material in non_hotspot)
+        non_hotspot_str = ','.join(f"'{material}'" for material in non_hotspot)
         
         # Build the ring type case statement
         ring_type_cases = []
         for material, ring_types in mining_data.NON_HOTSPOT_MATERIALS.items():
-            ring_types_str = ', '.join(f"'{rt}'" for rt in ring_types)
+            ring_types_str = ','.join(f"'{rt}'" for rt in ring_types)
             ring_type_cases.append(f"WHEN hp.commodity_name = '{material}' AND ms.ring_type IN ({ring_types_str}) THEN 1")
         ring_type_case = '\n'.join(ring_type_cases)
         
@@ -337,12 +337,14 @@ def search():
                 s.power_state, s.distance, ms.body_name, ms.ring_name, ms.ring_type,
                 ms.mineral_type, ms.signal_count, ms.reserve_level, rs.station_name,
                 st.landing_pad_size, st.distance_to_arrival as station_distance,
-                st.station_type, rs.demand, rs.sell_price, st.update_time
+                st.station_type, rs.demand, rs.sell_price, st.update_time,
+                rs.sell_price as sort_price
             FROM relevant_systems s
             JOIN mineral_signals ms ON s.id64 = ms.system_id64
             LEFT JOIN relevant_stations rs ON s.id64 = rs.system_id64
             LEFT JOIN stations st ON s.id64 = st.system_id64 AND rs.station_name = st.station_name
             WHERE ms.ring_type = ANY(%s::text[])
+            ORDER BY sort_price DESC NULLS LAST, s.distance ASC
             """
             params = [rx, rx, ry, ry, rz, rz, max_dist, signal_type, signal_type, ring_types]
 
@@ -596,12 +598,12 @@ def search_highest():
         
         # Get the list of non-hotspot materials
         non_hotspot = get_non_hotspot_materials_list()
-        non_hotspot_str = ','.join([f"'{mat}'" for mat in non_hotspot])
+        non_hotspot_str = ','.join(f"'{material}'" for material in non_hotspot)
         
         # Build ring type case statement
         ring_type_cases = []
         for material, ring_types in mining_data.NON_HOTSPOT_MATERIALS.items():
-            ring_types_str = ','.join([f"'{rt}'" for rt in ring_types])
+            ring_types_str = ','.join(f"'{rt}'" for rt in ring_types)
             ring_type_cases.append(f"WHEN hp.commodity_name = '{material}' AND ms.ring_type IN ({ring_types_str}) THEN 1")
         ring_type_case = '\n'.join(ring_type_cases)
         
