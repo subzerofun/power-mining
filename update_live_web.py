@@ -11,6 +11,7 @@ import msgspec
 import psycopg2
 import zmq
 from psycopg2.extras import DictCursor
+import atexit
 
 # ANSI color codes
 YELLOW = '\033[93m'
@@ -50,7 +51,11 @@ reverse_map = {}
 # ZMQ setup
 zmq_context = zmq.Context()
 status_publisher = zmq_context.socket(zmq.PUB)
-status_publisher.bind(f"tcp://*:{STATUS_PORT}")
+try:
+    status_publisher.connect(f"tcp://localhost:{STATUS_PORT}")
+except Exception as e:
+    log_message(RED, "ERROR", f"Failed to connect to status port: {e}")
+    sys.exit(1)
 
 def publish_status(state, last_db_update=None):
     """Publish status update via ZMQ"""
@@ -62,6 +67,17 @@ def publish_status(state, last_db_update=None):
         status_publisher.send_string(json.dumps(status))
     except Exception as e:
         log_message(RED, "ERROR", f"Failed to publish status: {e}")
+
+def cleanup():
+    """Cleanup function to be called on exit"""
+    try:
+        status_publisher.close()
+        zmq_context.term()
+    except:
+        pass
+
+# Register cleanup
+atexit.register(cleanup)
 
 def signal_handler(signum, frame):
     """Handle shutdown signals"""
@@ -229,13 +245,13 @@ def process_message(message, commodity_map):
     try:
         schema_ref = message.get("$schemaRef", "").lower()
         
+        # Skip if not a commodity message
+        if "commodity" not in schema_ref:
+            return None, None
+            
         # Handle journal messages for power data
         if "journal" in schema_ref:
             handle_journal_message(message)
-            return None, None
-            
-        # Skip if not a commodity message
-        if "commodity" not in schema_ref:
             return None, None
             
         # Skip fleet carriers
@@ -255,9 +271,15 @@ def process_message(message, commodity_map):
             
         # Process commodities
         station_commodities = {}
-        for commodity in message.get("commodities", []):
+        commodities = message.get("commodities", [])
+        log_message(BLUE, "DEBUG", f"Processing {len(commodities)} commodities from {station_name}")
+        
+        for commodity in commodities:
             name = commodity.get("name", "").lower()
-            if not name or name not in commodity_map:
+            if not name:
+                continue
+                
+            if name not in commodity_map:
                 continue
                 
             sell_price = commodity.get("sellPrice", 0)
@@ -266,13 +288,15 @@ def process_message(message, commodity_map):
                 
             demand = commodity.get("demand", 0)
             station_commodities[commodity_map[name]] = (sell_price, demand, market_id)
+            log_message(BLUE, "DEBUG", f"Found commodity {commodity_map[name]} at {station_name} (price: {sell_price}, demand: {demand})")
             
         if station_commodities:
-            # Add debug output for commodity processing
-            log_message(BLUE, "DEBUG", f"Found {len(station_commodities)} relevant commodities for station {station_name}")
+            log_message(GREEN, "DEBUG", f"Found {len(station_commodities)} relevant commodities for station {station_name}")
             # Publish status update to indicate activity
             publish_status("running", datetime.now(timezone.utc))
             return station_name, station_commodities
+        else:
+            log_message(YELLOW, "DEBUG", f"No relevant commodities found for station {station_name}")
             
     except Exception as e:
         log_message(RED, "ERROR", f"Error processing message: {str(e)}")

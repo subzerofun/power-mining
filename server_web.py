@@ -28,6 +28,11 @@ PID_FILE = os.path.join(tempfile.gettempdir(), 'update_live_web.pid')
 # ZMQ setup for status updates
 STATUS_PORT = int(os.getenv('STATUS_PORT', '5557'))
 zmq_context = zmq.Context()
+status_socket = zmq_context.socket(zmq.XPUB)  # Use XPUB for multiple publishers
+try:
+    status_socket.bind(f"tcp://*:{STATUS_PORT}")
+except zmq.error.ZMQError as e:
+    print(f"Warning: Could not bind to status port: {e}", file=sys.stderr)
 
 app = Flask(__name__, template_folder=BASE_DIR, static_folder=None)
 sock = Sock(app)
@@ -125,6 +130,16 @@ def handle_output(line):
         if live_update_requested:
             print(f"{ORANGE}[STATUS] EDDN updater encountered an error{RESET}", flush=True)
 
+def cleanup():
+    """Cleanup function to be called on exit"""
+    try:
+        status_socket.close()
+        zmq_context.term()
+    except:
+        pass
+
+atexit.register(cleanup)
+
 @sock.route('/ws')
 def handle_websocket(ws):
     try:
@@ -134,7 +149,7 @@ def handle_websocket(ws):
         subscriber.setsockopt_string(zmq.SUBSCRIBE, "")
         
         # Send initial status
-        ws.send(json.dumps({"state": "offline", "last_db_update": None}))
+        ws.send(json.dumps({"state": eddn_status["state"], "last_db_update": eddn_status.get("last_db_update")}))
         
         while True:
             try:
@@ -144,11 +159,17 @@ def handle_websocket(ws):
                     ws.send(message)
             except zmq.ZMQError:
                 continue
+            except Exception as e:
+                print(f"WebSocket error: {e}", file=sys.stderr)
+                break
             
     except Exception as e:
-        print(f"WebSocket error: {e}")
+        print(f"WebSocket error: {e}", file=sys.stderr)
     finally:
-        subscriber.close()
+        try:
+            subscriber.close()
+        except:
+            pass
 
 @app.route('/favicon.ico')
 def favicon():
