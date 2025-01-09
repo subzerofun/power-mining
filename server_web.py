@@ -89,7 +89,7 @@ def handle_output(line):
     
     # Only print output if we started the process (--live-update)
     if live_update_requested:
-        print(f"{YELLOW if '[INIT]' in line or '[STOPPING]' in line or '[TERMINATED]' in line else BLUE}{line}{RESET}", flush=True)
+        print(f"{ORANGE if '[INIT]' in line or '[STOPPING]' in line or '[TERMINATED]' in line else BLUE}{line}{RESET}", flush=True)
     
     # Always process status updates
     if "[INIT]" in line:
@@ -101,29 +101,29 @@ def handle_output(line):
     elif "Listening to EDDN" in line:
         eddn_status["state"] = "running"
         eddn_status["last_activity"] = time.time()
-    elif "[STATUS]" in line and "Processed" in line:
+    elif "[STATUS]" in line or "[DEBUG]" in line:  # Also count debug messages as activity
         eddn_status["last_activity"] = time.time()
-    elif "[DATABASE] Writing to Database starting..." in line:
-        eddn_status["state"] = "updating"
-        eddn_status["last_db_update"] = datetime.now().isoformat()
-        eddn_status["update_start_time"] = time.time()
+    elif "[DATABASE]" in line:
         eddn_status["last_activity"] = time.time()
-    elif "[DATABASE] Writing to Database finished." in line:
-        if "update_start_time" in eddn_status:
-            elapsed = time.time() - eddn_status["update_start_time"]
-            if elapsed < 1:
-                time.sleep(1 - elapsed)
-            del eddn_status["update_start_time"]
-        eddn_status["state"] = "running"
-        eddn_status["last_activity"] = time.time()
+        if "Writing to Database starting..." in line:
+            eddn_status["state"] = "updating"
+            eddn_status["last_db_update"] = datetime.now().isoformat()
+            eddn_status["update_start_time"] = time.time()
+        elif "Writing to Database finished." in line:
+            if "update_start_time" in eddn_status:
+                elapsed = time.time() - eddn_status["update_start_time"]
+                if elapsed < 1:
+                    time.sleep(1 - elapsed)
+                del eddn_status["update_start_time"]
+            eddn_status["state"] = "running"
     elif "[STOPPING]" in line or "[TERMINATED]" in line:
         eddn_status["state"] = "offline"
         if live_update_requested:
-            print(f"{YELLOW}[STATUS] EDDN updater stopped{RESET}", flush=True)
+            print(f"{ORANGE}[STATUS] EDDN updater stopped{RESET}", flush=True)
     elif "Error:" in line or "[ERROR]" in line:
         eddn_status["state"] = "error"
         if live_update_requested:
-            print(f"{YELLOW}[STATUS] EDDN updater encountered an error{RESET}", flush=True)
+            print(f"{ORANGE}[STATUS] EDDN updater encountered an error{RESET}", flush=True)
 
 @sock.route('/ws')
 def handle_websocket(ws):
@@ -963,9 +963,17 @@ def check_existing_process():
 def handle_output_stream(pipe):
     """Handle output from the EDDN updater process"""
     try:
-        with io.TextIOWrapper(pipe, encoding='utf-8', errors='replace') as text_stream:
-            for line in text_stream:
-                handle_output(line)
+        # Use binary mode and decode manually to avoid buffering issues
+        while True:
+            line = pipe.readline()
+            if not line:
+                break
+            try:
+                decoded_line = line.decode('utf-8', errors='replace')
+                if decoded_line.strip():
+                    handle_output(decoded_line)
+            except Exception as e:
+                print(f"Error decoding output: {e}", file=sys.stderr)
     except Exception as e:
         print(f"Error in output stream: {e}", file=sys.stderr)
 
@@ -973,11 +981,6 @@ def start_updater():
     """Start the EDDN updater process"""
     global updater_process, eddn_status
     
-    # Check if already running
-    if check_existing_process():
-        print(f"{ORANGE}[UPDATE-CHECK] Update service already running{RESET}", flush=True)
-        return
-        
     try:
         # Kill any existing process first
         kill_updater_process()
@@ -988,30 +991,27 @@ def start_updater():
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             universal_newlines=False,
+            bufsize=0,  # No buffering
             creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if os.name == 'nt' else 0
         )
         
-        # Write PID to file
-        with open(PID_FILE, 'w') as f:
-            f.write(str(updater_process.pid))
-        
         print(f"{ORANGE}[UPDATE-CHECK] Starting EDDN Live Update (PID: {updater_process.pid}){RESET}", flush=True)
+        
+        # Start output handling threads
         threading.Thread(target=handle_output_stream, args=(updater_process.stdout,), daemon=True).start()
         threading.Thread(target=handle_output_stream, args=(updater_process.stderr,), daemon=True).start()
         
-        time.sleep(0.5)
+        # Wait a moment to ensure process starts
+        time.sleep(1)
         if updater_process.poll() is None:
             eddn_status["state"] = "starting"
+            eddn_status["last_activity"] = time.time()
         else:
             eddn_status["state"] = "error"
             print(f"{ORANGE}[UPDATE-CHECK] EDDN updater failed to start{RESET}", flush=True)
-            if os.path.exists(PID_FILE):
-                os.remove(PID_FILE)
     except Exception as e:
         print(f"{ORANGE}[UPDATE-CHECK] Error starting updater: {e}{RESET}", flush=True)
         eddn_status["state"] = "error"
-        if os.path.exists(PID_FILE):
-            os.remove(PID_FILE)
 
 def monitor_process():
     """Monitor the update process and restart if needed"""
@@ -1023,28 +1023,12 @@ def monitor_process():
             # First check if we have a process object
             if updater_process is None:
                 print(f"{ORANGE}[UPDATE-CHECK] No running update process object{RESET}", flush=True)
-                if not check_existing_process():
-                    start_updater()
+                start_updater()
                 continue
                 
             # Check if process is still running
             if updater_process.poll() is not None:
                 print(f"{ORANGE}[UPDATE-CHECK] Update process terminated, restarting...{RESET}", flush=True)
-                kill_updater_process()
-                start_updater()
-                continue
-                
-            # Check if process exists in system
-            try:
-                process = psutil.Process(updater_process.pid)
-                if "update_live_web.py" not in process.cmdline():
-                    print(f"{ORANGE}[UPDATE-CHECK] PID exists but is not update_live_web.py, restarting...{RESET}", flush=True)
-                    kill_updater_process()
-                    start_updater()
-                    continue
-            except psutil.NoSuchProcess:
-                print(f"{ORANGE}[UPDATE-CHECK] Process not found in system, restarting...{RESET}", flush=True)
-                kill_updater_process()
                 start_updater()
                 continue
                 
@@ -1052,7 +1036,6 @@ def monitor_process():
             if "last_activity" in eddn_status:
                 if time.time() - eddn_status["last_activity"] > 300:  # 5 minutes
                     print(f"{ORANGE}[UPDATE-CHECK] No activity for 5 minutes, restarting...{RESET}", flush=True)
-                    kill_updater_process()
                     start_updater()
                     continue
             
