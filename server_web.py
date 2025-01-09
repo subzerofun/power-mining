@@ -578,6 +578,9 @@ def search():
         if cur_sys:
             pr.append(cur_sys)
 
+        # Apply the limit here, after processing all results
+        pr = pr[:limit]
+
         if not is_non_hotspot and pr:
             sys_ids = [s['system_id64'] for s in pr]
             cur.execute("""
