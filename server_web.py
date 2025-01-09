@@ -612,7 +612,7 @@ def search_highest():
         
         # Get non-hotspot materials
         non_hotspot = get_non_hotspot_materials_list()
-        non_hotspot_str = "ARRAY[" + ",".join(f"'{mat.replace('\'', '')}'" for mat in non_hotspot) + "]"
+        non_hotspot_str = "ARRAY[" + ",".join("'" + mat.replace("'", "") + "'" for mat in non_hotspot) + "]"
         
         # Build ring type case for non-hotspot materials
         ring_type_case = []
