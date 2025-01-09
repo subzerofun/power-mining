@@ -370,7 +370,7 @@ def main():
                             publish_status("updating", datetime.now(timezone.utc))
                             stations, commodities = flush_commodities_to_db(conn, commodity_buffer)
                             if stations > 0:
-                                log_message(GREEN, "DATABASE", f"Writing to Database finished. Updated {stations} stations with {commodities} commodities")
+                                log_message(GREEN, "DATABASE", f"[DATABASE] Writing to Database finished. Updated {stations} stations, {commodities} commodities")
                             publish_status("running", datetime.now(timezone.utc))
                         else:
                             log_message(BLUE, "DATABASE", "No new data to write to database")
@@ -391,7 +391,7 @@ def main():
             publish_status("updating", datetime.now(timezone.utc))
             stations, commodities = flush_commodities_to_db(conn, commodity_buffer)
             if stations > 0:
-                log_message(GREEN, "DATABASE", f"Writing to Database finished. Updated {stations} stations with {commodities} commodities")
+                log_message(GREEN, "DATABASE", f"[DATABASE] Writing to Database finished. Updated {stations} stations, {commodities} commodities")
             publish_status("running", datetime.now(timezone.utc))
                 
     except Exception as e:
