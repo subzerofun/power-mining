@@ -323,12 +323,8 @@ def search():
             ring_types = mining_data.NON_HOTSPOT_MATERIALS.get(signal_type, [])
             
             # Build all WHERE conditions first
-            where_conditions = []
-            params = [rx, rx, ry, ry, rz, rz, max_dist, signal_type, signal_type]
-            
-            # Base conditions
-            where_conditions.append("ms.ring_type = ANY(%s::text[])")
-            params.append(ring_types)
+            where_conditions = ["ms.ring_type = ANY(%s::text[])"]
+            params = [rx, rx, ry, ry, rz, rz, max_dist, signal_type, signal_type, ring_types]
             
             if controlling_power:
                 where_conditions.append("s.controlling_power = %s")
@@ -342,8 +338,7 @@ def search():
                 where_conditions.append(mining_cond)
                 params.extend(mining_params)
 
-            # Build the complete query
-            query = """
+            query = f"""
             WITH relevant_systems AS (
                 SELECT s.*, SQRT(POWER(s.x - %s, 2) + POWER(s.y - %s, 2) + POWER(s.z - %s, 2)) as distance
                 FROM systems s
@@ -365,11 +360,31 @@ def search():
             JOIN mineral_signals ms ON s.id64 = ms.system_id64
             LEFT JOIN relevant_stations rs ON s.id64 = rs.system_id64
             LEFT JOIN stations st ON s.id64 = st.system_id64 AND rs.station_name = st.station_name
-            WHERE """ + " AND ".join(where_conditions) + """
+            WHERE {" AND ".join(where_conditions)}
             ORDER BY sort_price DESC NULLS LAST, s.distance ASC"""
 
         else:
-            query = """
+            # Build all WHERE conditions first
+            where_conditions = ["1=1"]  # Start with a dummy condition
+            params = [rx, rx, ry, ry, rz, rz, max_dist, signal_type, signal_type]
+
+            if controlling_power:
+                where_conditions.append("s.controlling_power = %s")
+                params.append(controlling_power)
+
+            if power_states:
+                where_conditions.append("s.power_state = ANY(%s::text[])")
+                params.append(power_states)
+
+            if mining_cond:
+                where_conditions.append(mining_cond)
+                params.extend(mining_params)
+
+            if ring_cond:
+                where_conditions.append(ring_cond.lstrip(" AND "))
+                params.extend(ring_params)
+
+            query = f"""
             WITH relevant_systems AS (
                 SELECT s.*, SQRT(POWER(s.x - %s, 2) + POWER(s.y - %s, 2) + POWER(s.z - %s, 2)) as distance
                 FROM systems s
@@ -385,10 +400,10 @@ def search():
                 s.power_state, s.distance, ms.body_name, ms.ring_name, ms.ring_type,
                 ms.mineral_type, ms.signal_count, ms.reserve_level, rs.station_name,
                 st.landing_pad_size, st.distance_to_arrival as station_distance,
-                st.station_type, rs.demand, rs.sell_price, st.update_time
+                st.station_type, rs.demand, rs.sell_price, st.update_time,
+                rs.sell_price as sort_price
             FROM relevant_systems s
             """
-            params = [rx, rx, ry, ry, rz, rz, max_dist, signal_type, signal_type]
 
             if ring_type_filter != 'Without Hotspots':
                 query += " JOIN mineral_signals ms ON s.id64 = ms.system_id64 AND ms.mineral_type = %s"
@@ -399,44 +414,27 @@ def search():
             query += """
             LEFT JOIN relevant_stations rs ON s.id64 = rs.system_id64
             LEFT JOIN stations st ON s.id64 = st.system_id64 AND rs.station_name = st.station_name
-            WHERE 1=1
-            """
+            WHERE """ + " AND ".join(where_conditions)
 
-        if ring_cond:
-            query += ring_cond
-            params.extend(ring_params)
+            if is_ring_material:
+                query += """
+                ORDER BY 
+                    CASE 
+                        WHEN ms.reserve_level = 'Pristine' THEN 1
+                        WHEN ms.reserve_level = 'Major' THEN 2
+                        WHEN ms.reserve_level = 'Common' THEN 3
+                        WHEN ms.reserve_level = 'Low' THEN 4
+                        WHEN ms.reserve_level = 'Depleted' THEN 5
+                        ELSE 6 
+                    END,
+                    rs.sell_price DESC NULLS LAST,
+                    s.distance ASC
+                """
+            else:
+                query += " ORDER BY sort_price DESC NULLS LAST, s.distance ASC"
 
-        if controlling_power:
-            query += " AND s.controlling_power = %s"
-            params.append(controlling_power)
-
-        if power_states:
-            query += " AND s.power_state = ANY(%s::text[])"
-            params.append(power_states)
-
-        if mining_cond:
-            query += f" AND {mining_cond}"
-            params.extend(mining_params)
-
-        if is_ring_material:
-            query += """
-            ORDER BY 
-                CASE 
-                    WHEN ms.reserve_level = 'Pristine' THEN 1
-                    WHEN ms.reserve_level = 'Major' THEN 2
-                    WHEN ms.reserve_level = 'Common' THEN 3
-                    WHEN ms.reserve_level = 'Low' THEN 4
-                    WHEN ms.reserve_level = 'Depleted' THEN 5
-                    ELSE 6 
-                END,
-                rs.sell_price DESC NULLS LAST,
-                s.distance ASC
-            """
-        else:
-            query += " ORDER BY rs.sell_price DESC NULLS LAST, s.distance ASC"
-
-        query += " LIMIT %s"
-        params.append(limit)
+            query += " LIMIT %s"
+            params.append(limit)
 
         cur.execute(query, params)
         rows = cur.fetchall()
