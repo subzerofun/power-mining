@@ -95,10 +95,11 @@ def load_commodity_map():
 def flush_commodities_to_db(conn, commodity_buffer):
     """Flush commodity updates to database"""
     if not commodity_buffer:
+        log_message(BLUE, "DEBUG", "No commodities to flush")
         return 0, 0
 
     try:
-        cursor = conn.cursor()
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
         stations_processed = 0
         total_commodities = 0
         
@@ -158,6 +159,7 @@ def flush_commodities_to_db(conn, commodity_buffer):
         
         # Final commit
         conn.commit()
+        log_message(BLUE, "DEBUG", f"Successfully processed {stations_processed} stations with {total_commodities} commodities")
         
     except Exception as e:
         log_message(RED, "ERROR", f"Database error: {str(e)}")
@@ -267,6 +269,8 @@ def process_message(message, commodity_map):
             station_commodities[commodity_map[name]] = (sell_price, demand, market_id)
             
         if station_commodities:
+            # Add debug output for commodity processing
+            log_message(BLUE, "DEBUG", f"Found {len(station_commodities)} relevant commodities for station {station_name}")
             # Publish status update to indicate activity
             publish_status("running", datetime.now(timezone.utc))
             return station_name, station_commodities
@@ -323,6 +327,7 @@ def main():
         last_message = time.time()
         messages_processed = 0
         total_messages = 0
+        commodity_messages = 0
         
         while running:
             try:
@@ -340,7 +345,7 @@ def main():
                     last_message = time.time()
                     total_messages += 1
                     if total_messages % 100 == 0:
-                        log_message(BLUE, "DEBUG", f"Received {total_messages} total messages")
+                        log_message(BLUE, "DEBUG", f"Received {total_messages} total messages ({commodity_messages} commodity messages)")
                 except zmq.error.Again:
                     continue  # Timeout, continue loop
                 
@@ -349,7 +354,9 @@ def main():
                 
                 # Check schema
                 schema = data.get("$schemaRef", "").lower()
-                if "commodity/3" not in schema.lower():
+                if "commodity/3" in schema.lower():
+                    commodity_messages += 1
+                else:
                     continue
                     
                 # Process message
