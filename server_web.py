@@ -937,7 +937,7 @@ def start_updater():
 # Gunicorn entry point
 app_wsgi = None
 
-def create_app():
+def create_app(*args, **kwargs):
     global app_wsgi
     if app_wsgi is None:
         app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
@@ -945,6 +945,7 @@ def create_app():
         
         # Start updater if environment variable is set
         if os.getenv('ENABLE_LIVE_UPDATE', 'false').lower() == 'true':
+            global live_update_requested
             live_update_requested = True
             eddn_status["state"] = "starting"
             start_updater()
