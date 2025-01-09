@@ -347,17 +347,22 @@ def search():
             """
             params = [rx, rx, ry, ry, rz, rz, max_dist, signal_type, signal_type, ring_types]
 
+            # Build WHERE clause
+            where_conditions = []
             if controlling_power:
-                query += " AND s.controlling_power = %s"
+                where_conditions.append("s.controlling_power = %s")
                 params.append(controlling_power)
 
             if power_states:
-                query += " AND s.power_state = ANY(%s::text[])"
+                where_conditions.append("s.power_state = ANY(%s::text[])")
                 params.append(power_states)
 
             if mining_cond:
-                query += f" AND {mining_cond}"
+                where_conditions.append(mining_cond)
                 params.extend(mining_params)
+
+            if where_conditions:
+                query += " AND " + " AND ".join(where_conditions)
 
             query += " ORDER BY sort_price DESC NULLS LAST, s.distance ASC"
 
@@ -597,16 +602,16 @@ def search_highest():
         cur = conn.cursor()
         
         # Build power state filter
-        power_state_filter = ''
+        where_conditions = []
         power_filter_params = []
         
         if controlling_power:
-            power_state_filter += ' AND s.controlling_power = %s'
+            where_conditions.append("s.controlling_power = %s")
             power_filter_params.append(controlling_power)
         
         if power_states:
             placeholders = ','.join(['%s' for _ in power_states])
-            power_state_filter += f' AND s.power_state IN ({placeholders})'
+            where_conditions.append(f"s.power_state IN ({placeholders})")
             power_filter_params.extend(power_states)
         
         # Get the list of non-hotspot materials
@@ -619,6 +624,11 @@ def search_highest():
             ring_types_str = ','.join("'" + rt + "'" for rt in ring_types)
             ring_type_cases.append(f"WHEN hp.commodity_name = '{material}' AND ms.ring_type IN ({ring_types_str}) THEN 1")
         ring_type_case = '\n'.join(ring_type_cases)
+        
+        # Build the base WHERE clause
+        where_clause = "sc.demand > 0 AND sc.sell_price > 0"
+        if where_conditions:
+            where_clause += " AND " + " AND ".join(where_conditions)
         
         query = f"""
         WITH HighestPrices AS (
@@ -639,8 +649,7 @@ def search_highest():
             FROM station_commodities sc
             JOIN systems s ON s.id64 = sc.system_id64
             JOIN stations st ON st.system_id64 = s.id64 AND st.station_name = sc.station_name
-            WHERE sc.demand > 0
-            AND sc.sell_price > 0{power_state_filter}
+            WHERE {where_clause}
             ORDER BY sc.sell_price DESC
             LIMIT 1000
         ),
