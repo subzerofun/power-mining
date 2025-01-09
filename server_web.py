@@ -313,6 +313,7 @@ def search():
         params = []
 
         if is_non_hotspot:
+            # Get ring types from NON_HOTSPOT_MATERIALS dictionary
             ring_types = mining_data.NON_HOTSPOT_MATERIALS.get(signal_type, [])
             query = """
             WITH relevant_systems AS (
@@ -330,14 +331,19 @@ def search():
                 s.power_state, s.distance, ms.body_name, ms.ring_name, ms.ring_type,
                 ms.mineral_type, ms.signal_count, ms.reserve_level, rs.station_name,
                 st.landing_pad_size, st.distance_to_arrival as station_distance,
-                st.station_type, rs.demand, rs.sell_price, st.update_time
+                st.station_type, rs.demand, rs.sell_price, st.update_time,
+                CASE WHEN ms.ring_type = ANY(%s::text[]) THEN 1 ELSE 0 END as is_valid_ring
             FROM relevant_systems s
             JOIN mineral_signals ms ON s.id64 = ms.system_id64
             LEFT JOIN relevant_stations rs ON s.id64 = rs.system_id64
             LEFT JOIN stations st ON s.id64 = st.system_id64 AND rs.station_name = st.station_name
             WHERE ms.ring_type = ANY(%s::text[])
+            """ + ring_cond + """
+            ORDER BY is_valid_ring DESC, rs.sell_price DESC NULLS LAST, s.distance ASC
             """
-            params = [rx, rx, ry, ry, rz, rz, max_dist, signal_type, signal_type, ring_types]
+            params = [rx, rx, ry, ry, rz, rz, max_dist, signal_type, signal_type, ring_types, ring_types]
+            if ring_params:
+                params.extend(ring_params)
 
         elif is_ring_material:
             ring_types = ring_materials[signal_type]['ring_types']
@@ -620,44 +626,48 @@ def search_highest():
         
         # Get non-hotspot materials
         non_hotspot = get_non_hotspot_materials_list()
-        non_hotspot_str = "ARRAY[" + ",".join("'" + mat.replace("'", "") + "'" for mat in non_hotspot) + "]"
+        non_hotspot_str = "'" + "','".join(non_hotspot) + "'"
         
         # Build ring type case for non-hotspot materials
         ring_type_case = []
         for material, ring_types in mining_data.NON_HOTSPOT_MATERIALS.items():
-            ring_type_str = "ARRAY[" + ",".join("'" + rt.replace("'", "") + "'" for rt in ring_types) + "]"
-            material_name = material.replace("'", "")
-            ring_type_case.append(f"WHEN hp.commodity_name = '{material_name}' AND ms.ring_type = ANY({ring_type_str}) THEN 1")
+            ring_type_str = "'" + "','".join(ring_types) + "'"
+            ring_type_case.append(f"WHEN hp.commodity_name = '{material}' AND ms.ring_type IN ({ring_type_str}) THEN 1")
         ring_type_case = "\n".join(ring_type_case)
         
         # Build the query
         query = f"""
         WITH HighestPrices AS (
-            SELECT DISTINCT ON (sc.commodity_name)
+            SELECT DISTINCT 
                 sc.commodity_name,
                 sc.sell_price,
                 sc.demand,
-                sc.system_id64,
+                s.id64 as system_id64,
                 s.name as system_name,
                 s.controlling_power,
                 s.power_state,
                 st.landing_pad_size,
                 st.distance_to_arrival,
-                sc.station_name,
                 st.station_type,
+                sc.station_name,
                 st.update_time
             FROM station_commodities sc
-            JOIN systems s ON sc.system_id64 = s.id64
-            JOIN stations st ON sc.system_id64 = st.system_id64 AND sc.station_name = st.station_name
-            WHERE sc.sell_price > 0 AND sc.demand > 0
+            JOIN systems s ON s.id64 = sc.system_id64
+            JOIN stations st ON st.system_id64 = s.id64 AND st.station_name = sc.station_name
+            WHERE sc.demand > 0
+            AND sc.sell_price > 0
             AND ({power_filter_sql})
-            ORDER BY sc.commodity_name, sc.sell_price DESC
+            ORDER BY sc.sell_price DESC
+            LIMIT 1000
         ),
         MinableCheck AS (
-            SELECT hp.*,
+            SELECT DISTINCT
+                hp.*,
+                ms.mineral_type,
+                ms.ring_type,
                 ms.reserve_level,
                 CASE
-                    WHEN hp.commodity_name NOT IN (SELECT unnest({non_hotspot_str}))
+                    WHEN hp.commodity_name NOT IN ({non_hotspot_str})
                         AND ms.mineral_type = hp.commodity_name THEN 1
                     WHEN hp.commodity_name = 'Low Temperature Diamonds' 
                         AND ms.mineral_type = 'LowTemperatureDiamond' THEN 1
@@ -690,26 +700,8 @@ def search_highest():
         cur.execute(query, power_filter_params)
         results = cur.fetchall()
         
-        # Format results to ensure proper data types
-        formatted_results = []
-        for row in results:
-            formatted_results.append({
-                'commodity_name': row['commodity_name'],
-                'max_price': int(row['max_price']) if row['max_price'] is not None else 0,
-                'system_name': row['system_name'],
-                'controlling_power': row['controlling_power'],
-                'power_state': row['power_state'],
-                'landing_pad_size': row['landing_pad_size'],
-                'distance_to_arrival': float(row['distance_to_arrival']) if row['distance_to_arrival'] is not None else 0,
-                'demand': int(row['demand']) if row['demand'] is not None else 0,
-                'reserve_level': row['reserve_level'],
-                'station_name': row['station_name'],
-                'station_type': row['station_type'],
-                'update_time': row['update_time'].isoformat() if row['update_time'] is not None else None
-            })
-        
         conn.close()
-        return jsonify(formatted_results)
+        return jsonify(results)
         
     except Exception as e:
         app.logger.error(f"Search highest error: {str(e)}")

@@ -168,9 +168,72 @@ def flush_commodities_to_db(conn, commodity_buffer, auto_commit=False):
         
     return stations_processed, total_commodities
 
+def handle_journal_message(message):
+    """Process power data from journal messages"""
+    event = message.get("event", "")
+    if event not in ("FSDJump", "Location"):
+        return
+
+    system_name = message.get("StarSystem", "")
+    system_id64 = message.get("SystemAddress")
+    if not system_name or not system_id64:
+        return
+
+    powers = message.get("Powers", [])
+    power_state = message.get("PowerplayState", "")
+
+    controlling_power = None
+    if isinstance(powers, list) and len(powers) == 1:
+        controlling_power = powers[0]
+    elif isinstance(powers, str):
+        controlling_power = powers
+
+    if controlling_power is None:
+        return
+
+    try:
+        with psycopg2.connect(DATABASE_URL) as conn:
+            cur = conn.cursor()
+            # First check if power or state has changed
+            cur.execute("""
+                SELECT controlling_power, power_state
+                FROM systems
+                WHERE id64 = %s AND name = %s
+            """, (system_id64, system_name))
+            row = cur.fetchone()
+            if row:
+                old_power, old_state = row
+                if old_power == controlling_power and old_state == power_state:
+                    return  # No change needed
+                
+            # Only update if different
+            cur.execute("""
+                UPDATE systems 
+                SET controlling_power = %s,
+                    power_state = %s
+                WHERE id64 = %s AND name = %s
+            """, (controlling_power, power_state, system_id64, system_name))
+            
+            if cur.rowcount > 0:
+                log_message(GREEN, "POWER", f"Updated power status for {system_name}: {controlling_power} ({power_state})")
+            conn.commit()
+    except Exception as e:
+        log_message(RED, "ERROR", f"Failed to update power status: {e}")
+
 def process_message(message, commodity_map):
     """Process a single EDDN message"""
     try:
+        schema_ref = message.get("$schemaRef", "").lower()
+        
+        # Handle journal messages for power data
+        if "journal" in schema_ref:
+            handle_journal_message(message)
+            return None, None
+            
+        # Skip if not a commodity message
+        if "commodity" not in schema_ref:
+            return None, None
+            
         # Skip fleet carriers
         if message.get("stationType") == "FleetCarrier" or \
            (message.get("economies") and message["economies"][0].get("name") == "Carrier"):
