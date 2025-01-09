@@ -322,9 +322,13 @@ def search():
             # Get ring types from NON_HOTSPOT_MATERIALS dictionary
             ring_types = mining_data.NON_HOTSPOT_MATERIALS.get(signal_type, [])
             
-            # Build WHERE clause conditions
-            where_conditions = ["ms.ring_type = ANY(%s::text[])"]
-            params = [rx, rx, ry, ry, rz, rz, max_dist, signal_type, signal_type, ring_types]
+            # Build all WHERE conditions first
+            where_conditions = []
+            params = [rx, rx, ry, ry, rz, rz, max_dist, signal_type, signal_type]
+            
+            # Base conditions
+            where_conditions.append("ms.ring_type = ANY(%s::text[])")
+            params.append(ring_types)
             
             if controlling_power:
                 where_conditions.append("s.controlling_power = %s")
@@ -338,6 +342,7 @@ def search():
                 where_conditions.append(mining_cond)
                 params.extend(mining_params)
 
+            # Build the complete query
             query = """
             WITH relevant_systems AS (
                 SELECT s.*, SQRT(POWER(s.x - %s, 2) + POWER(s.y - %s, 2) + POWER(s.z - %s, 2)) as distance
@@ -598,18 +603,18 @@ def search_highest():
             
         cur = conn.cursor()
         
-        # Build WHERE clause conditions
+        # Build all WHERE conditions first
         where_conditions = ["sc.demand > 0", "sc.sell_price > 0"]
-        power_filter_params = []
+        params = []
         
         if controlling_power:
             where_conditions.append("s.controlling_power = %s")
-            power_filter_params.append(controlling_power)
+            params.append(controlling_power)
         
         if power_states:
             placeholders = ','.join(['%s' for _ in power_states])
             where_conditions.append(f"s.power_state IN ({placeholders})")
-            power_filter_params.extend(power_states)
+            params.extend(power_states)
         
         where_clause = " AND ".join(where_conditions)
         
@@ -626,7 +631,6 @@ def search_highest():
         
         query = f"""
         WITH HighestPrices AS (
-            -- First get all prices ordered by highest first
             SELECT DISTINCT 
                 sc.commodity_name,
                 sc.sell_price,
@@ -648,20 +652,16 @@ def search_highest():
             LIMIT 1000
         ),
         MinableCheck AS (
-            -- Then check each system if the material can be mined there
             SELECT DISTINCT
                 hp.*,
                 ms.mineral_type,
                 ms.ring_type,
                 ms.reserve_level,
                 CASE
-                    -- For hotspot materials
                     WHEN hp.commodity_name NOT IN ({non_hotspot_str})
                         AND ms.mineral_type = hp.commodity_name THEN 1
-                    -- For Low Temperature Diamonds
                     WHEN hp.commodity_name = 'Low Temperature Diamonds' 
                         AND ms.mineral_type = 'LowTemperatureDiamond' THEN 1
-                    -- For non-hotspot materials
                     {ring_type_case}
                     ELSE 0
                 END as is_minable
@@ -687,11 +687,11 @@ def search_highest():
         LIMIT %s
         """
         
-        power_filter_params.append(limit)
-        cur.execute(query, power_filter_params)
+        params.append(limit)
+        cur.execute(query, params)
         results = cur.fetchall()
         
-        # Format results to match server.py
+        # Format results
         formatted_results = []
         for row in results:
             formatted_results.append({
