@@ -20,3 +20,48 @@ json/Commodity-2025-01-04.jsonl
 json/galaxy_populated.json
 json/galaxy_populated.json.gz
 /dumps
+
+# Python
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+venv/
+ENV/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Environment
+.env
+.env.local
+
+# Logs and Database (additional patterns)
+logs/
+log/
+*.sqlite3
+
+# OS
+.DS_Store
+Thumbs.db
+.env.example

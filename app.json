@@ -1,0 +1,34 @@
+{
+  "name": "power-mining",
+  "description": "Elite Dangerous Power Mining Tool",
+  "repository": "https://github.com/subzerofun/power-mining",
+  "keywords": ["python", "flask", "elite-dangerous"],
+  "env": {
+    "DATABASE_URL": {
+      "description": "PostgreSQL database URL",
+      "required": true
+    },
+    "WEBSOCKET_HOST": {
+      "description": "WebSocket host",
+      "value": "0.0.0.0"
+    },
+    "WEBSOCKET_PORT": {
+      "description": "WebSocket port",
+      "value": "8765"
+    },
+    "ENABLE_LIVE_UPDATE": {
+      "description": "Enable EDDN live updates",
+      "value": "true"
+    }
+  },
+  "formation": {
+    "web": {
+      "quantity": 1,
+      "size": "standard-1x"
+    },
+    "worker": {
+      "quantity": 1,
+      "size": "standard-1x"
+    }
+  }
+} 
