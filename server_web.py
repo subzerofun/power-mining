@@ -19,6 +19,9 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 # Environment variables for configuration
 DATABASE_URL = None  # Will be set from args or env in main()
 
+# Process ID file for update_live_web.py
+PID_FILE = os.path.join(BASE_DIR, 'update_live_web.pid')
+
 app = Flask(__name__, template_folder=BASE_DIR, static_folder=None)
 sock = Sock(app)
 updater_process = None
@@ -52,7 +55,10 @@ def cleanup_handler(signum, frame):
     print("Stopping EDDN Update Service...")
     stop_updater()
     if os.path.exists(PID_FILE):
-        os.remove(PID_FILE)
+        try:
+            os.remove(PID_FILE)
+        except:
+            pass
     print("Stopping Web Server...")
     os._exit(0)
 
