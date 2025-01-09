@@ -996,87 +996,69 @@ def handle_output_stream(pipe):
                     handle_output(line.strip())
     except Exception as e:
         print(f"Error in output stream: {e}", file=sys.stderr)
+
+def start_updater():
+    """Start the EDDN updater process"""
+    global updater_process, eddn_status, DATABASE_URL
     
-    def start_updater_process():
-        global updater_process, eddn_status, DATABASE_URL
+    # Check for existing process first
+    if check_existing_process():
+        return
+    
+    eddn_status["state"] = "starting"
+    
+    try:
+        cmd = [sys.executable, "update_live_web.py", "--auto"]
+        if DATABASE_URL:
+            cmd.extend(["--db", DATABASE_URL])
+            
+        updater_process = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            universal_newlines=False,
+            creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if os.name == 'nt' else 0
+        )
         
-        # Check for existing process first
-        if check_existing_process():
-            return
-        
-        eddn_status["state"] = "starting"
-        
-        def handle_output_stream(pipe):
-            """Handle output from the EDDN updater process"""
-            try:
-                with io.TextIOWrapper(pipe, encoding='utf-8', errors='replace') as tp:
-                    while True:
-                        line = tp.readline()
-                        if not line:
-                            break
-                        if line.strip():
-                            handle_output(line.strip())
-            except Exception as e:
-                print(f"{YELLOW}[UPDATE-CHECK] Error in output stream: {e}{RESET}", file=sys.stderr)
-        
+        # Write PID to file
         try:
-            cmd = [sys.executable, "update_live_web.py", "--auto"]
-            if DATABASE_URL:
-                cmd.extend(["--db", DATABASE_URL])
-                
-            updater_process = subprocess.Popen(
-                cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                universal_newlines=False,
-                creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if os.name == 'nt' else 0
-            )
-            
-            # Write PID to file
-            try:
-                with open(PID_FILE, 'w') as f:
-                    f.write(str(updater_process.pid))
-            except Exception as e:
-                print(f"{YELLOW}[UPDATE-CHECK] Warning: Could not write PID file: {e}{RESET}", file=sys.stderr)
-            
-            print(f"{YELLOW}[UPDATE-CHECK] Starting EDDN Live Update (PID: {updater_process.pid}){RESET}", flush=True)
-            
-            # Start output handling threads
-            threading.Thread(target=handle_output_stream, args=(updater_process.stdout,), daemon=True).start()
-            threading.Thread(target=handle_output_stream, args=(updater_process.stderr,), daemon=True).start()
-            
-            # Wait a moment to ensure process starts
-            time.sleep(0.5)
-            
-            if updater_process.poll() is None:
-                eddn_status["state"] = "starting"
-                # Start the monitor thread if not already running
-                if not any(t.name == "monitor_thread" for t in threading.enumerate()):
-                    monitor_thread = threading.Thread(target=monitor_process, name="monitor_thread", daemon=True)
-                    monitor_thread.start()
-            else:
-                eddn_status["state"] = "error"
-                print(f"{YELLOW}[UPDATE-CHECK] EDDN updater failed to start{RESET}", file=sys.stderr)
-                if os.path.exists(PID_FILE):
-                    try:
-                        os.remove(PID_FILE)
-                    except:
-                        pass
-                    
+            with open(PID_FILE, 'w') as f:
+                f.write(str(updater_process.pid))
         except Exception as e:
-            print(f"{YELLOW}[UPDATE-CHECK] Error starting updater: {e}{RESET}", file=sys.stderr)
+            print(f"{YELLOW}[UPDATE-CHECK] Warning: Could not write PID file: {e}{RESET}", file=sys.stderr)
+        
+        print(f"{YELLOW}[UPDATE-CHECK] Starting EDDN Live Update (PID: {updater_process.pid}){RESET}", flush=True)
+        
+        # Start output handling threads
+        threading.Thread(target=handle_output_stream, args=(updater_process.stdout,), daemon=True).start()
+        threading.Thread(target=handle_output_stream, args=(updater_process.stderr,), daemon=True).start()
+        
+        # Wait a moment to ensure process starts
+        time.sleep(0.5)
+        
+        if updater_process.poll() is None:
+            eddn_status["state"] = "starting"
+            # Start the monitor thread if not already running
+            if not any(t.name == "monitor_thread" for t in threading.enumerate()):
+                monitor_thread = threading.Thread(target=monitor_process, name="monitor_thread", daemon=True)
+                monitor_thread.start()
+        else:
             eddn_status["state"] = "error"
+            print(f"{YELLOW}[UPDATE-CHECK] EDDN updater failed to start{RESET}", file=sys.stderr)
             if os.path.exists(PID_FILE):
                 try:
                     os.remove(PID_FILE)
                 except:
                     pass
-    
-    # Start the initial process
-    start_updater_process()
-    
-    # Start the monitor thread
-    threading.Thread(target=monitor_process, daemon=True).start()
+                    
+    except Exception as e:
+        print(f"{YELLOW}[UPDATE-CHECK] Error starting updater: {e}{RESET}", file=sys.stderr)
+        eddn_status["state"] = "error"
+        if os.path.exists(PID_FILE):
+            try:
+                os.remove(PID_FILE)
+            except:
+                pass
 
 # Gunicorn entry point
 app_wsgi = None
