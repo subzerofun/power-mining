@@ -367,27 +367,41 @@ def search():
         else:
             # Build all WHERE conditions first
             where_conditions = ["1=1"]  # Start with a dummy condition
-            params = [rx, rx, ry, ry, rz, rz, max_dist]  # Base distance params
-
+            params = []  # We'll build this in order of appearance in the query
+            
+            # First add the distance calculation parameters
+            params.extend([rx, rx, ry, ry, rz, rz, max_dist])
+            
             # Add signal_type params for relevant_stations CTE
             params.extend([signal_type, signal_type])
-
-            # Build the main query conditions
+            
+            # Build the main query conditions and their parameters in order
+            main_params = []
+            
             if controlling_power:
                 where_conditions.append("s.controlling_power::text = %s::text")
-                params.append(controlling_power)
+                main_params.append(controlling_power)
 
             if power_states:
-                where_conditions.append("s.power_state = ANY(%s)")
-                params.append(power_states)
+                where_conditions.append("s.power_state = ANY(%s::text[])")
+                main_params.append(power_states)
 
             if mining_cond:
                 where_conditions.append(mining_cond)
-                params.extend(mining_params)
+                main_params.extend(mining_params)
 
             if ring_cond:
                 where_conditions.append(ring_cond.lstrip(" AND "))
-                params.extend(ring_params)
+                main_params.extend(ring_params)
+
+            # Add the mineral_type condition parameter if needed
+            mineral_type_param = []
+            if ring_type_filter != 'Without Hotspots':
+                mineral_type_param.append(signal_type)
+
+            # Combine all parameters in the correct order
+            params.extend(main_params)
+            params.extend(mineral_type_param)
 
             query = f"""
             WITH relevant_systems AS (
@@ -412,7 +426,6 @@ def search():
 
             if ring_type_filter != 'Without Hotspots':
                 query += " JOIN mineral_signals ms ON s.id64 = ms.system_id64 AND ms.mineral_type = %s"
-                params.append(signal_type)  # Add signal_type for the JOIN condition
             else:
                 query += " JOIN mineral_signals ms ON s.id64 = ms.system_id64"
 
