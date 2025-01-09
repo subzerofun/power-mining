@@ -16,7 +16,7 @@ from mining_data_web import (
 import tempfile
 import io
 
-YELLOW, BLUE, RESET = '\033[93m', '\033[94m', '\033[0m'
+YELLOW, BLUE, ORANGE, RESET = '\033[93m', '\033[94m', '\033[33m', '\033[0m'
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # Environment variables for configuration

@@ -24,9 +24,9 @@ def get_timestamp():
     return datetime.now().strftime("%Y:%m:%d-%H:%M:%S")
 
 def log_message(color, tag, message):
-    """Print a log message with timestamp and color"""
-    timestamp = get_timestamp()
-    print(f"{color}[{timestamp}] [{tag}] {message}{RESET}", flush=True)
+    """Log a message with timestamp and color"""
+    timestamp = datetime.now().strftime("%Y:%m:%d-%H:%M:%S")
+    print(f"[{timestamp}] [{tag}] {message}", flush=True)  # Always flush
 
 # Constants
 DATABASE_URL = None  # Will be set from args or env in main()
@@ -241,14 +241,13 @@ def process_message(message, commodity_map):
         # Skip fleet carriers
         if message.get("stationType") == "FleetCarrier" or \
            (message.get("economies") and message["economies"][0].get("name") == "Carrier"):
-            if DEBUG:
-                log_message(YELLOW, "DEBUG", f"Skipped Fleet Carrier Data: {message.get('stationName')}")
+            log_message(YELLOW, "DEBUG", f"Skipped Fleet Carrier Data: {message.get('stationName')}")
             return None, None
             
         station_name = message.get("stationName")
         market_id = message.get("marketId")
         
-        if market_id is None and DEBUG:
+        if market_id is None:
             log_message(YELLOW, "DEBUG", f"Live update without marketId: {station_name}")
         
         if not station_name:
@@ -356,6 +355,7 @@ def main():
                 schema = data.get("$schemaRef", "").lower()
                 if "commodity/3" in schema.lower():
                     commodity_messages += 1
+                    log_message(BLUE, "DEBUG", f"Processing commodity message {commodity_messages}")
                 else:
                     continue
                     
@@ -364,6 +364,7 @@ def main():
                 if station_name and commodities:
                     commodity_buffer[station_name] = commodities
                     messages_processed += 1
+                    log_message(BLUE, "DEBUG", f"Added {len(commodities)} commodities for {station_name}")
                     
                     # Print status every 100 messages
                     if messages_processed % 100 == 0:
