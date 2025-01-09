@@ -1,5 +1,12 @@
-// EDDN Status WebSocket
-const ws = new WebSocket('ws://' + window.location.hostname + ':8765');
+// Create WebSocket connection
+const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+const wsHost = window.location.hostname;
+// Don't specify port in production (let proxy handle it)
+const wsUrl = window.location.hostname.includes('applikuapp.com') 
+    ? `${protocol}//${wsHost}/ws`  // Production: use proxy path
+    : `${protocol}//${wsHost}:8765`; // Local: use direct port
+
+const ws = new WebSocket(wsUrl);
 let eddnCircle = document.querySelector('.eddn-circle');
 let eddnText = document.querySelector('.eddn-text');
 

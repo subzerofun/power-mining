@@ -834,7 +834,11 @@ async def main():
         return 1
 
     # Bind websocket to all interfaces but web server to specified host
-    ws_server = await websockets.serve(handle_websocket, '0.0.0.0', 8765)
+    ws_server = await websockets.serve(
+        handle_websocket, 
+        '0.0.0.0', 
+        int(os.getenv('WEBSOCKET_PORT', '8765'))
+    )
     app_obj = run_server(args.host, args.port, args)
     async def check_quit():
         while True:
@@ -929,10 +933,16 @@ def start_updater():
 app_wsgi = None
 
 def create_app(*args, **kwargs):
-    global app_wsgi
+    global app_wsgi, DATABASE_URL
     if app_wsgi is None:
         app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
         app_wsgi = app
+        
+        # Set DATABASE_URL for all workers
+        DATABASE_URL = os.getenv('DATABASE_URL')
+        if not DATABASE_URL:
+            print("ERROR: DATABASE_URL environment variable must be set")
+            sys.exit(1)
         
         # Start updater if environment variable is set
         if os.getenv('ENABLE_LIVE_UPDATE', 'false').lower() == 'true':
