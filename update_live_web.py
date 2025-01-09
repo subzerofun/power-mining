@@ -265,10 +265,13 @@ def process_message(message, commodity_map):
             station_commodities[commodity_map[name]] = (sell_price, demand, market_id)
             
         if station_commodities:
+            # Publish status update to indicate activity
+            publish_status("running", datetime.now(timezone.utc))
             return station_name, station_commodities
             
     except Exception as e:
         log_message(RED, "ERROR", f"Error processing message: {str(e)}")
+        publish_status("error")
         
     return None, None
 

@@ -94,14 +94,20 @@ def handle_output(line):
     # Always process status updates
     if "[INIT]" in line:
         eddn_status["state"] = "starting"
+        eddn_status["last_activity"] = time.time()
     elif "Loaded" in line and "commodities from CSV" in line:
         eddn_status["state"] = "starting"
+        eddn_status["last_activity"] = time.time()
     elif "Listening to EDDN" in line:
         eddn_status["state"] = "running"
+        eddn_status["last_activity"] = time.time()
+    elif "[STATUS]" in line and "Processed" in line:
+        eddn_status["last_activity"] = time.time()
     elif "[DATABASE] Writing to Database starting..." in line:
         eddn_status["state"] = "updating"
         eddn_status["last_db_update"] = datetime.now().isoformat()
         eddn_status["update_start_time"] = time.time()
+        eddn_status["last_activity"] = time.time()
     elif "[DATABASE] Writing to Database finished." in line:
         if "update_start_time" in eddn_status:
             elapsed = time.time() - eddn_status["update_start_time"]
@@ -109,6 +115,7 @@ def handle_output(line):
                 time.sleep(1 - elapsed)
             del eddn_status["update_start_time"]
         eddn_status["state"] = "running"
+        eddn_status["last_activity"] = time.time()
     elif "[STOPPING]" in line or "[TERMINATED]" in line:
         eddn_status["state"] = "offline"
         if live_update_requested:
@@ -958,36 +965,45 @@ def check_existing_process():
 
 def monitor_process():
     """Monitor the updater process and restart it if it dies"""
+    global eddn_status
+    last_activity = time.time()
+    
     while True:
         try:
             # First check if our known process is still running
             if updater_process:
                 if updater_process.poll() is not None:
-                    print(f"{YELLOW}[UPDATE-CHECK] EDDN updater terminated unexpectedly{RESET}")
+                    print(f"{YELLOW}[UPDATE-CHECK] EDDN updater terminated unexpectedly{RESET}", flush=True)
                     # Don't restart immediately, let check_existing_process handle it
                     time.sleep(1)
             
             # Check for any running update_live_web.py process
             if not check_existing_process():
-                print(f"{YELLOW}[UPDATE-CHECK] No update service running, starting new instance{RESET}")
-                start_updater_process()
-            
-            # Check Redis connection/messages
-            try:
-                # TODO: Add Redis check here if needed
-                pass
-            except Exception as e:
-                print(f"{YELLOW}[UPDATE-CHECK] Redis connection error: {e}{RESET}")
+                print(f"{YELLOW}[UPDATE-CHECK] No update service running, starting new instance{RESET}", flush=True)
+                start_updater()
+            else:
+                # Check for activity
+                current_time = time.time()
+                if eddn_status["state"] == "running":
+                    if "last_activity" not in eddn_status:
+                        eddn_status["last_activity"] = current_time
+                    elif current_time - eddn_status["last_activity"] > 300:  # 5 minutes without activity
+                        print(f"{YELLOW}[UPDATE-CHECK] No activity detected for 5 minutes, restarting updater{RESET}", flush=True)
+                        stop_updater()
+                        time.sleep(1)
+                        start_updater()
+                        eddn_status["last_activity"] = current_time
             
         except Exception as e:
-            print(f"{YELLOW}[UPDATE-CHECK] Error in process monitor: {e}{RESET}")
+            print(f"{YELLOW}[UPDATE-CHECK] Error in process monitor: {e}{RESET}", flush=True)
         
         time.sleep(5)  # Check every 5 seconds
 
 def handle_output_stream(pipe):
     """Handle output from the EDDN updater process"""
     try:
-        with io.TextIOWrapper(pipe, encoding='utf-8', errors='replace') as tp:
+        # Use line buffering (buffering=1) and utf-8 encoding
+        with io.TextIOWrapper(pipe, encoding='utf-8', errors='replace', buffering=1) as tp:
             while True:
                 line = tp.readline()
                 if not line:
@@ -995,7 +1011,7 @@ def handle_output_stream(pipe):
                 if line.strip():
                     handle_output(line.strip())
     except Exception as e:
-        print(f"Error in output stream: {e}", file=sys.stderr)
+        print(f"Error in output stream: {e}", file=sys.stderr, flush=True)
 
 def start_updater():
     """Start the EDDN updater process"""
