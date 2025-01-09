@@ -626,12 +626,12 @@ def search_highest():
         
         # Get non-hotspot materials
         non_hotspot = get_non_hotspot_materials_list()
-        non_hotspot_str = "'" + "','".join(non_hotspot) + "'"
+        non_hotspot_str = ",".join(f"'{mat}'" for mat in non_hotspot)
         
         # Build ring type case for non-hotspot materials
         ring_type_case = []
         for material, ring_types in mining_data.NON_HOTSPOT_MATERIALS.items():
-            ring_type_str = "'" + "','".join(ring_types) + "'"
+            ring_type_str = ",".join(f"'{rt}'" for rt in ring_types)
             ring_type_case.append(f"WHEN hp.commodity_name = '{material}' AND ms.ring_type IN ({ring_type_str}) THEN 1")
         ring_type_case = "\n".join(ring_type_case)
         
