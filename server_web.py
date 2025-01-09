@@ -337,15 +337,15 @@ def search():
                 s.power_state, s.distance, ms.body_name, ms.ring_name, ms.ring_type,
                 ms.mineral_type, ms.signal_count, ms.reserve_level, rs.station_name,
                 st.landing_pad_size, st.distance_to_arrival as station_distance,
-                st.station_type, rs.demand, rs.sell_price, st.update_time,
-                CASE WHEN ms.ring_type = ANY(%s::text[]) THEN 1 ELSE 0 END as is_valid_ring
+                st.station_type, rs.demand, rs.sell_price, st.update_time
             FROM relevant_systems s
             JOIN mineral_signals ms ON s.id64 = ms.system_id64
             LEFT JOIN relevant_stations rs ON s.id64 = rs.system_id64
             LEFT JOIN stations st ON s.id64 = st.system_id64 AND rs.station_name = st.station_name
             WHERE ms.ring_type = ANY(%s::text[])
+            ORDER BY rs.sell_price DESC NULLS LAST, s.distance ASC
             """
-            params = [rx, rx, ry, ry, rz, rz, max_dist, signal_type, signal_type, ring_types, ring_types]
+            params = [rx, rx, ry, ry, rz, rz, max_dist, signal_type, signal_type, ring_types]
 
         else:
             query = """
@@ -366,11 +366,12 @@ def search():
                 st.landing_pad_size, st.distance_to_arrival as station_distance,
                 st.station_type, rs.demand, rs.sell_price, st.update_time
             FROM relevant_systems s
+            JOIN mineral_signals ms ON s.id64 = ms.system_id64
             """
             params = [rx, rx, ry, ry, rz, rz, max_dist, signal_type, signal_type]
 
             if ring_type_filter != 'Without Hotspots':
-                query += " AND ms.mineral_type = %s"
+                query += " JOIN mineral_signals ms ON s.id64 = ms.system_id64 AND ms.mineral_type = %s"
                 params.append(signal_type)
 
             query += """
@@ -595,12 +596,12 @@ def search_highest():
         
         # Get the list of non-hotspot materials
         non_hotspot = get_non_hotspot_materials_list()
-        non_hotspot_str = ','.join(f"'{material}'" for material in non_hotspot)
+        non_hotspot_str = "'" + "','".join(non_hotspot) + "'"
         
         # Build ring type case statement
         ring_type_cases = []
         for material, ring_types in mining_data.NON_HOTSPOT_MATERIALS.items():
-            ring_types_str = ','.join(f"'{rt}'" for rt in ring_types)
+            ring_types_str = "'" + "','".join(ring_types) + "'"
             ring_type_cases.append(f"WHEN hp.commodity_name = '{material}' AND ms.ring_type IN ({ring_types_str}) THEN 1")
         ring_type_case = '\n'.join(ring_type_cases)
         
@@ -663,7 +664,7 @@ def search_highest():
             station_type,
             update_time
         FROM MinableCheck
-        WHERE is_minable = 1  -- Only include systems where the material can be mined
+        WHERE is_minable = 1
         ORDER BY max_price DESC
         LIMIT %s
         """
@@ -672,8 +673,26 @@ def search_highest():
         cur.execute(query, power_filter_params)
         results = cur.fetchall()
         
+        # Format results to match server.py
+        formatted_results = []
+        for row in results:
+            formatted_results.append({
+                'commodity_name': row['commodity_name'],
+                'max_price': int(row['max_price']) if row['max_price'] is not None else 0,
+                'system_name': row['system_name'],
+                'controlling_power': row['controlling_power'],
+                'power_state': row['power_state'],
+                'landing_pad_size': row['landing_pad_size'],
+                'distance_to_arrival': float(row['distance_to_arrival']) if row['distance_to_arrival'] is not None else 0,
+                'demand': int(row['demand']) if row['demand'] is not None else 0,
+                'reserve_level': row['reserve_level'],
+                'station_name': row['station_name'],
+                'station_type': row['station_type'],
+                'update_time': row['update_time'].isoformat() if row['update_time'] is not None else None
+            })
+        
         conn.close()
-        return jsonify(results)
+        return jsonify(formatted_results)
         
     except Exception as e:
         app.logger.error(f"Search highest error: {str(e)}")
