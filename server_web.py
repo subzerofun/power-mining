@@ -325,7 +325,12 @@ def search():
             
             # Build all WHERE conditions first
             where_conditions = ["ms.ring_type = ANY(%s::text[])"]
-            params = [rx, rx, ry, ry, rz, rz, max_dist, signal_type, signal_type, ring_types]
+            params = []  # Start with empty params and build in order
+            
+            # Add distance and signal params first
+            params.extend([rx, rx, ry, ry, rz, rz, max_dist])
+            params.extend([signal_type, signal_type])
+            params.append(ring_types)  # For the ring_type ANY condition
             
             if controlling_power:
                 where_conditions.append("s.controlling_power = %s")
@@ -373,13 +378,46 @@ def search():
             where_conditions = ["1=1"]  # Start with a dummy condition
             params = []  # We'll build this in order of appearance in the query
             
-            # First add the distance calculation parameters
-            params.extend([rx, rx, ry, ry, rz, rz, max_dist])
+            # Build the query with parameters in exact order of placeholders
+            query = f"""
+            WITH relevant_systems AS (
+                SELECT s.*, SQRT(POWER(s.x - %s, 2) + POWER(s.y - %s, 2) + POWER(s.z - %s, 2)) as distance
+                FROM systems s
+                WHERE POWER(s.x - %s, 2) + POWER(s.y - %s, 2) + POWER(s.z - %s, 2) <= POWER(%s, 2)
+            ),
+            relevant_stations AS (
+                SELECT sc.system_id64, sc.station_name, sc.sell_price, sc.demand
+                FROM station_commodities sc
+                WHERE (sc.commodity_name = %s OR (%s = 'LowTemperatureDiamond' AND sc.commodity_name = 'Low Temperature Diamonds'))
+                AND sc.demand > 0 AND sc.sell_price > 0
+            )"""
             
-            # Add signal_type params for relevant_stations CTE
-            params.extend([signal_type, signal_type])
+            # Add parameters in order of appearance
+            params.extend([rx, rx, ry, ry, rz, rz, max_dist])  # Distance calculation
+            params.extend([signal_type, signal_type])  # CTE parameters
             
-            # Build the main query conditions
+            # Build the rest of the query
+            query += """
+            SELECT DISTINCT s.name as system_name, s.id64 as system_id64, s.controlling_power,
+                s.power_state, s.distance, ms.body_name, ms.ring_name, ms.ring_type,
+                ms.mineral_type, ms.signal_count, ms.reserve_level, rs.station_name,
+                st.landing_pad_size, st.distance_to_arrival as station_distance,
+                st.station_type, rs.demand, rs.sell_price, st.update_time,
+                rs.sell_price as sort_price
+            FROM relevant_systems s"""
+
+            if ring_type_filter != 'Without Hotspots':
+                query += " JOIN mineral_signals ms ON s.id64 = ms.system_id64 AND ms.mineral_type = %s"
+                params.append(signal_type)  # JOIN condition
+            else:
+                query += " JOIN mineral_signals ms ON s.id64 = ms.system_id64"
+
+            query += """
+            LEFT JOIN relevant_stations rs ON s.id64 = rs.system_id64
+            LEFT JOIN stations st ON s.id64 = st.system_id64 AND rs.station_name = st.station_name
+            WHERE """
+
+            # Add WHERE conditions in order
             if controlling_power:
                 where_conditions.append("s.controlling_power = %s")
                 params.append(controlling_power)
@@ -396,14 +434,11 @@ def search():
                 where_conditions.append(ring_cond.lstrip(" AND "))
                 params.extend(ring_params)
 
-            # Add mineral_type parameter if needed
-            if ring_type_filter != 'Without Hotspots':
-                params.append(signal_type)
+            query += " AND ".join(where_conditions)
 
-            # Determine ORDER BY clause based on is_ring_material
-            order_by = ""
+            # Add ORDER BY
             if is_ring_material:
-                order_by = """
+                query += """
                 ORDER BY 
                     CASE 
                         WHEN ms.reserve_level = 'Pristine' THEN 1
@@ -416,41 +451,7 @@ def search():
                     rs.sell_price DESC NULLS LAST,
                     s.distance ASC"""
             else:
-                order_by = " ORDER BY sort_price DESC NULLS LAST, s.distance ASC"
-
-            if limit:
-                order_by += f" LIMIT {limit}"
-
-            query = f"""
-            WITH relevant_systems AS (
-                SELECT s.*, SQRT(POWER(s.x - %s, 2) + POWER(s.y - %s, 2) + POWER(s.z - %s, 2)) as distance
-                FROM systems s
-                WHERE POWER(s.x - %s, 2) + POWER(s.y - %s, 2) + POWER(s.z - %s, 2) <= POWER(%s, 2)
-            ),
-            relevant_stations AS (
-                SELECT sc.system_id64, sc.station_name, sc.sell_price, sc.demand
-                FROM station_commodities sc
-                WHERE (sc.commodity_name = %s OR (%s = 'LowTemperatureDiamond' AND sc.commodity_name = 'Low Temperature Diamonds'))
-                AND sc.demand > 0 AND sc.sell_price > 0
-            )
-            SELECT DISTINCT s.name as system_name, s.id64 as system_id64, s.controlling_power,
-                s.power_state, s.distance, ms.body_name, ms.ring_name, ms.ring_type,
-                ms.mineral_type, ms.signal_count, ms.reserve_level, rs.station_name,
-                st.landing_pad_size, st.distance_to_arrival as station_distance,
-                st.station_type, rs.demand, rs.sell_price, st.update_time,
-                rs.sell_price as sort_price
-            FROM relevant_systems s
-            """
-
-            if ring_type_filter != 'Without Hotspots':
-                query += " JOIN mineral_signals ms ON s.id64 = ms.system_id64 AND ms.mineral_type = %s"
-            else:
-                query += " JOIN mineral_signals ms ON s.id64 = ms.system_id64"
-
-            query += """
-            LEFT JOIN relevant_stations rs ON s.id64 = rs.system_id64
-            LEFT JOIN stations st ON s.id64 = st.system_id64 AND rs.station_name = st.station_name
-            WHERE """ + " AND ".join(where_conditions) + order_by
+                query += " ORDER BY sort_price DESC NULLS LAST, s.distance ASC"
 
             if limit:
                 query += " LIMIT %s"
