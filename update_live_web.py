@@ -92,70 +92,72 @@ def load_commodity_map():
     log_message(GREEN, "INIT", f"Loaded {len(commodity_map)} commodities from CSV (mapping EDDN ID -> local name)")
     return commodity_map, reverse_map
 
-def flush_commodities_to_db(conn, commodity_buffer, auto_commit=False):
-    """Write buffered commodities to database"""
+def flush_commodities_to_db(conn, commodity_buffer):
+    """Flush commodity updates to database"""
     if not commodity_buffer:
         return 0, 0
 
-    cursor = conn.cursor()
-    total_commodities = 0
-    stations_processed = 0
-    total_stations = len(commodity_buffer)
-
     try:
-        log_message(YELLOW, "DATABASE", "Writing to Database starting...")
+        cursor = conn.cursor()
+        stations_processed = 0
+        total_commodities = 0
         
-        # Process each station's commodities
-        for station_name, new_map in commodity_buffer.items():
-            stations_processed += 1
-            
-            # Get station info
-            cursor.execute("""
-                SELECT system_id64, station_id
-                FROM stations
-                WHERE station_name = %s
-            """, (station_name,))
-            row = cursor.fetchone()
-            if not row:
-                continue
+        log_message(BLUE, "DATABASE", f"Processing {len(commodity_buffer)} stations")
+        
+        for station_name, commodities in commodity_buffer.items():
+            try:
+                # Get station info
+                cursor.execute("""
+                    SELECT s.id64 as system_id64, st.station_id
+                    FROM stations st
+                    JOIN systems s ON s.id64 = st.system_id64
+                    WHERE st.station_name = %s
+                """, (station_name,))
                 
-            system_id64, station_id = row
+                station = cursor.fetchone()
+                if not station:
+                    log_message(YELLOW, "DATABASE", f"Station not found: {station_name}")
+                    continue
+                
+                system_id64 = station['system_id64']
+                station_id = station['station_id']
+                
+                # Delete existing commodities
+                cursor.execute("""
+                    DELETE FROM station_commodities 
+                    WHERE system_id64 = %s AND station_id = %s
+                """, (system_id64, station_id))
+                
+                # Insert new commodities
+                for commodity_name, (sell_price, demand, market_id) in commodities.items():
+                    cursor.execute("""
+                        INSERT INTO station_commodities 
+                        (system_id64, station_id, station_name, commodity_name, sell_price, demand)
+                        VALUES (%s, %s, %s, %s, %s, %s)
+                    """, (system_id64, station_id, station_name, commodity_name, sell_price, demand))
+                    total_commodities += 1
+                
+                # Update station timestamp
+                cursor.execute("""
+                    UPDATE stations
+                    SET update_time = %s
+                    WHERE system_id64 = %s AND station_id = %s
+                """, (datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S+00"), system_id64, station_id))
+                
+                stations_processed += 1
+                
+                # Commit every 10 stations
+                if stations_processed % 10 == 0:
+                    conn.commit()
+                    log_message(BLUE, "DATABASE", f"Processed {stations_processed} of {len(commodity_buffer)} stations")
             
-            # Delete existing commodities
-            cursor.execute("""
-                DELETE FROM station_commodities 
-                WHERE system_id64 = %s AND station_name = %s
-            """, (system_id64, station_name))
-            
-            # Insert new commodities
-            cursor.executemany("""
-                INSERT INTO station_commodities 
-                    (system_id64, station_id, station_name, commodity_name, sell_price, demand)
-                VALUES (%s, %s, %s, %s, %s, %s)
-                ON CONFLICT (system_id64, station_name, commodity_name) 
-                DO UPDATE SET 
-                    sell_price = EXCLUDED.sell_price,
-                    demand = EXCLUDED.demand
-            """, [(system_id64, station_id, station_name, commodity_name, data[0], data[1]) 
-                  for commodity_name, data in new_map.items()])
-            
-            # Update station timestamp
-            cursor.execute("""
-                UPDATE stations
-                SET update_time = %s
-                WHERE system_id64 = %s AND station_id = %s
-            """, (datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S+00"), system_id64, station_id))
-            
-            total_commodities += len(new_map)
-            
-            # Commit every 10 stations
-            if stations_processed % 10 == 0:
-                conn.commit()
-                log_message(YELLOW, "DATABASE", f"Processed {stations_processed} of {total_stations} stations")
-
+            except Exception as e:
+                log_message(RED, "ERROR", f"Error processing station {station_name}: {str(e)}")
+                conn.rollback()
+                continue
+        
         # Final commit
         conn.commit()
-        log_message(GREEN, "DATABASE", f"Writing to Database finished. Updated {stations_processed} stations with {total_commodities} commodities")
         
     except Exception as e:
         log_message(RED, "ERROR", f"Database error: {str(e)}")
@@ -310,6 +312,7 @@ def main():
         # Connect to EDDN
         context = zmq.Context()
         subscriber = context.socket(zmq.SUB)
+        subscriber.setsockopt(zmq.RCVTIMEO, 10000)  # 10 second timeout
         subscriber.connect(EDDN_RELAY)
         subscriber.setsockopt_string(zmq.SUBSCRIBE, "")  # subscribe to all messages
         
@@ -317,12 +320,30 @@ def main():
         log_message(BLUE, "MODE", "automatic" if args.auto else "manual")
         
         last_flush = time.time()
+        last_message = time.time()
         messages_processed = 0
+        total_messages = 0
         
         while running:
             try:
+                # Check if we need to reconnect
+                current_time = time.time()
+                if current_time - last_message > 60:  # No messages for 1 minute
+                    log_message(YELLOW, "WARN", "No messages received for 1 minute, reconnecting to EDDN...")
+                    subscriber.disconnect(EDDN_RELAY)
+                    subscriber.connect(EDDN_RELAY)
+                    last_message = current_time
+                
                 # Get message from EDDN
-                raw_msg = subscriber.recv()
+                try:
+                    raw_msg = subscriber.recv()
+                    last_message = time.time()
+                    total_messages += 1
+                    if total_messages % 100 == 0:
+                        log_message(BLUE, "DEBUG", f"Received {total_messages} total messages")
+                except zmq.error.Again:
+                    continue  # Timeout, continue loop
+                
                 message = zlib.decompress(raw_msg)
                 data = decoder.decode(message)
                 
@@ -339,19 +360,26 @@ def main():
                     
                     # Print status every 100 messages
                     if messages_processed % 100 == 0:
-                        log_message(YELLOW, "STATUS", f"Processed {messages_processed} messages")
+                        log_message(YELLOW, "STATUS", f"Processed {messages_processed} commodity messages")
                     
                     # Flush to database every DB_UPDATE_INTERVAL seconds
                     current_time = time.time()
                     if current_time - last_flush >= DB_UPDATE_INTERVAL:
-                        log_message(YELLOW, "DATABASE", "Writing to Database starting...")
-                        publish_status("updating", datetime.now(timezone.utc))
-                        stations, commodities = flush_commodities_to_db(conn, commodity_buffer)
-                        if stations > 0:
-                            log_message(GREEN, "DATABASE", f"Writing to Database finished. Updated {stations} stations with {commodities} commodities")
-                        publish_status("running", datetime.now(timezone.utc))
+                        if commodity_buffer:
+                            log_message(YELLOW, "DATABASE", "Writing to Database starting...")
+                            publish_status("updating", datetime.now(timezone.utc))
+                            stations, commodities = flush_commodities_to_db(conn, commodity_buffer)
+                            if stations > 0:
+                                log_message(GREEN, "DATABASE", f"Writing to Database finished. Updated {stations} stations with {commodities} commodities")
+                            publish_status("running", datetime.now(timezone.utc))
+                        else:
+                            log_message(BLUE, "DATABASE", "No new data to write to database")
                         last_flush = current_time
-                        
+                
+            except zmq.ZMQError as e:
+                log_message(RED, "ERROR", f"ZMQ error: {str(e)}")
+                time.sleep(1)  # Wait before retrying
+                continue
             except Exception as e:
                 log_message(RED, "ERROR", f"Error processing message: {str(e)}")
                 publish_status("error")
