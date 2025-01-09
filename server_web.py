@@ -18,7 +18,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 # Environment variables for configuration
 DATABASE_URL = None  # Will be set from args or env in main()
 
-WEBSOCKET_HOST = os.getenv('WEBSOCKET_HOST', '127.0.0.1')
+# Always bind to all interfaces (0.0.0.0) for the websocket server
 WEBSOCKET_PORT = int(os.getenv('WEBSOCKET_PORT', '8765'))
 
 # Process ID file for update_live_web.py
@@ -836,8 +836,8 @@ async def main():
     # Bind websocket to all interfaces but web server to specified host
     ws_server = await websockets.serve(
         handle_websocket, 
-        '0.0.0.0', 
-        int(os.getenv('WEBSOCKET_PORT', '8765'))
+        '0.0.0.0',  # Always bind to all interfaces
+        WEBSOCKET_PORT
     )
     app_obj = run_server(args.host, args.port, args)
     async def check_quit():
