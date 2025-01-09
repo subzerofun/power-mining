@@ -611,20 +611,19 @@ def search_highest():
             params.append(controlling_power)
         
         if power_states:
-            placeholders = ','.join(['%s' for _ in power_states])
-            where_conditions.append(f"s.power_state IN ({placeholders})")
-            params.extend(power_states)
+            where_conditions.append("s.power_state = ANY(%s)")
+            params.append(power_states)
         
         where_clause = " AND ".join(where_conditions)
         
         # Get the list of non-hotspot materials
         non_hotspot = get_non_hotspot_materials_list()
-        non_hotspot_str = "'" + "','".join(non_hotspot) + "'"
+        non_hotspot_str = ','.join([f"'{material}'" for material in non_hotspot])
         
         # Build ring type case statement
         ring_type_cases = []
         for material, ring_types in mining_data.NON_HOTSPOT_MATERIALS.items():
-            ring_types_str = "'" + "','".join(ring_types) + "'"
+            ring_types_str = ','.join([f"'{rt}'" for rt in ring_types])
             ring_type_cases.append(f"WHEN hp.commodity_name = '{material}' AND ms.ring_type IN ({ring_types_str}) THEN 1")
         ring_type_case = '\n'.join(ring_type_cases)
         

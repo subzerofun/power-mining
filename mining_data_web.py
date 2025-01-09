@@ -109,9 +109,16 @@ def get_ring_type_case_statement(commodity_column: str = 'commodity_name') -> st
     
     return f'CASE {commodity_column}\n' + '\n'.join(f'{case}' for case in cases) + '\nEND'
 
-def get_non_hotspot_materials_list() -> str:
-    """Get a comma-separated string of non-hotspot material names for SQL IN clause."""
-    return ', '.join(f"'{material}'" for material in NON_HOTSPOT_MATERIALS.keys()) 
+def get_non_hotspot_materials_list():
+    """Get list of non-hotspot materials."""
+    non_hotspot_minerals = {'Bauxite', 'Bertrandite', 
+                        'Coltan', 'Gallite', 'Goslarite', 'Indite', 'Lepidolite', 'Methane Clathrate', 
+                        'Methanol Monohydrate Crystals', 'Moissanite', 'Rutile', 
+                        'Uraninite', 'Jadeite', 'Pyrophyllite', 'Taaffeite', 'Cryolite', 'Lithium Hydroxide', 'Void Opal'}
+    non_hotspot_metals = {'Aluminium', 'Beryllium', 'Cobalt', 'Copper', 'Gallium', 'Gold', 'Hafnium 178', 'Indium',
+                        'Lanthanum', 'Lithium', 'Osmium', 'Palladium','Praseodymium', 'Samarium', 'Silver', 'Tantalum', 
+                        'Thallium', 'Thorium', 'Titanium', 'Uranium'}
+    return list(non_hotspot_minerals | non_hotspot_metals)
 
 def load_price_data():
     """Load price data from CSV file."""
