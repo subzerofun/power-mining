@@ -308,6 +308,7 @@ def search():
                     pass
 
         non_hotspot = get_non_hotspot_materials_list()
+        is_non_hotspot = signal_type in non_hotspot
         non_hotspot_str = ', '.join(f"'{material}'" for material in non_hotspot)
         
         # Build the ring type case statement
@@ -317,38 +318,9 @@ def search():
             ring_type_cases.append(f"WHEN hp.commodity_name = '{material}' AND ms.ring_type IN ({ring_types_str}) THEN 1")
         ring_type_case = '\n'.join(ring_type_cases)
         
-        query = f"""
-        WITH relevant_systems AS (
-            SELECT s.*, SQRT(POWER(s.x - %s, 2) + POWER(s.y - %s, 2) + POWER(s.z - %s, 2)) as distance
-            FROM systems s
-            WHERE POWER(s.x - %s, 2) + POWER(s.y - %s, 2) + POWER(s.z - %s, 2) <= POWER(%s, 2)
-        ),
-        relevant_stations AS (
-            SELECT sc.system_id64, sc.station_name, sc.sell_price, sc.demand
-            FROM station_commodities sc
-            WHERE (sc.commodity_name = %s OR (%s = 'LowTemperatureDiamond' AND sc.commodity_name = 'Low Temperature Diamonds'))
-            AND sc.demand > 0 AND sc.sell_price > 0
-        )
-        SELECT DISTINCT s.name as system_name, s.id64 as system_id64, s.controlling_power,
-            s.power_state, s.distance, ms.body_name, ms.ring_name, ms.ring_type,
-            ms.mineral_type, ms.signal_count, ms.reserve_level, rs.station_name,
-            st.landing_pad_size, st.distance_to_arrival as station_distance,
-            st.station_type, rs.demand, rs.sell_price, st.update_time,
-            CASE WHEN ms.ring_type = ANY(%s::text[]) THEN 1 ELSE 0 END as is_valid_ring
-        FROM relevant_systems s
-        JOIN mineral_signals ms ON s.id64 = ms.system_id64
-        LEFT JOIN relevant_stations rs ON s.id64 = rs.system_id64
-        LEFT JOIN stations st ON s.id64 = st.system_id64 AND rs.station_name = st.station_name
-        WHERE ms.ring_type = ANY(%s::text[])
-        """ + ring_cond + """
-        ORDER BY is_valid_ring DESC, rs.sell_price DESC NULLS LAST, s.distance ASC
-        """
-        params = [rx, rx, ry, ry, rz, rz, max_dist, signal_type, signal_type, ring_types, ring_types]
-        if ring_params:
-            params.extend(ring_params)
-
-        elif is_ring_material:
-            ring_types = ring_materials[signal_type]['ring_types']
+        if is_non_hotspot:
+            # Get ring types from NON_HOTSPOT_MATERIALS dictionary
+            ring_types = mining_data.NON_HOTSPOT_MATERIALS.get(signal_type, [])
             query = """
             WITH relevant_systems AS (
                 SELECT s.*, SQRT(POWER(s.x - %s, 2) + POWER(s.y - %s, 2) + POWER(s.z - %s, 2)) as distance
@@ -356,27 +328,24 @@ def search():
                 WHERE POWER(s.x - %s, 2) + POWER(s.y - %s, 2) + POWER(s.z - %s, 2) <= POWER(%s, 2)
             ),
             relevant_stations AS (
-                SELECT DISTINCT s.id64, s.name as system_name, s.controlling_power,
-                    s.power_state, s.distance, ms.body_name, ms.ring_name,
-                    ms.ring_type, ms.reserve_level, rs.station_name, rs.demand,
-                    rs.sell_price, st.landing_pad_size, st.distance_to_arrival
-                FROM relevant_systems s
-                JOIN mineral_signals ms ON s.id64 = ms.system_id64
-                LEFT JOIN station_commodities rs ON s.id64 = rs.system_id64 AND rs.commodity_name = %s
-                LEFT JOIN stations st ON s.id64 = st.system_id64 AND rs.station_name = st.station_name
-                WHERE ms.ring_type = ANY(%s::text[])
+                SELECT sc.system_id64, sc.station_name, sc.sell_price, sc.demand
+                FROM station_commodities sc
+                WHERE (sc.commodity_name = %s OR (%s = 'LowTemperatureDiamond' AND sc.commodity_name = 'Low Temperature Diamonds'))
+                AND sc.demand > 0 AND sc.sell_price > 0
             )
-            SELECT DISTINCT rs.system_name, rs.controlling_power, rs.power_state,
-                rs.distance, rs.body_name, rs.ring_name, rs.ring_type,
-                rs.reserve_level, rs.station_name, st.landing_pad_size,
-                rs.distance_to_arrival as station_distance, rs.demand,
-                rs.sell_price, st.update_time
-            FROM relevant_stations rs
-            JOIN mineral_signals ms ON rs.id64 = ms.system_id64
-            LEFT JOIN stations st ON rs.id64 = st.system_id64 AND rs.station_name = st.station_name
-            WHERE 1=1
+            SELECT DISTINCT s.name as system_name, s.id64 as system_id64, s.controlling_power,
+                s.power_state, s.distance, ms.body_name, ms.ring_name, ms.ring_type,
+                ms.mineral_type, ms.signal_count, ms.reserve_level, rs.station_name,
+                st.landing_pad_size, st.distance_to_arrival as station_distance,
+                st.station_type, rs.demand, rs.sell_price, st.update_time,
+                CASE WHEN ms.ring_type = ANY(%s::text[]) THEN 1 ELSE 0 END as is_valid_ring
+            FROM relevant_systems s
+            JOIN mineral_signals ms ON s.id64 = ms.system_id64
+            LEFT JOIN relevant_stations rs ON s.id64 = rs.system_id64
+            LEFT JOIN stations st ON s.id64 = st.system_id64 AND rs.station_name = st.station_name
+            WHERE ms.ring_type = ANY(%s::text[])
             """
-            params = [rx, rx, ry, ry, rz, rz, max_dist, signal_type, ring_types]
+            params = [rx, rx, ry, ry, rz, rz, max_dist, signal_type, signal_type, ring_types, ring_types]
 
         else:
             query = """
@@ -397,7 +366,6 @@ def search():
                 st.landing_pad_size, st.distance_to_arrival as station_distance,
                 st.station_type, rs.demand, rs.sell_price, st.update_time
             FROM relevant_systems s
-            JOIN mineral_signals ms ON s.id64 = ms.system_id64
             """
             params = [rx, rx, ry, ry, rz, rz, max_dist, signal_type, signal_type]
 
@@ -627,12 +595,12 @@ def search_highest():
         
         # Get the list of non-hotspot materials
         non_hotspot = get_non_hotspot_materials_list()
-        non_hotspot_str = "'" + "','".join(non_hotspot) + "'"
+        non_hotspot_str = ','.join(f"'{material}'" for material in non_hotspot)
         
         # Build ring type case statement
         ring_type_cases = []
         for material, ring_types in mining_data.NON_HOTSPOT_MATERIALS.items():
-            ring_types_str = "'" + "','".join(ring_types) + "'"
+            ring_types_str = ','.join(f"'{rt}'" for rt in ring_types)
             ring_type_cases.append(f"WHEN hp.commodity_name = '{material}' AND ms.ring_type IN ({ring_types_str}) THEN 1")
         ring_type_case = '\n'.join(ring_type_cases)
         
