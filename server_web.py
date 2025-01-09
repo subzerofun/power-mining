@@ -362,7 +362,7 @@ def search():
                 params.extend(mining_params)
 
             if where_conditions:
-                query += " AND " + " AND ".join(where_conditions)
+                query = query.rstrip() + " AND " + " AND ".join(where_conditions)
 
             query += " ORDER BY sort_price DESC NULLS LAST, s.distance ASC"
 
@@ -628,7 +628,7 @@ def search_highest():
         # Build the base WHERE clause
         where_clause = "sc.demand > 0 AND sc.sell_price > 0"
         if where_conditions:
-            where_clause += " AND " + " AND ".join(where_conditions)
+            where_clause = where_clause.rstrip() + " AND " + " AND ".join(where_conditions)
         
         query = f"""
         WITH HighestPrices AS (
