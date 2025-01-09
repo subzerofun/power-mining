@@ -11,6 +11,7 @@ import msgspec
 import psycopg2
 import zmq
 from psycopg2.extras import DictCursor
+import redis
 
 # ANSI color codes
 YELLOW = '\033[93m'
@@ -37,10 +38,26 @@ commodity_buffer = {}
 commodity_map = {}
 reverse_map = {}
 
+# Redis setup
+REDIS_URL = os.getenv('REDIS_URL', 'redis://localhost:6379')
+redis_client = redis.from_url(REDIS_URL)
+
+def publish_status(state, last_db_update=None):
+    """Publish status update to Redis"""
+    try:
+        status = {
+            "state": state,
+            "last_db_update": last_db_update.isoformat() if last_db_update else None
+        }
+        redis_client.publish('eddn_status', json.dumps(status))
+    except Exception as e:
+        print(f"{RED}[ERROR] Failed to publish status: {e}{RESET}", file=sys.stderr)
+
 def signal_handler(signum, frame):
     """Handle shutdown signals"""
     global running
     print(f"\n{YELLOW}[STOPPING] EDDN Update Service{RESET}", flush=True)
+    publish_status("offline")
     running = False
 
 # Register signal handlers
@@ -200,12 +217,16 @@ def main():
     try:
         print(f"{BLUE}[INIT] Starting Live EDDN Update every {DB_UPDATE_INTERVAL} seconds{RESET}", flush=True)
         
+        publish_status("starting")
+        
         # Load commodity mapping
         commodity_map, reverse_map = load_commodity_map()
         
         # Connect to database
         conn = psycopg2.connect(DATABASE_URL)
-        conn.autocommit = False  # We'll manage transactions manually
+        conn.autocommit = False
+        
+        publish_status("running")
         
         # Create message decoder
         decoder = msgspec.json.Decoder()
@@ -248,29 +269,36 @@ def main():
                     current_time = time.time()
                     if current_time - last_flush >= DB_UPDATE_INTERVAL:
                         print(f"{YELLOW}[DATABASE] Writing to Database starting...{RESET}", flush=True)
+                        publish_status("updating", datetime.now(timezone.utc))
                         stations, commodities = flush_commodities_to_db(conn, commodity_buffer)
                         if stations > 0:
                             print(f"{GREEN}[DATABASE] Writing to Database finished. Updated {stations} stations with {commodities} commodities{RESET}", flush=True)
+                        publish_status("running", datetime.now(timezone.utc))
                         last_flush = current_time
                         
             except Exception as e:
                 print(f"{RED}[ERROR] Error processing message: {str(e)}{RESET}", file=sys.stderr)
+                publish_status("error")
                 continue
                     
         # Final flush on exit
         if commodity_buffer:
             print(f"{YELLOW}[DATABASE] Writing to Database starting...{RESET}", flush=True)
+            publish_status("updating", datetime.now(timezone.utc))
             stations, commodities = flush_commodities_to_db(conn, commodity_buffer)
             if stations > 0:
                 print(f"{GREEN}[DATABASE] Writing to Database finished. Updated {stations} stations with {commodities} commodities{RESET}", flush=True)
+            publish_status("running", datetime.now(timezone.utc))
                 
     except Exception as e:
         print(f"{RED}[ERROR] Fatal error: {str(e)}{RESET}", file=sys.stderr)
+        publish_status("error")
         return 1
         
     finally:
         if 'conn' in locals():
             conn.close()
+        publish_status("offline")
         print(f"{YELLOW}[TERMINATED] EDDN Update Service{RESET}", flush=True)
         
     return 0

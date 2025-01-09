@@ -3,6 +3,7 @@ from psycopg2.extras import DictCursor
 from datetime import datetime
 from flask import Flask, render_template, request, jsonify, send_from_directory
 from flask_sock import Sock
+import redis
 import psutil
 from typing import Dict, List, Optional
 import mining_data_web as mining_data, res_data_web as res_data
@@ -27,6 +28,10 @@ sock = Sock(app)
 updater_process = None
 live_update_requested = False
 eddn_status = {"state": None, "last_db_update": None}
+
+# Redis setup
+REDIS_URL = os.getenv('REDIS_URL', 'redis://localhost:6379')
+redis_client = redis.from_url(REDIS_URL)
 
 def kill_updater_process():
     global updater_process
@@ -102,11 +107,23 @@ def handle_output(line):
 @sock.route('/ws')
 def handle_websocket(ws):
     try:
-        while True:
-            ws.send(json.dumps(eddn_status))
-            time.sleep(0.1)
-    except Exception:
-        pass
+        pubsub = redis_client.pubsub()
+        pubsub.subscribe('eddn_status')
+        
+        # Send initial status
+        ws.send(json.dumps({"state": "offline", "last_db_update": None}))
+        
+        for message in pubsub.listen():
+            if message['type'] == 'message':
+                ws.send(message['data'].decode('utf-8'))
+    except Exception as e:
+        print(f"WebSocket error: {e}")
+    finally:
+        try:
+            pubsub.unsubscribe('eddn_status')
+            pubsub.close()
+        except:
+            pass
 
 @app.route('/favicon.ico')
 def favicon():
