@@ -307,6 +307,7 @@ def search():
                 except:
                     pass
 
+        # Define non-hotspot materials
         non_hotspot = get_non_hotspot_materials_list()
         is_non_hotspot = signal_type in non_hotspot
         non_hotspot_str = ','.join(f"'{material}'" for material in non_hotspot)
@@ -369,11 +370,11 @@ def search():
             params = [rx, rx, ry, ry, rz, rz, max_dist, signal_type, signal_type]
 
             if controlling_power:
-                where_conditions.append("s.controlling_power = %s")
+                where_conditions.append("s.controlling_power::text = %s::text")
                 params.append(controlling_power)
 
             if power_states:
-                where_conditions.append("s.power_state = ANY(%s::text[])")
+                where_conditions.append("s.power_state = ANY(%s)")
                 params.append(power_states)
 
             if mining_cond:
