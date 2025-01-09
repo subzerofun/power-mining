@@ -332,7 +332,7 @@ def search():
                 params.append(controlling_power)
 
             if power_states:
-                where_conditions.append("s.power_state = ANY(%s::text[])")
+                where_conditions.append("s.power_state = ANY(%s)")
                 params.append(power_states)
 
             if mining_cond:
@@ -385,7 +385,7 @@ def search():
                 params.append(controlling_power)
 
             if power_states:
-                where_conditions.append("s.power_state = ANY(%s::text[])")
+                where_conditions.append("s.power_state = ANY(%s)")
                 params.append(power_states)
 
             if mining_cond:
@@ -417,6 +417,9 @@ def search():
                     s.distance ASC"""
             else:
                 order_by = " ORDER BY sort_price DESC NULLS LAST, s.distance ASC"
+
+            if limit:
+                order_by += f" LIMIT {limit}"
 
             query = f"""
             WITH relevant_systems AS (
