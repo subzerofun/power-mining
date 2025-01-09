@@ -348,7 +348,7 @@ def search():
             params = [rx, rx, ry, ry, rz, rz, max_dist, signal_type, signal_type, ring_types]
 
             # Build WHERE clause
-            where_conditions = []
+            where_conditions = ["ms.ring_type = ANY(%s::text[])"]
             if controlling_power:
                 where_conditions.append("s.controlling_power = %s")
                 params.append(controlling_power)
@@ -361,10 +361,30 @@ def search():
                 where_conditions.append(mining_cond)
                 params.extend(mining_params)
 
-            if where_conditions:
-                query = query.rstrip() + " AND " + " AND ".join(where_conditions)
-
-            query += " ORDER BY sort_price DESC NULLS LAST, s.distance ASC"
+            query = """
+            WITH relevant_systems AS (
+                SELECT s.*, SQRT(POWER(s.x - %s, 2) + POWER(s.y - %s, 2) + POWER(s.z - %s, 2)) as distance
+                FROM systems s
+                WHERE POWER(s.x - %s, 2) + POWER(s.y - %s, 2) + POWER(s.z - %s, 2) <= POWER(%s, 2)
+            ),
+            relevant_stations AS (
+                SELECT sc.system_id64, sc.station_name, sc.sell_price, sc.demand
+                FROM station_commodities sc
+                WHERE (sc.commodity_name = %s OR (%s = 'LowTemperatureDiamond' AND sc.commodity_name = 'Low Temperature Diamonds'))
+                AND sc.demand > 0 AND sc.sell_price > 0
+            )
+            SELECT DISTINCT s.name as system_name, s.id64 as system_id64, s.controlling_power,
+                s.power_state, s.distance, ms.body_name, ms.ring_name, ms.ring_type,
+                ms.mineral_type, ms.signal_count, ms.reserve_level, rs.station_name,
+                st.landing_pad_size, st.distance_to_arrival as station_distance,
+                st.station_type, rs.demand, rs.sell_price, st.update_time,
+                rs.sell_price as sort_price
+            FROM relevant_systems s
+            JOIN mineral_signals ms ON s.id64 = ms.system_id64
+            LEFT JOIN relevant_stations rs ON s.id64 = rs.system_id64
+            LEFT JOIN stations st ON s.id64 = st.system_id64 AND rs.station_name = st.station_name
+            WHERE """ + " AND ".join(where_conditions) + """
+            ORDER BY sort_price DESC NULLS LAST, s.distance ASC"""
 
         else:
             query = """
@@ -601,8 +621,8 @@ def search_highest():
             
         cur = conn.cursor()
         
-        # Build power state filter
-        where_conditions = []
+        # Build the base WHERE clause
+        where_conditions = ["sc.demand > 0", "sc.sell_price > 0"]
         power_filter_params = []
         
         if controlling_power:
@@ -614,6 +634,8 @@ def search_highest():
             where_conditions.append(f"s.power_state IN ({placeholders})")
             power_filter_params.extend(power_states)
         
+        where_clause = " AND ".join(where_conditions)
+        
         # Get the list of non-hotspot materials
         non_hotspot = get_non_hotspot_materials_list()
         non_hotspot_str = ','.join("'" + material + "'" for material in non_hotspot)
@@ -624,11 +646,6 @@ def search_highest():
             ring_types_str = ','.join("'" + rt + "'" for rt in ring_types)
             ring_type_cases.append(f"WHEN hp.commodity_name = '{material}' AND ms.ring_type IN ({ring_types_str}) THEN 1")
         ring_type_case = '\n'.join(ring_type_cases)
-        
-        # Build the base WHERE clause
-        where_clause = "sc.demand > 0 AND sc.sell_price > 0"
-        if where_conditions:
-            where_clause = where_clause.rstrip() + " AND " + " AND ".join(where_conditions)
         
         query = f"""
         WITH HighestPrices AS (
