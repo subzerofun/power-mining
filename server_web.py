@@ -16,10 +16,12 @@ from mining_data_web import (
 import tempfile
 import io
 
+# ANSI color codes
 YELLOW = '\033[93m'
 BLUE = '\033[94m'
 GREEN = '\033[92m'
 RED = '\033[91m'
+ORANGE = '\033[38;5;208m'  # Add orange color code
 RESET = '\033[0m'
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
