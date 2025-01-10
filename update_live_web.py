@@ -30,7 +30,7 @@ def log_message(color, tag, message):
     """Log a message with timestamp and color"""
     timestamp = datetime.now().strftime("%Y:%m:%d-%H:%M:%S")
     pid = os.getpid()
-    print(f"{color}[{timestamp}] [{pid}] [{tag}] {message}{RESET}", flush=True)  # Always flush
+    print(f"{ORANGE}[{timestamp}] [{pid}] [{tag}] {message}{RESET}", flush=True)  # Always use ORANGE for update process messages
 
 # Constants
 DATABASE_URL = None  # Will be set from args or env in main()
@@ -65,7 +65,8 @@ def publish_status(state, last_db_update=None):
     try:
         status = {
             "state": state,
-            "last_db_update": last_db_update.isoformat() if last_db_update else None
+            "last_db_update": last_db_update.isoformat() if last_db_update else None,
+            "pid": os.getpid()  # Add PID to status messages
         }
         log_message(BLUE, "STATUS", f"Publishing state: {state}")
         status_publisher.send_string(json.dumps(status))

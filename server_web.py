@@ -34,13 +34,74 @@ PID_FILE = os.path.join(tempfile.gettempdir(), 'update_live_web.pid')
 
 # ZMQ setup for status updates
 STATUS_PORT = int(os.getenv('STATUS_PORT', '5557'))
-zmq_context = zmq.Context()
-status_socket = zmq_context.socket(zmq.SUB)  # Change to SUB
-try:
-    status_socket.connect(f"tcp://localhost:{STATUS_PORT}")  # Connect instead of bind
-    status_socket.setsockopt_string(zmq.SUBSCRIBE, "")  # Subscribe to all messages
-except zmq.error.ZMQError as e:
-    print(f"Warning: Could not connect to status port: {e}", file=sys.stderr)
+zmq_context = None
+status_socket = None
+last_status_time = 0
+updater_pid = None
+
+def setup_zmq():
+    """Setup ZMQ connection in the main process"""
+    global zmq_context, status_socket
+    zmq_context = zmq.Context()
+    status_socket = zmq_context.socket(zmq.SUB)
+    try:
+        status_socket.connect(f"tcp://localhost:{STATUS_PORT}")
+        status_socket.setsockopt_string(zmq.SUBSCRIBE, "")
+        log_message(BLUE, f"MAIN-{os.getpid()}", "ZMQ connection established")
+    except zmq.error.ZMQError as e:
+        log_message(RED, f"MAIN-{os.getpid()}", f"Could not connect to status port: {e}")
+
+def check_updater_status():
+    """Check if we're receiving status updates from the updater"""
+    global last_status_time, updater_pid
+    try:
+        if status_socket and status_socket.poll(100):  # 100ms timeout
+            message = status_socket.recv_string()
+            last_status_time = time.time()
+            try:
+                status_data = json.loads(message)
+                if 'pid' in status_data:
+                    updater_pid = status_data['pid']
+            except:
+                pass
+            return True
+    except zmq.ZMQError:
+        pass
+    return False
+
+def is_update_process_running():
+    """Check if update_live_web.py is running using ZMQ status"""
+    global last_status_time, updater_pid
+    
+    # First check ZMQ status
+    if check_updater_status():
+        return True
+    
+    # If we haven't received a status update in 60 seconds, consider the process dead
+    if time.time() - last_status_time > 60:
+        return False
+        
+    # Fallback to PID file check if we haven't received any ZMQ messages yet
+    if last_status_time == 0:
+        if os.path.exists(PID_FILE):
+            try:
+                with open(PID_FILE, 'r') as f:
+                    pid = int(f.read().strip())
+                    process = psutil.Process(pid)
+                    if "update_live_web.py" in " ".join(process.cmdline()):
+                        updater_pid = pid
+                        return True
+            except:
+                if os.path.exists(PID_FILE):
+                    os.remove(PID_FILE)
+    
+    return False
+
+def log_message(color, tag, message):
+    """Log a message with timestamp and PID"""
+    timestamp = datetime.now().strftime("%Y:%m:%d-%H:%M:%S")
+    worker_id = os.environ.get('GUNICORN_WORKER_ID', 'MAIN')
+    print(f"{color}[{timestamp}] [{tag}-{os.getpid()}] {message}{RESET}", flush=True)
 
 app = Flask(__name__, template_folder=BASE_DIR, static_folder=None)
 sock = Sock(app)
@@ -52,7 +113,7 @@ eddn_status = {"state": "offline", "last_db_update": None}
 app_wsgi = None
 
 def create_app(*args, **kwargs):
-    global app_wsgi, DATABASE_URL
+    global app_wsgi, DATABASE_URL, zmq_context, status_socket
     if app_wsgi is None:
         app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
         app_wsgi = app
@@ -63,18 +124,19 @@ def create_app(*args, **kwargs):
             print("ERROR: DATABASE_URL environment variable must be set")
             sys.exit(1)
         
-        # Start the monitor loop only in the main process
-        if os.getenv('ENABLE_LIVE_UPDATE', 'false').lower() == 'true':
-            if os.getppid() == 1:  # Running under init (main Gunicorn process)
-                # Create event loop for the thread
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                
-                def run_monitor():
-                    loop.run_until_complete(monitor_update_process())
-                
-                monitor_thread = threading.Thread(target=run_monitor, daemon=True)
-                monitor_thread.start()
+        # Setup ZMQ in main process only
+        if os.getppid() == 1:  # Running under init (main Gunicorn process)
+            setup_zmq()
+            
+            # Create event loop for the thread
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            
+            def run_monitor():
+                loop.run_until_complete(monitor_update_process())
+            
+            monitor_thread = threading.Thread(target=run_monitor, daemon=True)
+            monitor_thread.start()
     
     return app_wsgi
 
@@ -1106,35 +1168,6 @@ def start_updater():
         if os.path.exists(PID_FILE):
             os.remove(PID_FILE)
 
-def is_update_process_running():
-    """Check if update_live_web.py is running on the server"""
-    try:
-        # Check PID file first
-        if os.path.exists(PID_FILE):
-            try:
-                with open(PID_FILE, 'r') as f:
-                    pid = int(f.read().strip())
-                    process = psutil.Process(pid)
-                    if "update_live_web.py" in " ".join(process.cmdline()):
-                        return True
-            except (ValueError, psutil.NoSuchProcess, psutil.AccessDenied):
-                os.remove(PID_FILE)
-        
-        # Fallback to process search
-        for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
-            try:
-                if proc.info['cmdline'] and "update_live_web.py" in " ".join(proc.info['cmdline']):
-                    # Update PID file if found
-                    with open(PID_FILE, 'w') as f:
-                        f.write(str(proc.pid))
-                    return True
-            except (psutil.NoSuchProcess, psutil.AccessDenied):
-                continue
-        return False
-    except Exception as e:
-        log_message(RED, "ERROR", f"Failed to check for running processes: {e}")
-        return True  # Assume it's running if we can't check
-
 async def monitor_update_process():
     """Monitor update_live_web.py and restart if needed"""
     global eddn_status
@@ -1164,9 +1197,10 @@ async def monitor_update_process():
         await asyncio.sleep(60)
 
 def log_message(color, tag, message):
-    """Log a message with timestamp"""
+    """Log a message with timestamp and PID"""
     timestamp = datetime.now().strftime("%Y:%m:%d-%H:%M:%S")
-    print(f"{color}[{timestamp}] [{tag}] {message}{RESET}", flush=True)
+    worker_id = os.environ.get('GUNICORN_WORKER_ID', 'MAIN')
+    print(f"{color}[{timestamp}] [{tag}-{os.getpid()}] {message}{RESET}", flush=True)
 
 # Add cleanup for ZMQ context
 def cleanup_zmq():
