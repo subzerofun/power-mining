@@ -29,7 +29,8 @@ def get_timestamp():
 def log_message(color, tag, message):
     """Log a message with timestamp and color"""
     timestamp = datetime.now().strftime("%Y:%m:%d-%H:%M:%S")
-    print(f"{color}[{timestamp}] [{tag}] {message}{RESET}", flush=True)  # Always flush
+    pid = os.getpid()
+    print(f"{color}[{timestamp}] [{pid}] [{tag}] {message}{RESET}", flush=True)  # Always flush
 
 # Constants
 DATABASE_URL = None  # Will be set from args or env in main()
@@ -280,7 +281,7 @@ def process_message(message, commodity_map):
         system_name = message.get("systemName", "Unknown")
         market_id = message.get("marketId")
         
-        print(f"DEBUG: Processing station {station_name} in {system_name}")  # Direct print for debugging
+        log_message(BLUE, "DEBUG", f"Processing station {station_name} in {system_name}")
         
         if market_id is None:
             log_message(YELLOW, "DEBUG", f"Live update without marketId: {station_name} in system {system_name}")
@@ -292,35 +293,32 @@ def process_message(message, commodity_map):
         # Process commodities
         station_commodities = {}
         commodities = message.get("commodities", [])
-        print(f"DEBUG: Found {len(commodities)} commodities")  # Direct print for debugging
+        log_message(BLUE, "DEBUG", f"Found {len(commodities)} commodities")
         
         for commodity in commodities:
             name = commodity.get("name", "").lower()
             if not name:
-                print("DEBUG: Commodity missing name")  # Direct print for debugging
                 continue
                 
             if name not in commodity_map:
-                print(f"DEBUG: Skipping unknown commodity: {name}")  # Direct print for debugging
-                continue
+                continue  # Skip logging unknown commodities
                 
             sell_price = commodity.get("sellPrice", 0)
             if sell_price <= 0:
-                print(f"DEBUG: Skipping {name} - no sell price")  # Direct print for debugging
                 continue
                 
             demand = commodity.get("demand", 0)
-            print(f"DEBUG: Processing commodity: {name} (price: {sell_price}, demand: {demand})")  # Direct print for debugging
+            log_message(BLUE, "DEBUG", f"Processing commodity: {name} (price: {sell_price}, demand: {demand})")
             station_commodities[commodity_map[name]] = (sell_price, demand, market_id)
-            print(f"✓ {commodity_map[name]} at {station_name}: {sell_price:,} cr (demand: {demand:,})")  # Direct print for debugging
+            log_message(GREEN, "COMMODITY", f"✓ {commodity_map[name]} at {station_name}: {sell_price:,} cr (demand: {demand:,})")
             
         if station_commodities:
-            print(f"Added {len(station_commodities)} mining commodities to buffer for {station_name}")  # Direct print for debugging
+            log_message(GREEN, "COMMODITY", f"Added {len(station_commodities)} mining commodities to buffer for {station_name}")
             # Publish status update to indicate activity
             publish_status("running", datetime.now(timezone.utc))
             return station_name, station_commodities
         else:
-            print(f"No relevant commodities found at {station_name}")  # Direct print for debugging
+            log_message(YELLOW, "DEBUG", f"No relevant commodities found at {station_name}")
             
     except Exception as e:
         log_message(RED, "ERROR", f"Error processing message: {str(e)}")

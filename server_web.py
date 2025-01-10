@@ -35,11 +35,12 @@ PID_FILE = os.path.join(tempfile.gettempdir(), 'update_live_web.pid')
 # ZMQ setup for status updates
 STATUS_PORT = int(os.getenv('STATUS_PORT', '5557'))
 zmq_context = zmq.Context()
-status_socket = zmq_context.socket(zmq.XPUB)  # Use XPUB for multiple publishers
+status_socket = zmq_context.socket(zmq.SUB)  # Change to SUB
 try:
-    status_socket.bind(f"tcp://*:{STATUS_PORT}")
+    status_socket.connect(f"tcp://localhost:{STATUS_PORT}")  # Connect instead of bind
+    status_socket.setsockopt_string(zmq.SUBSCRIBE, "")  # Subscribe to all messages
 except zmq.error.ZMQError as e:
-    print(f"Warning: Could not bind to status port: {e}", file=sys.stderr)
+    print(f"Warning: Could not connect to status port: {e}", file=sys.stderr)
 
 app = Flask(__name__, template_folder=BASE_DIR, static_folder=None)
 sock = Sock(app)
@@ -1012,27 +1013,34 @@ def start_updater():
     try:
         # Only allow starting from main process
         if os.environ.get('GUNICORN_WORKER_ID'):
+            log_message(YELLOW, "MONITOR", f"Worker {os.environ.get('GUNICORN_WORKER_ID')} skipping updater start")
             return
             
-        # Check for any running instances first
-        running_pid = None
+        # Check PID file first
+        if os.path.exists(PID_FILE):
+            try:
+                with open(PID_FILE, 'r') as f:
+                    pid = int(f.read().strip())
+                    process = psutil.Process(pid)
+                    if "update_live_web.py" in " ".join(process.cmdline()):
+                        log_message(BLUE, "MONITOR", f"Found existing update process from PID file: {pid}")
+                        return
+            except (ValueError, psutil.NoSuchProcess, psutil.AccessDenied):
+                os.remove(PID_FILE)
+        
+        # Check for any running instances
         for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
             try:
                 if proc.info['cmdline'] and "update_live_web.py" in " ".join(proc.info['cmdline']):
-                    running_pid = proc.pid
-                    print(f"{ORANGE}[UPDATE-CHECK] Update service already running with PID: {proc.pid}{RESET}", flush=True)
+                    log_message(BLUE, "MONITOR", f"Found running update process: {proc.pid}")
+                    with open(PID_FILE, 'w') as f:
+                        f.write(str(proc.pid))
                     return
             except (psutil.NoSuchProcess, psutil.AccessDenied):
                 continue
         
-        # No running instance found, clean up
+        # No running instance found, clean up and start new one
         kill_updater_process()
-        
-        if os.path.exists(PID_FILE):
-            try:
-                os.remove(PID_FILE)
-            except:
-                pass
         
         # Start new process
         updater_process = subprocess.Popen(
@@ -1047,7 +1055,7 @@ def start_updater():
         with open(PID_FILE, 'w') as f:
             f.write(str(updater_process.pid))
         
-        print(f"{ORANGE}[UPDATE-CHECK] Starting EDDN Live Update (PID: {updater_process.pid}){RESET}", flush=True)
+        log_message(GREEN, "MONITOR", f"Started new update process with PID: {updater_process.pid}")
         
         # Start output handling threads
         threading.Thread(target=handle_output_stream, args=(updater_process.stdout,), daemon=True).start()
@@ -1058,88 +1066,37 @@ def start_updater():
             eddn_status["state"] = "starting"
         else:
             eddn_status["state"] = "error"
-            print(f"{ORANGE}[ERROR] EDDN updater failed to start{RESET}", file=sys.stderr)
+            log_message(RED, "ERROR", "EDDN updater failed to start")
             if os.path.exists(PID_FILE):
                 os.remove(PID_FILE)
             
     except Exception as e:
-        print(f"Error starting updater: {e}", file=sys.stderr)
+        log_message(RED, "ERROR", f"Error starting updater: {e}")
         eddn_status["state"] = "error"
         if os.path.exists(PID_FILE):
             os.remove(PID_FILE)
 
-def monitor_process():
-    """Monitor the update process and restart if needed"""
-    global updater_process, eddn_status, ORANGE, RESET
-    while True:
-        try:
-            time.sleep(30)  # Check less frequently
-            
-            # Only try to start if we're the main process and no updater is running
-            if not os.environ.get('GUNICORN_WORKER_ID'):
-                running_pids = []
-                for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
-                    try:
-                        if proc.info['cmdline'] and "update_live_web.py" in " ".join(proc.info['cmdline']):
-                            running_pids.append(proc.pid)
-                    except (psutil.NoSuchProcess, psutil.AccessDenied):
-                        continue
-                
-                if not running_pids:
-                    log_message(ORANGE, "UPDATE-CHECK", "No running update process found, starting new one")
-                    start_updater()
-                elif len(running_pids) > 1:
-                    # Kill all but the first one
-                    for pid in running_pids[1:]:
-                        try:
-                            os.kill(pid, signal.SIGTERM)
-                        except:
-                            pass
-                
-        except Exception as e:
-            log_message(ORANGE, "UPDATE-CHECK", f"Error in monitor thread: {e}")
-            time.sleep(5)  # Wait before retrying after error
-
-# Start the monitor thread when the module loads
-monitor_thread = threading.Thread(target=monitor_process, name="monitor_thread", daemon=True)
-monitor_thread.start()
-
-# Gunicorn entry point
-app_wsgi = None
-
-def create_app(*args, **kwargs):
-    global app_wsgi, DATABASE_URL
-    if app_wsgi is None:
-        app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
-        app_wsgi = app
-        
-        # Set DATABASE_URL for all workers
-        DATABASE_URL = os.getenv('DATABASE_URL')
-        if not DATABASE_URL:
-            print("ERROR: DATABASE_URL environment variable must be set")
-            sys.exit(1)
-        
-        # Start the monitor loop only in the main process
-        if os.getenv('ENABLE_LIVE_UPDATE', 'false').lower() == 'true':
-            if os.getppid() == 1:  # Running under init (main Gunicorn process)
-                # Create event loop for the thread
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                
-                def run_monitor():
-                    loop.run_until_complete(monitor_update_process())
-                
-                monitor_thread = threading.Thread(target=run_monitor, daemon=True)
-                monitor_thread.start()
-    
-    return app_wsgi
-
 def is_update_process_running():
     """Check if update_live_web.py is running on the server"""
     try:
+        # Check PID file first
+        if os.path.exists(PID_FILE):
+            try:
+                with open(PID_FILE, 'r') as f:
+                    pid = int(f.read().strip())
+                    process = psutil.Process(pid)
+                    if "update_live_web.py" in " ".join(process.cmdline()):
+                        return True
+            except (ValueError, psutil.NoSuchProcess, psutil.AccessDenied):
+                os.remove(PID_FILE)
+        
+        # Fallback to process search
         for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
             try:
                 if proc.info['cmdline'] and "update_live_web.py" in " ".join(proc.info['cmdline']):
+                    # Update PID file if found
+                    with open(PID_FILE, 'w') as f:
+                        f.write(str(proc.pid))
                     return True
             except (psutil.NoSuchProcess, psutil.AccessDenied):
                 continue
@@ -1180,6 +1137,16 @@ def log_message(color, tag, message):
     """Log a message with timestamp"""
     timestamp = datetime.now().strftime("%Y:%m:%d-%H:%M:%S")
     print(f"{color}[{timestamp}] [{tag}] {message}{RESET}", flush=True)
+
+# Add cleanup for ZMQ context
+def cleanup_zmq():
+    try:
+        status_socket.close()
+        zmq_context.term()
+    except:
+        pass
+
+atexit.register(cleanup_zmq)
 
 if __name__ == '__main__':
     asyncio.run(main())
