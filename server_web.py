@@ -1,9 +1,8 @@
 import os, sys, math, json, zlib, time, signal, atexit, argparse, asyncio, subprocess, threading, psycopg2
 from psycopg2.extras import DictCursor
 from datetime import datetime
-from flask import Flask, render_template, request, jsonify, send_from_directory
+from flask import Flask, render_template, request, jsonify, send_from_directory, json as flask_json
 from flask_sock import Sock
-from flask.json import JSONEncoder
 import zmq
 import psutil
 from typing import Dict, List, Optional
@@ -18,7 +17,7 @@ import tempfile
 import io
 
 # Custom JSON encoder to handle datetime objects
-class CustomJSONEncoder(JSONEncoder):
+class CustomJSONEncoder(flask_json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, datetime):
             return obj.strftime('%Y-%m-%d')
