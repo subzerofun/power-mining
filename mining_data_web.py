@@ -199,6 +199,15 @@ def get_mining_type_conditions(commodity: str, mining_types: list) -> tuple[str,
         # Find the commodity data
         commodity_data = next((item for item in material_data['materials'] if item['name'] == commodity), None)
         if not commodity_data:
+            # Check if it's a ring material from NON_HOTSPOT_MATERIALS
+            if commodity in NON_HOTSPOT_MATERIALS:
+                ring_types = NON_HOTSPOT_MATERIALS[commodity]
+                conditions = []
+                params = []
+                for ring_type in ring_types:
+                    conditions.append('(ms.ring_type = %s AND ms.mineral_type IS NULL)')
+                    params.append(ring_type)
+                return '(' + ' OR '.join(conditions) + ')', params
             return '', []
         
         # Build conditions for each ring type
