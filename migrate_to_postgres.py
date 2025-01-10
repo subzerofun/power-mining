@@ -26,6 +26,7 @@ def create_postgres_schema(pg_conn):
                 z DOUBLE PRECISION,
                 controlling_power TEXT,
                 power_state TEXT,
+                powers_acquiring JSONB,
                 distance_from_sol DOUBLE PRECISION,
                 CONSTRAINT unique_system_name UNIQUE (name)
             )
@@ -84,6 +85,7 @@ def create_postgres_schema(pg_conn):
         cur.execute("""
             CREATE INDEX idx_systems_name ON systems(name);
             CREATE INDEX idx_systems_coords ON systems(x, y, z);
+            CREATE INDEX idx_systems_powers_acquiring ON systems USING GIN (powers_acquiring);
             CREATE INDEX idx_mineral_signals_type ON mineral_signals(mineral_type);
             CREATE INDEX idx_station_commodities_price ON station_commodities(commodity_name, sell_price DESC);
         """)
@@ -124,7 +126,7 @@ def migrate_data(sqlite_path, pg_conn):
     try:
         # Migrate systems
         print("Migrating systems table...")
-        sqlite_cur.execute("SELECT id64, name, x, y, z, controlling_power, power_state FROM systems")
+        sqlite_cur.execute("SELECT id64, name, x, y, z, controlling_power, power_state, powers_acquiring, distance_from_sol FROM systems")
         systems = [clean_row(row) for row in sqlite_cur.fetchall()]
         # Deduplicate on id64 (index 0)
         systems = deduplicate_rows(systems, [0])
@@ -133,7 +135,7 @@ def migrate_data(sqlite_path, pg_conn):
             execute_values(
                 pg_cur,
                 """
-                INSERT INTO systems (id64, name, x, y, z, controlling_power, power_state) 
+                INSERT INTO systems (id64, name, x, y, z, controlling_power, power_state, powers_acquiring, distance_from_sol) 
                 VALUES %s 
                 ON CONFLICT (id64) DO UPDATE SET 
                     name = EXCLUDED.name,
@@ -141,10 +143,12 @@ def migrate_data(sqlite_path, pg_conn):
                     y = EXCLUDED.y,
                     z = EXCLUDED.z,
                     controlling_power = EXCLUDED.controlling_power,
-                    power_state = EXCLUDED.power_state
+                    power_state = EXCLUDED.power_state,
+                    powers_acquiring = EXCLUDED.powers_acquiring,
+                    distance_from_sol = EXCLUDED.distance_from_sol
                 """,
                 systems,
-                template="(%s, %s, %s, %s, %s, %s, %s)"
+                template="(%s, %s, %s, %s, %s, %s, %s, %s, %s)"
             )
         
         # Migrate mineral_signals
