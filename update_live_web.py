@@ -12,6 +12,7 @@ import psycopg2
 import zmq
 from psycopg2.extras import DictCursor
 import atexit
+import platform
 
 # ANSI color codes
 YELLOW = '\033[93m'
@@ -20,6 +21,9 @@ GREEN = '\033[92m'
 RED = '\033[91m'
 RESET = '\033[0m'
 
+# Check if we're on Windows
+USE_COLORS = platform.system() != "Windows"
+
 def get_timestamp():
     """Get current timestamp in YYYY:MM:DD-HH:MM:SS format"""
     return datetime.now().strftime("%Y:%m:%d-%H:%M:%S")
@@ -27,7 +31,10 @@ def get_timestamp():
 def log_message(color, tag, message):
     """Log a message with timestamp and color"""
     timestamp = datetime.now().strftime("%Y:%m:%d-%H:%M:%S")
-    print(f"{color}[{timestamp}] [{tag}] {message}{RESET}", flush=True)  # Always flush
+    if USE_COLORS:
+        print(f"{color}[{timestamp}] [{tag}] {message}{RESET}", flush=True)
+    else:
+        print(f"[{timestamp}] [{tag}] {message}", flush=True)  # No colors on Windows
 
 # Constants
 DATABASE_URL = None  # Will be set from args or env in main()
@@ -275,7 +282,7 @@ def process_message(message, commodity_map):
             handle_journal_message(message)
             return None, None
             
-        # Skip if not a commodity message
+        # Skip if not a commodity message (check for exact schema)
         if "commodity" not in schema_ref:
             return None, None
             
