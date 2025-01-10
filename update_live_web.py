@@ -270,19 +270,6 @@ def handle_journal_message(message):
 def process_message(message, commodity_map):
     """Process a single EDDN message"""
     try:
-        schema_ref = message.get("$schemaRef", "").lower()
-        log_message(BLUE, "DEBUG", f"Processing message with schema: {schema_ref}")
-        
-        # Handle journal messages for power data
-        if "journal" in schema_ref:
-            handle_journal_message(message)
-            return None, None
-            
-        # Skip if not a commodity message (check for exact schema)
-        if "commodity" not in schema_ref:
-            log_message(YELLOW, "DEBUG", "Skipping non-commodity message")
-            return None, None
-            
         # Skip fleet carriers
         if message.get("stationType") == "FleetCarrier" or \
            (message.get("economies") and message["economies"][0].get("name") == "Carrier"):
@@ -293,7 +280,7 @@ def process_message(message, commodity_map):
         system_name = message.get("systemName", "Unknown")
         market_id = message.get("marketId")
         
-        log_message(BLUE, "DEBUG", f"Processing message for {station_name} in {system_name}")
+        print(f"DEBUG: Processing station {station_name} in {system_name}")  # Direct print for debugging
         
         if market_id is None:
             log_message(YELLOW, "DEBUG", f"Live update without marketId: {station_name} in system {system_name}")
@@ -305,35 +292,35 @@ def process_message(message, commodity_map):
         # Process commodities
         station_commodities = {}
         commodities = message.get("commodities", [])
-        log_message(BLUE, "DEBUG", f"Found {len(commodities)} commodities at {station_name} in {system_name}")
+        print(f"DEBUG: Found {len(commodities)} commodities")  # Direct print for debugging
         
         for commodity in commodities:
             name = commodity.get("name", "").lower()
             if not name:
-                log_message(YELLOW, "DEBUG", "Commodity missing name")
+                print("DEBUG: Commodity missing name")  # Direct print for debugging
                 continue
                 
             if name not in commodity_map:
-                log_message(YELLOW, "DEBUG", f"Skipping unknown commodity: {name}")
+                print(f"DEBUG: Skipping unknown commodity: {name}")  # Direct print for debugging
                 continue
                 
             sell_price = commodity.get("sellPrice", 0)
             if sell_price <= 0:
-                log_message(YELLOW, "DEBUG", f"Skipping {name} - no sell price")
+                print(f"DEBUG: Skipping {name} - no sell price")  # Direct print for debugging
                 continue
                 
             demand = commodity.get("demand", 0)
-            log_message(BLUE, "DEBUG", f"Processing commodity: {name} (price: {sell_price}, demand: {demand})")
+            print(f"DEBUG: Processing commodity: {name} (price: {sell_price}, demand: {demand})")  # Direct print for debugging
             station_commodities[commodity_map[name]] = (sell_price, demand, market_id)
-            log_message(GREEN, "COMMODITY", f"✓ {commodity_map[name]} at {station_name}: {sell_price:,} cr (demand: {demand:,})")
+            print(f"✓ {commodity_map[name]} at {station_name}: {sell_price:,} cr (demand: {demand:,})")  # Direct print for debugging
             
         if station_commodities:
-            log_message(GREEN, "COMMODITY", f"Added {len(station_commodities)} mining commodities to buffer for {station_name}")
+            print(f"Added {len(station_commodities)} mining commodities to buffer for {station_name}")  # Direct print for debugging
             # Publish status update to indicate activity
             publish_status("running", datetime.now(timezone.utc))
             return station_name, station_commodities
         else:
-            log_message(YELLOW, "COMMODITY", f"No relevant commodities found at {station_name}")
+            print(f"No relevant commodities found at {station_name}")  # Direct print for debugging
             
     except Exception as e:
         log_message(RED, "ERROR", f"Error processing message: {str(e)}")
