@@ -60,15 +60,23 @@ def kill_updater_process():
         except: pass
 
 def start_updater():
-    """Start update_live_web.py process"""
+    """Find or start the update_live_web.py process"""
     global updater_process, current_status
     
     try:
-        # Check if already running
-        if updater_process and updater_process.poll() is None:
-            return
-            
-        # Start new process
+        # Check if process is already running
+        for proc in psutil.Process(1).children(recursive=True):
+            try:
+                if "update_live_web.py" in " ".join(proc.cmdline()):
+                    updater_process = proc
+                    log_message(GREEN, "MONITOR", f"Found existing update_live_web.py with PID: {proc.pid}")
+                    current_status["updater_pid"] = proc.pid
+                    return True
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                continue
+        
+        # If not found, start new process
+        log_message(YELLOW, "MONITOR", "No update_live_web.py found, starting new process...")
         updater_process = subprocess.Popen(
             [sys.executable, "update_live_web.py", "--auto"],
             stdout=subprocess.PIPE,
@@ -87,9 +95,12 @@ def start_updater():
         threading.Thread(target=handle_output, args=(updater_process.stdout,), daemon=True).start()
         threading.Thread(target=handle_output, args=(updater_process.stderr,), daemon=True).start()
         
+        return True
+        
     except Exception as e:
-        log_message(RED, "ERROR", f"Failed to start updater: {e}")
+        log_message(RED, "ERROR", f"Error in start_updater: {e}")
         current_status["state"] = "error"
+        return False
 
 def handle_output(pipe):
     """Handle output from update_live_web.py"""
@@ -157,8 +168,10 @@ def main():
     log_message(RED, "ZMQ-DEBUG", f"Receiving status on port {STATUS_RECEIVE_PORT}")
     log_message(RED, "ZMQ-DEBUG", f"Publishing status on port {STATUS_PUBLISH_PORT}")
     
-    # Start initial updater process
-    start_updater()
+    # First try to find existing update process
+    if not start_updater():
+        log_message(YELLOW, "MONITOR", "Waiting 3 minutes for Appliku's update process...")
+        current_status["state"] = "starting"
     
     # Send initial status to ensure workers get it
     current_status["daemon_pid"] = os.getpid()
@@ -166,6 +179,8 @@ def main():
     log_message(RED, "ZMQ-DEBUG", f"Sent initial status: {current_status['state']}")
     
     last_status_time = time.time()
+    startup_time = time.time()
+    has_received_status = False
     
     while running:
         try:
@@ -177,6 +192,7 @@ def main():
                     current_status.update(status)
                     current_status["daemon_pid"] = os.getpid()
                     last_status_time = time.time()
+                    has_received_status = True
                     
                     # Forward status to web workers with daemon info
                     status_publisher.send_string(json.dumps(current_status))
@@ -184,8 +200,21 @@ def main():
                 except Exception as e:
                     log_message(RED, "ERROR", f"Failed to process status: {e}")
             
+            # Check if we need to start our own update process
+            if not has_received_status and time.time() - startup_time > 180:  # 3 minutes
+                log_message(YELLOW, "MONITOR", "No status received for 3 minutes, starting own update process...")
+                if start_updater():
+                    startup_time = time.time()  # Reset timer if process started
+            
             # Periodically resend status even if no updates
             if time.time() - last_status_time > 5:  # Every 5 seconds
+                # Check if update process is still running
+                if updater_process and not psutil.pid_exists(updater_process.pid):
+                    log_message(RED, "ZMQ-DEBUG", "Update process died, starting new one...")
+                    current_status["state"] = "starting"
+                    if start_updater():
+                        last_status_time = time.time()
+                
                 status_publisher.send_string(json.dumps(current_status))
                 log_message(RED, "ZMQ-DEBUG", f"Sent periodic status update: {current_status['state']}")
                 last_status_time = time.time()
