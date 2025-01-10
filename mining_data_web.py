@@ -205,22 +205,30 @@ def get_mining_type_conditions(commodity: str, mining_types: list) -> tuple[str,
         conditions = []
         params = []
         
+        # Split mining types into core and non-core
+        has_core = 'Core' in mining_types
+        non_core_types = [mt for mt in mining_types if mt != 'Core']
+        
         for ring_type, ring_data in commodity_data['ring_types'].items():
-            mining_type_matches = []
+            # Handle core mining - requires hotspots
+            if has_core and ring_data['core']:
+                conditions.append('(ms.ring_type = %s AND ms.mineral_type = %s)')
+                params.extend([ring_type, commodity])
             
-            for mining_type in mining_types:
-                if mining_type == 'Core' and ring_data['core']:
-                    mining_type_matches.append(True)
-                elif mining_type == 'Laser Surface' and ring_data['surfaceLaserMining']:
-                    mining_type_matches.append(True)
-                elif mining_type == 'Surface Deposit' and ring_data['surfaceDeposit']:
-                    mining_type_matches.append(True)
-                elif mining_type == 'Sub Surface Deposit' and ring_data['subSurfaceDeposit']:
-                    mining_type_matches.append(True)
-            
-            if mining_type_matches:
-                conditions.append('(ms.ring_type = %s)')
-                params.append(ring_type)
+            # Handle non-core mining methods - must not have hotspots
+            if non_core_types:
+                non_core_matches = []
+                for mining_type in non_core_types:
+                    if mining_type == 'Laser Surface' and ring_data['surfaceLaserMining']:
+                        non_core_matches.append(True)
+                    elif mining_type == 'Surface Deposit' and ring_data['surfaceDeposit']:
+                        non_core_matches.append(True)
+                    elif mining_type == 'Sub Surface Deposit' and ring_data['subSurfaceDeposit']:
+                        non_core_matches.append(True)
+                
+                if non_core_matches:
+                    conditions.append('(ms.ring_type = %s AND ms.mineral_type IS NULL)')
+                    params.append(ring_type)
     
     except Exception as e:
         app.logger.error(f"Error loading mining_data.json: {str(e)}")
