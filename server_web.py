@@ -16,7 +16,12 @@ from mining_data_web import (
 import tempfile
 import io
 
-YELLOW, BLUE, ORANGE, RESET = '\033[93m', '\033[94m', '\033[33m', '\033[0m'
+YELLOW = '\033[93m'
+BLUE = '\033[94m'
+GREEN = '\033[92m'
+RED = '\033[91m'
+RESET = '\033[0m'
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # Environment variables for configuration
@@ -1112,10 +1117,17 @@ def create_app(*args, **kwargs):
             print("ERROR: DATABASE_URL environment variable must be set")
             sys.exit(1)
         
-        # Start the monitor thread only in the main process
+        # Start the monitor loop only in the main process
         if os.getenv('ENABLE_LIVE_UPDATE', 'false').lower() == 'true':
             if os.getppid() == 1:  # Running under init (main Gunicorn process)
-                monitor_thread = threading.Thread(target=monitor_update_process, daemon=True)
+                # Create event loop for the thread
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                
+                def run_monitor():
+                    loop.run_until_complete(monitor_update_process())
+                
+                monitor_thread = threading.Thread(target=run_monitor, daemon=True)
                 monitor_thread.start()
     
     return app_wsgi
@@ -1134,33 +1146,38 @@ def is_update_process_running():
         log_message(RED, "ERROR", f"Failed to check for running processes: {e}")
         return True  # Assume it's running if we can't check
 
-def monitor_update_process():
+async def monitor_update_process():
     """Monitor update_live_web.py and restart if needed"""
     global eddn_status
     
     # Initial delay to let Appliku worker start
-    time.sleep(30)
+    await asyncio.sleep(30)
     
     while True:
         try:
             if not is_update_process_running():
                 log_message(YELLOW, "MONITOR", "No update process found, waiting additional 30s to confirm...")
                 # Double check after a delay to avoid race conditions
-                time.sleep(30)
+                await asyncio.sleep(30)
                 
                 if not is_update_process_running():
                     log_message(YELLOW, "MONITOR", "Update process confirmed dead, starting new instance...")
                     eddn_status["state"] = "starting"
                     start_updater()
                     # Wait to let the new process initialize
-                    time.sleep(10)
+                    await asyncio.sleep(10)
             else:
                 log_message(BLUE, "MONITOR", "Update process is running")
         except Exception as e:
             log_message(RED, "ERROR", f"Error in monitor thread: {e}")
         
         # Check again in 60 seconds
-        time.sleep(60)
+        await asyncio.sleep(60)
+
+def log_message(color, tag, message):
+    """Log a message with timestamp"""
+    timestamp = datetime.now().strftime("%Y:%m:%d-%H:%M:%S")
+    print(f"{color}[{timestamp}] [{tag}] {message}{RESET}", flush=True)
 
 if __name__ == '__main__':
     asyncio.run(main())
