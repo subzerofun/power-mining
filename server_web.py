@@ -592,8 +592,6 @@ def search():
             params.extend([rx, rx, ry, ry, rz, rz, max_dist])
             params.extend([signal_type, signal_type])
             params.append(ring_types)  # For the ring_type ANY condition
-            params.append(signal_type)  # For hotspot check in JOIN
-            params.append(ring_type_filter)  # For ring type check in JOIN
             
             if controlling_power:
                 where_conditions.append("s.controlling_power = %s")
@@ -635,13 +633,8 @@ def search():
                 END as reserve_level_order
             FROM relevant_systems s
             JOIN mineral_signals ms ON s.id64 = ms.system_id64 
-            AND (
-                ms.mineral_type = %s  -- For hotspots
-                OR (
-                    ms.mineral_type IS NULL  -- For regular rings
-                    AND ms.ring_type = %s    -- With matching ring type
-                )
-            )
+            AND ms.mineral_type IS NULL  -- For regular rings
+            AND ms.ring_type = ANY(%s::text[])  -- Match any of the valid ring typess
             LEFT JOIN relevant_stations rs ON s.id64 = rs.system_id64
             LEFT JOIN stations st ON s.id64 = st.system_id64 AND rs.station_name = st.station_name
             WHERE """ + " AND ".join(where_conditions) + """
