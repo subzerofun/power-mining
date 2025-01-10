@@ -591,8 +591,8 @@ def search():
             # Add distance and signal params first
             params.extend([rx, rx, ry, ry, rz, rz, max_dist])
             params.extend([signal_type, signal_type])
-            params.append(ring_types)  # For the ANY condition in JOIN
             params.append(ring_types)  # For the ring_type ANY condition
+            params.append(ring_types)  # For the ANY condition in JOIN            
             
             if controlling_power:
                 where_conditions.append("s.controlling_power = %s")
