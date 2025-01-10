@@ -698,12 +698,12 @@ def search():
         log_message(BLUE, "SEARCH", f"Query parameters: {params}")
         
         try:
-            cursor.execute(query, params)
+            cur.execute(query, params)
         except Exception as e:
             log_message(RED, "ERROR", f"Error executing query: {e}")
             return jsonify({'error': f'Error executing query: {e}'}), 500
 
-        rows = cursor.fetchall()
+        rows = cur.fetchall()
         app.logger.info(f"Query returned {len(rows)} rows")
 
         pr = []
