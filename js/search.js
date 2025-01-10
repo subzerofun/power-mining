@@ -295,7 +295,7 @@ class MiningSearch {
                                 <div>Price: ${priceSpan.outerHTML}</div>
                                 <div>Demand: ${station.demand.toLocaleString()}</div>
                                 <div>Distance: ${Math.floor(station.distance).toLocaleString()} Ls</div>
-                                <div class="update-time">Updated: ${station.update_time ? station.update_time.substring(0, 10) : ''}</div>
+                                <div class="update-time">Updated: ${station.update_time ? station.update_time.split(' ')[0] : ''}</div>
                             </div>
                         </div>
                         ${station.other_commodities.length > 0 ? `
