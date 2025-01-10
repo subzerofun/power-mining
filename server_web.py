@@ -1070,7 +1070,7 @@ def start_updater():
 
 def monitor_process():
     """Monitor the update process and restart if needed"""
-    global updater_process, eddn_status
+    global updater_process, eddn_status, ORANGE, RESET
     while True:
         try:
             time.sleep(30)  # Check less frequently
@@ -1086,7 +1086,7 @@ def monitor_process():
                         continue
                 
                 if not running_pids:
-                    print(f"{ORANGE}[UPDATE-CHECK] No running update process found, starting new one{RESET}", flush=True)
+                    log_message(ORANGE, "UPDATE-CHECK", "No running update process found, starting new one")
                     start_updater()
                 elif len(running_pids) > 1:
                     # Kill all but the first one
@@ -1097,7 +1097,7 @@ def monitor_process():
                             pass
                 
         except Exception as e:
-            print(f"{ORANGE}[UPDATE-CHECK] Error in monitor thread: {e}{RESET}", flush=True)
+            log_message(ORANGE, "UPDATE-CHECK", f"Error in monitor thread: {e}")
             time.sleep(5)  # Wait before retrying after error
 
 # Start the monitor thread when the module loads
