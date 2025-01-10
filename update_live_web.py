@@ -118,67 +118,101 @@ def flush_commodities_to_db(conn, commodity_buffer):
         cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
         stations_processed = 0
         total_commodities = 0
+        stations_not_found = []
         
-        log_message(BLUE, "DATABASE", f"Processing {len(commodity_buffer)} stations")
+        log_message(BLUE, "DATABASE", f"Starting to process {len(commodity_buffer)} stations")
         
         for station_name, commodities in commodity_buffer.items():
             try:
                 # Get station info
+                query_start = time.time()
+                log_message(BLUE, "DATABASE", f"Looking up station: {station_name}")
                 cursor.execute("""
-                    SELECT s.id64 as system_id64, st.station_id
+                    SELECT s.id64 as system_id64, st.station_id, s.name as system_name
                     FROM stations st
                     JOIN systems s ON s.id64 = st.system_id64
                     WHERE st.station_name = %s
                 """, (station_name,))
+                query_time = time.time() - query_start
+                log_message(BLUE, "DATABASE", f"Station lookup completed in {query_time:.3f}s")
                 
                 station = cursor.fetchone()
                 if not station:
-                    log_message(YELLOW, "DATABASE", f"Station not found: {station_name}")
+                    stations_not_found.append(station_name)
+                    log_message(RED, "ERROR", f"Station not found in database: {station_name}")
                     continue
                 
                 system_id64 = station['system_id64']
                 station_id = station['station_id']
+                system_name = station['system_name']
+                
+                log_message(BLUE, "DATABASE", f"Processing station {station_name} in system {system_name} (ID: {system_id64})")
                 
                 # Delete existing commodities
+                delete_start = time.time()
                 cursor.execute("""
                     DELETE FROM station_commodities 
                     WHERE system_id64 = %s AND station_id = %s
                 """, (system_id64, station_id))
                 
+                deleted_rows = cursor.rowcount
+                delete_time = time.time() - delete_start
+                log_message(BLUE, "DATABASE", f"Deleted {deleted_rows} existing commodities for {station_name} in {delete_time:.3f}s")
+                
                 # Insert new commodities
+                insert_start = time.time()
+                commodities_added = 0
                 for commodity_name, (sell_price, demand, market_id) in commodities.items():
                     cursor.execute("""
                         INSERT INTO station_commodities 
                         (system_id64, station_id, station_name, commodity_name, sell_price, demand)
                         VALUES (%s, %s, %s, %s, %s, %s)
                     """, (system_id64, station_id, station_name, commodity_name, sell_price, demand))
+                    commodities_added += 1
                     total_commodities += 1
                 
+                insert_time = time.time() - insert_start
+                log_message(BLUE, "DATABASE", f"Inserted {commodities_added} commodities in {insert_time:.3f}s")
+                
                 # Update station timestamp
+                update_start = time.time()
                 cursor.execute("""
                     UPDATE stations
                     SET update_time = %s
                     WHERE system_id64 = %s AND station_id = %s
                 """, (datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S+00"), system_id64, station_id))
+                update_time = time.time() - update_start
                 
                 stations_processed += 1
+                log_message(GREEN, "DATABASE", f"Successfully updated {station_name} with {len(commodities)} commodities (Delete: {delete_time:.3f}s, Insert: {insert_time:.3f}s, Update: {update_time:.3f}s)")
                 
                 # Commit every 10 stations
                 if stations_processed % 10 == 0:
+                    commit_start = time.time()
                     conn.commit()
-                    log_message(BLUE, "DATABASE", f"Processed {stations_processed} of {len(commodity_buffer)} stations")
+                    commit_time = time.time() - commit_start
+                    log_message(BLUE, "DATABASE", f"Committed changes for {stations_processed} of {len(commodity_buffer)} stations in {commit_time:.3f}s")
             
             except Exception as e:
-                log_message(RED, "ERROR", f"Error processing station {station_name}: {str(e)}")
+                log_message(RED, "ERROR", f"Database error processing station {station_name}: {str(e)}")
                 conn.rollback()
                 continue
         
         # Final commit
-        conn.commit()
-        log_message(BLUE, "DEBUG", f"Successfully processed {stations_processed} stations with {total_commodities} commodities")
+        if stations_processed % 10 != 0:  # Only if we haven't just committed
+            commit_start = time.time()
+            conn.commit()
+            commit_time = time.time() - commit_start
+            log_message(BLUE, "DATABASE", f"Final commit completed in {commit_time:.3f}s")
+        
+        # Summary log
+        if stations_processed > 0:
+            log_message(GREEN, "DATABASE", f"Successfully processed {stations_processed} stations with {total_commodities} commodities")
+        if stations_not_found:
+            log_message(RED, "ERROR", f"Stations not found in database: {', '.join(stations_not_found)}")
         
     except Exception as e:
-        log_message(RED, "ERROR", f"Database error: {str(e)}")
+        log_message(RED, "ERROR", f"Fatal database error: {str(e)}")
         conn.rollback()
         return 0, 0
         
@@ -261,10 +295,11 @@ def process_message(message, commodity_map):
             return None, None
             
         station_name = message.get("stationName")
+        system_name = message.get("systemName", "Unknown")
         market_id = message.get("marketId")
         
         if market_id is None:
-            log_message(YELLOW, "DEBUG", f"Live update without marketId: {station_name}")
+            log_message(YELLOW, "DEBUG", f"Live update without marketId: {station_name} in system {system_name}")
         
         if not station_name:
             return None, None
@@ -272,7 +307,7 @@ def process_message(message, commodity_map):
         # Process commodities
         station_commodities = {}
         commodities = message.get("commodities", [])
-        log_message(BLUE, "DEBUG", f"Processing {len(commodities)} commodities from {station_name}")
+        log_message(BLUE, "DEBUG", f"Processing {len(commodities)} commodities from {station_name} in system {system_name}")
         
         for commodity in commodities:
             name = commodity.get("name", "").lower()
@@ -291,12 +326,12 @@ def process_message(message, commodity_map):
             log_message(BLUE, "DEBUG", f"Found commodity {commodity_map[name]} at {station_name} (price: {sell_price}, demand: {demand})")
             
         if station_commodities:
-            log_message(GREEN, "DEBUG", f"Found {len(station_commodities)} relevant commodities for station {station_name}")
+            log_message(GREEN, "DEBUG", f"Found {len(station_commodities)} relevant commodities for {station_name} in {system_name}")
             # Publish status update to indicate activity
             publish_status("running", datetime.now(timezone.utc))
             return station_name, station_commodities
         else:
-            log_message(YELLOW, "DEBUG", f"No relevant commodities found for station {station_name}")
+            log_message(YELLOW, "DEBUG", f"No relevant commodities found for {station_name} in {system_name}")
             
     except Exception as e:
         log_message(RED, "ERROR", f"Error processing message: {str(e)}")
@@ -327,9 +362,49 @@ def main():
         # Load commodity mapping
         commodity_map, reverse_map = load_commodity_map()
         
-        # Connect to database
-        conn = psycopg2.connect(DATABASE_URL)
-        conn.autocommit = False
+        # Parse database URL for logging
+        from urllib.parse import urlparse
+        db_url = urlparse(DATABASE_URL)
+        log_message(BLUE, "DATABASE", f"Connecting to database: {db_url.hostname}:{db_url.port}/{db_url.path[1:]}")
+        
+        # Connect to database with connection status monitoring
+        conn_start = time.time()
+        try:
+            conn = psycopg2.connect(DATABASE_URL)
+            conn_time = time.time() - conn_start
+            log_message(GREEN, "DATABASE", f"Connected to database in {conn_time:.2f}s")
+            
+            # Log connection info
+            cursor = conn.cursor()
+            cursor.execute("SELECT version()")
+            version = cursor.fetchone()[0]
+            cursor.execute("SHOW server_version")
+            server_version = cursor.fetchone()[0]
+            cursor.execute("SHOW max_connections")
+            max_connections = cursor.fetchone()[0]
+            cursor.execute("SELECT count(*) FROM pg_stat_activity")
+            current_connections = cursor.fetchone()[0]
+            
+            log_message(BLUE, "DATABASE", f"PostgreSQL version: {version}")
+            log_message(BLUE, "DATABASE", f"Server version: {server_version}")
+            log_message(BLUE, "DATABASE", f"Connections: {current_connections}/{max_connections}")
+            
+            # Test tables
+            cursor.execute("SELECT COUNT(*) FROM systems")
+            systems_count = cursor.fetchone()[0]
+            cursor.execute("SELECT COUNT(*) FROM stations")
+            stations_count = cursor.fetchone()[0]
+            cursor.execute("SELECT COUNT(*) FROM station_commodities")
+            commodities_count = cursor.fetchone()[0]
+            
+            log_message(BLUE, "DATABASE", f"Database contains: {systems_count} systems, {stations_count} stations, {commodities_count} commodity records")
+            
+            cursor.close()
+            conn.autocommit = False
+            log_message(BLUE, "DATABASE", "Database connection configured (autocommit=False)")
+        except Exception as e:
+            log_message(RED, "ERROR", f"Database connection failed: {str(e)}")
+            raise
         
         publish_status("running")
         
@@ -351,9 +426,29 @@ def main():
         messages_processed = 0
         total_messages = 0
         commodity_messages = 0
+        db_operations = 0
+        db_errors = 0
         
         while running:
             try:
+                # Check database connection every minute
+                if time.time() - last_flush >= 60:
+                    try:
+                        cursor = conn.cursor()
+                        cursor.execute("SELECT 1")
+                        cursor.close()
+                        log_message(BLUE, "DATABASE", f"Connection check OK. Operations: {db_operations}, Errors: {db_errors}")
+                    except Exception as e:
+                        log_message(RED, "ERROR", f"Database connection lost: {str(e)}")
+                        # Try to reconnect
+                        try:
+                            conn.close()
+                        except:
+                            pass
+                        conn = psycopg2.connect(DATABASE_URL)
+                        conn.autocommit = False
+                        log_message(GREEN, "DATABASE", "Reconnected to database")
+                
                 # Check if we need to reconnect
                 current_time = time.time()
                 if current_time - last_message > 60:  # No messages for 1 minute
@@ -398,14 +493,19 @@ def main():
                     current_time = time.time()
                     if current_time - last_flush >= DB_UPDATE_INTERVAL:
                         if commodity_buffer:
-                            log_message(YELLOW, "DATABASE", "Writing to Database starting...")
+                            log_message(YELLOW, "DATABASE", f"Writing to Database starting... (Total ops: {db_operations})")
                             publish_status("updating", datetime.now(timezone.utc))
+                            op_start = time.time()
                             stations, commodities = flush_commodities_to_db(conn, commodity_buffer)
+                            op_time = time.time() - op_start
                             if stations > 0:
-                                log_message(GREEN, "DATABASE", f"[DATABASE] Writing to Database finished. Updated {stations} stations, {commodities} commodities")
+                                db_operations += 1
+                                log_message(GREEN, "DATABASE", f"Database write completed in {op_time:.2f}s. Updated {stations} stations, {commodities} commodities")
+                            else:
+                                db_errors += 1
                             publish_status("running", datetime.now(timezone.utc))
                         else:
-                            log_message(BLUE, "DATABASE", "No new data to write to database")
+                            log_message(BLUE, "DATABASE", f"No new data to write (Total ops: {db_operations}, Errors: {db_errors})")
                         last_flush = current_time
                 
             except zmq.ZMQError as e:
