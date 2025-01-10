@@ -782,7 +782,7 @@ def search():
                             'demand': int(row['demand']) if row['demand'] else 0,
                             'sell_price': int(row['sell_price']) if row['sell_price'] else 0,
                             'station_type': row['station_type'],
-                            'update_time': row.get('update_time'),
+                            'update_time': row['update_time'].strftime('%Y-%m-%d') if row['update_time'] else None,
                             'system_id64': row['system_id64'],
                             'other_commodities': other_commodities.get((row['system_id64'], row['station_name']), [])
                         }
