@@ -98,6 +98,7 @@ def create_database(db_path: str):
         distance_from_sol REAL,
         controlling_power TEXT,
         power_state TEXT,
+        power_acquiring TEXT,
         full_data JSON,
         UNIQUE(name)
     )''')
@@ -143,6 +144,7 @@ def create_database(db_path: str):
     
     # Create indices for common searches
     c.execute('CREATE INDEX IF NOT EXISTS idx_controlling_power ON systems(controlling_power)')
+    c.execute('CREATE INDEX IF NOT EXISTS idx_power_acquiring ON systems(power_acquiring)')
     c.execute('CREATE INDEX IF NOT EXISTS idx_coordinates ON systems(x, y, z)')
     c.execute('CREATE INDEX IF NOT EXISTS idx_distance ON systems(distance_from_sol)')
     c.execute('CREATE INDEX IF NOT EXISTS idx_mineral_type ON mineral_signals(mineral_type)')
@@ -336,24 +338,66 @@ def convert_json_to_sqlite(json_file: str, db_file: str, max_distance: float, ex
                 'distance_from_sol': distance,
                 'controlling_power': system.get('controllingPower'),
                 'power_state': system.get('powerState'),
-                # 'full_data': full_data
+                'power_acquiring': None
             }
-            
-            # Insert system data
-            c.execute('''
-                INSERT OR REPLACE INTO systems 
-                (id64, name, x, y, z, distance_from_sol, controlling_power, power_state)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (
-                system_data['id64'],
-                system_data['name'],
-                system_data['x'],
-                system_data['y'],
-                system_data['z'],
-                system_data['distance_from_sol'],
-                system_data['controlling_power'],
-                system_data['power_state']
-            ))
+
+            # First insert the entry for controlling power if it exists
+            if system_data['controlling_power']:
+                c.execute('''
+                    INSERT OR REPLACE INTO systems 
+                    (id64, name, x, y, z, distance_from_sol, controlling_power, power_state, power_acquiring)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (
+                    system_data['id64'],
+                    system_data['name'],
+                    system_data['x'],
+                    system_data['y'],
+                    system_data['z'],
+                    system_data['distance_from_sol'],
+                    system_data['controlling_power'],
+                    system_data['power_state'],
+                    None
+                ))
+
+            # Then handle powers trying to acquire the system
+            if 'powers' in system and system['powers']:
+                for power in system['powers']:
+                    # Skip if this power is the controlling power
+                    if power == system_data['controlling_power']:
+                        continue
+                        
+                    c.execute('''
+                        INSERT OR REPLACE INTO systems 
+                        (id64, name, x, y, z, distance_from_sol, controlling_power, power_state, power_acquiring)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ''', (
+                        system_data['id64'],
+                        system_data['name'],
+                        system_data['x'],
+                        system_data['y'],
+                        system_data['z'],
+                        system_data['distance_from_sol'],
+                        None,
+                        system_data['power_state'],
+                        power
+                    ))
+            elif not system_data['controlling_power']:
+                # Insert a single entry for systems with no powers at all
+                c.execute('''
+                    INSERT OR REPLACE INTO systems 
+                    (id64, name, x, y, z, distance_from_sol, controlling_power, power_state, power_acquiring)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (
+                    system_data['id64'],
+                    system_data['name'],
+                    system_data['x'],
+                    system_data['y'],
+                    system_data['z'],
+                    system_data['distance_from_sol'],
+                    None,
+                    system_data['power_state'],
+                    None
+                ))
             
             # Process mineral signals from bodies
             if 'bodies' in system:
