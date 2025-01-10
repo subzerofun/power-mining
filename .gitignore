@@ -71,3 +71,4 @@ restored.py
 check_timestamps.py
 data/~$mining_data.xlsx
 migrate_to_postgres.py
+data/mining_data.xlsx
