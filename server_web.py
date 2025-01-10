@@ -3,6 +3,7 @@ from psycopg2.extras import DictCursor
 from datetime import datetime
 from flask import Flask, render_template, request, jsonify, send_from_directory
 from flask_sock import Sock
+from flask.json import JSONEncoder
 import zmq
 import psutil
 from typing import Dict, List, Optional
@@ -15,6 +16,13 @@ from mining_data_web import (
 )
 import tempfile
 import io
+
+# Custom JSON encoder to handle datetime objects
+class CustomJSONEncoder(JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, datetime):
+            return obj.strftime('%Y-%m-%d')
+        return super().default(obj)
 
 # ANSI color codes
 YELLOW = '\033[93m'
@@ -173,6 +181,7 @@ def log_message(color, tag, message):
     print(f"{color}[{timestamp}] [{tag}-{os.getpid()}] {message}{RESET}", flush=True)
 
 app = Flask(__name__, template_folder=BASE_DIR, static_folder=None)
+app.json_encoder = CustomJSONEncoder  # Use our custom encoder
 sock = Sock(app)
 updater_process = None
 live_update_requested = False
