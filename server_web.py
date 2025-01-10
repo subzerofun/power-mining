@@ -653,8 +653,6 @@ def search():
             # Add parameters in order of appearance
             params.extend([rx, rx, ry, ry, rz, rz, max_dist])  # Distance calculation
             params.extend([signal_type, signal_type])  # CTE parameters
-            params.append(signal_type)  # For hotspot check
-            params.append(ring_type_filter)  # For ring type check
             
             # Build the rest of the query
             query += """
@@ -666,11 +664,14 @@ def search():
                 rs.sell_price as sort_price
             FROM relevant_systems s"""
 
-            if ring_type_filter != 'Without Hotspots':
-                query += " JOIN mineral_signals ms ON s.id64 = ms.system_id64 AND ms.mineral_type = %s"
-                params.append(signal_type)  # JOIN condition
-            else:
-                query += " JOIN mineral_signals ms ON s.id64 = ms.system_id64"
+            query += """ JOIN mineral_signals ms ON s.id64 = ms.system_id64 
+            AND (
+                ms.mineral_type = %s  -- For hotspots
+                OR (
+                    ms.mineral_type IS NULL  -- For regular rings
+                    AND ms.ring_type = %s    -- With matching ring type
+                )
+            )"""
 
             query += """
             LEFT JOIN relevant_stations rs ON s.id64 = rs.system_id64
