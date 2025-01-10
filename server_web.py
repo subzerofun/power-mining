@@ -483,10 +483,24 @@ def search():
                 log_message(BLUE, "SEARCH", f"Material data: {cd}")
 
         ring_materials = get_ring_materials()
-        is_ring_material = signal_type in ring_materials
+        is_ring_material = False
+
+        # Check mining_data.json for laser mining capability in selected ring type
+        try:
+            with open('data/mining_data.json', 'r') as f:
+                mat_data = json.load(f)
+                cd = next((i for i in mat_data['materials'] if i['name'] == signal_type), None)
+                if cd and ring_type_filter != 'All' and ring_type_filter in cd['ring_types']:
+                    ring_data = cd['ring_types'][ring_type_filter]
+                    # If material can be laser mined in this ring type, treat it as a ring material
+                    is_ring_material = ring_data.get('surfaceLaserMining', False)
+                    log_message(BLUE, "SEARCH", f"Checking laser mining capability for {signal_type} in {ring_type_filter} rings: {is_ring_material}")
+        except Exception as e:
+            log_message(RED, "ERROR", f"Error checking mining data: {str(e)}")
+            # Fallback to ring_materials.csv check
+            is_ring_material = signal_type in ring_materials
+
         log_message(BLUE, "SEARCH", f"Is ring material: {is_ring_material}")
-        if is_ring_material:
-            log_message(BLUE, "SEARCH", f"Ring material data: {ring_materials[signal_type]}")
 
         conn = get_db_connection()
         if not conn:
@@ -600,7 +614,14 @@ def search():
                 st.station_type, rs.demand, rs.sell_price, st.update_time,
                 rs.sell_price as sort_price
             FROM relevant_systems s
-            JOIN mineral_signals ms ON s.id64 = ms.system_id64
+            JOIN mineral_signals ms ON s.id64 = ms.system_id64 
+            AND (
+                ms.mineral_type = %s  -- For hotspots
+                OR (
+                    ms.mineral_type IS NULL  -- For regular rings
+                    AND ms.ring_type = %s    -- With matching ring type
+                )
+            )
             LEFT JOIN relevant_stations rs ON s.id64 = rs.system_id64
             LEFT JOIN stations st ON s.id64 = st.system_id64 AND rs.station_name = st.station_name
             WHERE """ + " AND ".join(where_conditions) + """
@@ -632,6 +653,8 @@ def search():
             # Add parameters in order of appearance
             params.extend([rx, rx, ry, ry, rz, rz, max_dist])  # Distance calculation
             params.extend([signal_type, signal_type])  # CTE parameters
+            params.append(signal_type)  # For hotspot check
+            params.append(ring_type_filter)  # For ring type check
             
             # Build the rest of the query
             query += """
