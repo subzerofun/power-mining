@@ -1,598 +1,461 @@
+import os, sys, math, json, zlib, time, signal, atexit, argparse, asyncio, subprocess, threading, psycopg2
+from psycopg2.extras import DictCursor
+from datetime import datetime
 from flask import Flask, render_template, request, jsonify, send_from_directory
-import sqlite3
-from typing import Dict, List, Optional
-import math
-import os
-import json
-import zlib  # Built-in compression
-import mining_data
-from mining_data import (
-    get_material_ring_types, 
-    get_non_hotspot_materials_list, 
-    get_ring_type_case_statement,
-    get_mining_type_conditions,
-    get_price_comparison,
-    normalize_commodity_name,
-    get_potential_ring_types,
-    PRICE_DATA,
-    NON_HOTSPOT_MATERIALS
-)
-import res_data
-import sys
-import subprocess
-import signal
-import threading
-import argparse
-import atexit
+from flask_sock import Sock
+from json import JSONEncoder
+import zmq
 import psutil
-import asyncio
-import websockets
-import io  # Add io import here
-from datetime import datetime, timedelta
-import time
+from typing import Dict, List, Optional
+import mining_data as mining_data, res_data as res_data
+from mining_data import (
+    get_material_ring_types, get_non_hotspot_materials_list,
+    get_ring_type_case_statement, get_mining_type_conditions,
+    get_price_comparison, normalize_commodity_name,
+    get_potential_ring_types, PRICE_DATA, NON_HOTSPOT_MATERIALS
+)
+import tempfile
+import io
 
-# Optional compression libraries
-try:
-    import zstandard
-    ZSTD_AVAILABLE = True
-except ImportError:
-    ZSTD_AVAILABLE = False
-
-try:
-    import lz4.frame
-    LZ4_AVAILABLE = True
-except ImportError:
-    LZ4_AVAILABLE = False
+# Custom JSON encoder to handle datetime objects
+class CustomJSONEncoder(JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, datetime):
+            return obj.strftime('%Y-%m-%d')
+        return super().default(obj)
 
 # ANSI color codes
 YELLOW = '\033[93m'
 BLUE = '\033[94m'
+GREEN = '\033[92m'
+RED = '\033[91m'
+CYAN = '\033[96m'  # Add cyan color code
+ORANGE = '\033[38;5;208m'
 RESET = '\033[0m'
 
-# Global variables for processes
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# Environment variables for configuration
+DATABASE_URL = None  # Will be set from args or env in main()
+
+# Process ID file for update_live.py
+PID_FILE = os.path.join(tempfile.gettempdir(), 'update_live.pid')
+
+# ZMQ setup for status updates
+STATUS_PORT = 5558  # Port to receive status from update daemon
+zmq_context = None
+status_socket = None
+last_status_time = 0
+shared_status = {"state": "offline", "last_db_update": None}  # Shared across workers
+
+def monitor_status():
+    """Monitor status updates from the daemon"""
+    global shared_status, last_status_time, status_socket
+    log_message(RED, "ZMQ-DEBUG", f"Starting monitor_status thread in worker {os.getpid()}")
+    
+    consecutive_errors = 0
+    while True:
+        try:
+            if status_socket and status_socket.poll(100):
+                try:
+                    message = status_socket.recv_string()
+                    last_status_time = time.time()
+                    status_data = json.loads(message)
+                    shared_status.update(status_data)
+                    log_message(RED, "ZMQ-DEBUG", 
+                        f"Worker {os.getpid()} received status: {status_data.get('state')} "
+                        f"from daemon PID: {status_data.get('daemon_pid')}")
+                    consecutive_errors = 0  # Reset error counter on successful receive
+                except zmq.ZMQError as e:
+                    consecutive_errors += 1
+                    log_message(RED, "ZMQ-DEBUG", f"ZMQ error in monitor thread: {e}")
+                    if consecutive_errors > 3:
+                        log_message(RED, "ZMQ-DEBUG", "Too many consecutive errors, recreating socket...")
+                        setup_zmq()  # Recreate the socket
+                        consecutive_errors = 0
+                    time.sleep(1)
+                except json.JSONDecodeError as e:
+                    log_message(RED, "ERROR", f"Failed to decode status message: {e}")
+                except Exception as e:
+                    log_message(RED, "ERROR", f"Error in monitor thread: {e}")
+            
+            # Check if we haven't received status updates for a while
+            if time.time() - last_status_time > 60:
+                if shared_status["state"] == "connecting":
+                    log_message(RED, "ZMQ-DEBUG", f"Worker {os.getpid()} - Still trying to connect to daemon...")
+                else:
+                    shared_status["state"] = "offline"
+                    log_message(RED, "ZMQ-DEBUG", f"Worker {os.getpid()} - No status updates for 60s, marking offline")
+                # Try to reconnect if we haven't received updates for a while
+                if consecutive_errors == 0:  # Only try once to avoid spam
+                    log_message(RED, "ZMQ-DEBUG", "Attempting to reconnect to daemon...")
+                    setup_zmq()
+                    consecutive_errors += 1
+            
+            time.sleep(0.1)
+            
+        except Exception as e:
+            log_message(RED, "ERROR", f"Error in monitor thread: {e}")
+            time.sleep(1)
+
+def setup_zmq():
+    """Setup ZMQ connection to update daemon"""
+    global zmq_context, status_socket, shared_status, last_status_time
+    
+    # Initialize shared status and time with "connecting" state
+    shared_status = {"state": "connecting", "last_db_update": None}  # Changed from "offline" to "connecting"
+    last_status_time = time.time()
+    
+    try:
+        # Create new context and socket
+        if zmq_context:
+            try:
+                status_socket.close()
+                zmq_context.term()
+            except:
+                pass
+                
+        zmq_context = zmq.Context()
+        status_socket = zmq_context.socket(zmq.SUB)
+        
+        # Set socket options
+        status_socket.setsockopt(zmq.RCVTIMEO, 1000)  # 1 second timeout
+        status_socket.setsockopt(zmq.LINGER, 0)       # Don't wait on close
+        status_socket.setsockopt_string(zmq.SUBSCRIBE, "")  # Subscribe to all messages
+        status_socket.setsockopt(zmq.TCP_KEEPALIVE, 1)     # Enable keepalive
+        status_socket.setsockopt(zmq.TCP_KEEPALIVE_IDLE, 60)  # Probe after 60s
+        status_socket.setsockopt(zmq.TCP_KEEPALIVE_INTVL, 1)  # Probe every 1s
+        
+        # Connect to daemon's publish port using service name
+        endpoint = f"tcp://daemon:5558"
+        status_socket.connect(endpoint)
+        log_message(RED, "ZMQ-DEBUG", f"Worker {os.getpid()} connecting to daemon at {endpoint}")
+        
+        # Try to get initial status
+        if status_socket.poll(1000):  # Wait up to 1 second for initial status
+            try:
+                message = status_socket.recv_string()
+                status_data = json.loads(message)
+                shared_status.update(status_data)
+                last_status_time = time.time()
+                log_message(RED, "ZMQ-DEBUG", f"Worker {os.getpid()} received initial status: {shared_status['state']}")
+            except Exception as e:
+                log_message(RED, "ZMQ-DEBUG", f"Worker {os.getpid()} - Failed to get initial status: {e}")
+        else:
+            log_message(RED, "ZMQ-DEBUG", f"Worker {os.getpid()} - No initial status received after 1s")
+        
+        # Start status monitoring thread
+        status_thread = threading.Thread(target=monitor_status, daemon=True)
+        status_thread.start()
+        
+    except zmq.error.ZMQError as e:
+        log_message(RED, f"ZMQ-DEBUG", f"Worker {os.getpid()} could not connect to daemon: {e}")
+        shared_status = {"state": "connecting", "last_db_update": None}  # Keep as "connecting" on error
+    except Exception as e:
+        log_message(RED, f"ZMQ-DEBUG", f"Worker {os.getpid()} setup error: {e}")
+        shared_status = {"state": "connecting", "last_db_update": None}  # Keep as "connecting" on error
+
+def is_update_process_running():
+    """Check if update_live.py is running using shared status"""
+    global shared_status, last_status_time, updater_pid
+    
+    # If we have recent status updates, trust those
+    if time.time() - last_status_time < 60:
+        return shared_status.get("state") not in ["offline", "error"]
+        
+    # Fallback to PID check only if no recent status
+    if updater_pid:
+        try:
+            process = psutil.Process(updater_pid)
+            if "update_live.py" in " ".join(process.cmdline()):
+                return True
+        except:
+            pass
+    
+    return False
+
+def log_message(color, tag, message):
+    """Log a message with timestamp and PID"""
+    timestamp = datetime.now().strftime("%Y:%m:%d-%H:%M:%S")
+    worker_id = os.environ.get('GUNICORN_WORKER_ID', 'MAIN')
+    print(f"{color}[{timestamp}] [{tag}-{os.getpid()}] {message}{RESET}", flush=True)
+
+app = Flask(__name__, template_folder=BASE_DIR, static_folder=None)
+app.json_encoder = CustomJSONEncoder
+sock = Sock(app)
 updater_process = None
-daily_process = None
-live_update_requested = False  # New module-level variable
+live_update_requested = False
+eddn_status = {"state": "offline", "last_db_update": None}
 
-# Global state for EDDN status
-eddn_status = {
-    "state": None,  # Don't set a default state
-    "last_db_update": None
-}
+# Gunicorn entry point
+app_wsgi = None
 
-# Global state for daily update status
-daily_status = {
-    "state": "offline",  # offline, downloading, extracting, deleting, processing
-    "progress": 0,
-    "total": 0,
-    "message": "",
-    "last_update": None
-}
+def create_app(*args, **kwargs):
+    global app_wsgi, DATABASE_URL
+    if app_wsgi is None:
+        app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
+        app_wsgi = app
+        
+        # Set DATABASE_URL for all workers
+        DATABASE_URL = os.getenv('DATABASE_URL')
+        if not DATABASE_URL:
+            print("ERROR: DATABASE_URL environment variable must be set")
+            sys.exit(1)
+        
+        # Setup ZMQ in each worker to receive status
+        setup_zmq()
+    
+    return app_wsgi
 
 def kill_updater_process():
-    """Forcefully kill the updater process and all its children"""
     global updater_process
     if updater_process:
         try:
-            # Get the process object for more control
-            process = psutil.Process(updater_process.pid)
-            
-            # Kill all child processes first
-            children = process.children(recursive=True)
-            for child in children:
-                try:
-                    child.kill()
-                except psutil.NoSuchProcess:
-                    pass
-                    
-            # Kill the main process
-            if os.name == 'nt':
-                updater_process.send_signal(signal.CTRL_BREAK_EVENT)
-            else:
-                updater_process.terminate()
-            
-            # Wait for process to terminate
-            try:
-                updater_process.wait(timeout=3)  # Wait up to 3 seconds
-            except subprocess.TimeoutExpired:
-                # If process doesn't terminate, force kill it
-                if os.name == 'nt':
-                    os.kill(updater_process.pid, signal.SIGTERM)
-                else:
-                    updater_process.kill()
-                    
+            p = psutil.Process(updater_process.pid)
+            if "update_live.py" in p.cmdline():  # Verify it's our process
+                for c in p.children(recursive=True):
+                    try: c.kill()
+                    except: pass
+                if os.name == 'nt': updater_process.send_signal(signal.CTRL_BREAK_EVENT)
+                else: updater_process.terminate()
+                try: updater_process.wait(timeout=3)
+                except subprocess.TimeoutExpired:
+                    if os.name == 'nt': os.kill(updater_process.pid, signal.SIGTERM)
+                    else: updater_process.kill()
             updater_process = None
-            # Don't set status to offline here - let the handle_output function manage the state
-        except (psutil.NoSuchProcess, ProcessLookupError):
-            pass  # Process already terminated
-        except Exception as e:
-            print(f"Error killing updater process: {e}", file=sys.stderr)
-
-def kill_daily_process():
-    """Forcefully kill the daily update process"""
-    global daily_process, daily_status
-    if daily_process:
-        try:
-            # Get the process object for more control
-            process = psutil.Process(daily_process.pid)
-            
-            # Kill all child processes first
-            children = process.children(recursive=True)
-            for child in children:
-                try:
-                    child.kill()
-                except psutil.NoSuchProcess:
-                    pass
-                    
-            # Kill the main process
-            if os.name == 'nt':
-                daily_process.send_signal(signal.CTRL_BREAK_EVENT)
-            else:
-                daily_process.terminate()
-            
-            # Wait for process to terminate
-            try:
-                daily_process.wait(timeout=3)  # Wait up to 3 seconds
-            except subprocess.TimeoutExpired:
-                # If process doesn't terminate, force kill it
-                if os.name == 'nt':
-                    os.kill(daily_process.pid, signal.SIGTERM)
-                else:
-                    daily_process.kill()
-                    
-            daily_process = None
-            daily_status["state"] = "offline"  # Update status when process is killed
-        except (psutil.NoSuchProcess, ProcessLookupError):
-            pass  # Process already terminated
-        except Exception as e:
-            print(f"Error killing daily process: {e}", file=sys.stderr)
+        except: pass
 
 def stop_updater():
-    """Stop the EDDN updater process"""
     global eddn_status
-    eddn_status["state"] = "offline"  # Only set offline when intentionally stopping
+    eddn_status["state"] = "offline"
     kill_updater_process()
-
-def stop_daily_update():
-    """Stop the daily update process"""
-    kill_daily_process()
+    if os.path.exists(PID_FILE):
+        try:
+            os.remove(PID_FILE)
+        except:
+            pass
 
 def cleanup_handler(signum, frame):
-    """Handle cleanup on various signals"""
     print("\nReceived signal to shutdown...")
     print("Stopping EDDN Update Service...")
     stop_updater()
-    print("Stopping Daily Update Service...")
-    stop_daily_update()
+    if os.path.exists(PID_FILE):
+        try:
+            os.remove(PID_FILE)
+        except:
+            pass
     print("Stopping Web Server...")
-    # Force exit after cleanup
     os._exit(0)
 
-# Register cleanup handlers
 atexit.register(kill_updater_process)
-signal.signal(signal.SIGINT, cleanup_handler)   # Ctrl+C
-signal.signal(signal.SIGTERM, cleanup_handler)  # Termination
-if os.name == 'nt':  # Windows specific signals
-    signal.signal(signal.SIGBREAK, cleanup_handler)  # Ctrl+Break
-    signal.signal(signal.SIGABRT, cleanup_handler)   # Abnormal termination
+signal.signal(signal.SIGINT, cleanup_handler)
+signal.signal(signal.SIGTERM, cleanup_handler)
+if os.name == 'nt':
+    signal.signal(signal.SIGBREAK, cleanup_handler)
+    signal.signal(signal.SIGABRT, cleanup_handler)
 
 def handle_output(line):
-    """Handle output from update_live.py and update status"""
+    """Handle output from the EDDN updater process"""
     global eddn_status
     line = line.strip()
     
-    # Print with appropriate color
-    if "[INIT]" in line or "[STOPPING]" in line or "[TERMINATED]" in line:
-        print(f"{YELLOW}{line}{RESET}", flush=True)  # Yellow
-    else:
-        print(f"{BLUE}{line}{RESET}", flush=True)  # Blue
+    # Only print output if we started the process (--live-update)
+    if live_update_requested:
+        print(f"{ORANGE if '[INIT]' in line or '[STOPPING]' in line or '[TERMINATED]' in line else BLUE}{line}{RESET}", flush=True)
     
-    # Update status based on output
+    # Always process status updates
     if "[INIT]" in line:
-        eddn_status["state"] = "starting"  # Yellow when starting
+        eddn_status["state"] = "starting"
+        eddn_status["last_activity"] = time.time()
     elif "Loaded" in line and "commodities from CSV" in line:
-        eddn_status["state"] = "starting"  # Still starting while loading commodities
+        eddn_status["state"] = "starting"
+        eddn_status["last_activity"] = time.time()
     elif "Listening to EDDN" in line:
-        eddn_status["state"] = "running"  # Green when connected
-    elif "[DATABASE] Writing to Database starting..." in line:  # Exact match for database start
-        eddn_status["state"] = "updating"  # Cyan when updating
-        eddn_status["last_db_update"] = datetime.now().isoformat()
-        eddn_status["update_start_time"] = time.time()  # Record when update started
-    elif "[DATABASE] Writing to Database finished." in line or "Writing to Database finished. Updated" in line:  # Match both formats
-        # Ensure "updating" status shows for at least 1 second
-        if "update_start_time" in eddn_status:
-            elapsed = time.time() - eddn_status["update_start_time"]
-            if elapsed < 1:
-                time.sleep(1 - elapsed)  # Sleep for the remaining time to make 1 second
-            del eddn_status["update_start_time"]
-        eddn_status["state"] = "running"  # Back to green after update
+        eddn_status["state"] = "running"
+        eddn_status["last_activity"] = time.time()
+    elif "[STATUS]" in line or "[DEBUG]" in line:  # Also count debug messages as activity
+        eddn_status["last_activity"] = time.time()
+    elif "[DATABASE]" in line:
+        eddn_status["last_activity"] = time.time()
+        if "Writing to Database starting..." in line:
+            eddn_status["state"] = "updating"
+            eddn_status["last_db_update"] = datetime.now().isoformat()
+            eddn_status["update_start_time"] = time.time()
+        elif "Writing to Database finished." in line:
+            if "update_start_time" in eddn_status:
+                elapsed = time.time() - eddn_status["update_start_time"]
+                if elapsed < 1:
+                    time.sleep(1 - elapsed)
+                del eddn_status["update_start_time"]
+            eddn_status["state"] = "running"
     elif "[STOPPING]" in line or "[TERMINATED]" in line:
-        eddn_status["state"] = "offline"  # Red when stopped
-        print(f"{YELLOW}[STATUS] EDDN updater stopped{RESET}", flush=True)
-    elif "Error:" in line:
-        eddn_status["state"] = "error"  # Red for errors
-        print(f"{YELLOW}[STATUS] EDDN updater encountered an error{RESET}", flush=True)
+        eddn_status["state"] = "offline"
+        if live_update_requested:
+            print(f"{ORANGE}[STATUS] EDDN updater stopped{RESET}", flush=True)
+    elif "Error:" in line or "[ERROR]" in line:
+        eddn_status["state"] = "error"
+        if live_update_requested:
+            print(f"{ORANGE}[STATUS] EDDN updater encountered an error{RESET}", flush=True)
 
-def clean_ansi_codes(message):
-    """Clean ANSI escape codes from a message"""
-    for code in ['\033[93m', '\033[94m', '\033[92m', '\033[91m', '\033[0m']:
-        message = message.replace(code, '')
-    return message.strip()
-
-def handle_daily_output(line):
-    """Handle output from update_daily.py and update status"""
-    global daily_status, eddn_status, updater_process, live_update_requested
-    line = line.strip()
-    
-    # Check for completion signal first
-    if "[COMPLETED]" in line:
-        print(f"{YELLOW}[DEBUG] Received completion signal{RESET}", flush=True)
-        # Set the status to updated with today's date
-        daily_status["state"] = "updated"
-        daily_status["last_update"] = datetime.now().strftime("%Y-%m-%d")
-        # If live update was requested, start it now
-        if updater_process is None and live_update_requested:
-            print(f"{YELLOW}[DEBUG] Live update was requested and no updater running{RESET}", flush=True)
-            print(f"{YELLOW}Daily update completed. Starting live EDDN updates...{RESET}")
-            eddn_status["state"] = "starting"
-            start_updater()
-            time.sleep(0.5)
-        else:
-            print(f"{YELLOW}[DEBUG] Skipping live update start: updater_process={updater_process}, live_update_requested={live_update_requested}{RESET}", flush=True)
-        return
-    
-    # For progress updates, print on same line
-    if "[STATUS]" in line:
-        if any(x in line for x in ["Downloading", "Extracting", "Processing entries"]):
-            # If the last line wasn't a progress line, add a newline first
-            if daily_status.get("last_line_type") != "progress":
-                print("", flush=True)  # Add empty line
-            # Clear the entire line before printing new status
-            print(f"\r{' ' * 100}\r{YELLOW}{line}{RESET}", end="", flush=True)
-            daily_status["last_line_type"] = "progress"
-        else:
-            # For non-progress status messages, always start on a new line
-            if daily_status.get("last_line_type") == "progress":
-                print("", flush=True)  # Add empty line
-            print(f"{YELLOW}{line}{RESET}", flush=True)
-            daily_status["last_line_type"] = "status"
-    else:
-        # For non-status messages (like DEBUG), always start on a new line
-        if daily_status.get("last_line_type") == "progress":
-            print("", flush=True)  # Add empty line
-        print(f"{YELLOW}{line}{RESET}", flush=True)
-        daily_status["last_line_type"] = "other"
-    
-    # Update status based on output
-    if "[STATUS]" in line:
-        if "Downloading" in line:
-            daily_status["state"] = "downloading"
-            try:
-                daily_status["progress"] = int(line.split("%")[0].split()[-1])
-            except:
-                daily_status["progress"] = 0
-        elif "Extracting" in line:
-            daily_status["state"] = "extracting"
-            try:
-                daily_status["progress"] = int(line.split("%")[0].split()[-1])
-            except:
-                daily_status["progress"] = 0
-        elif "Processing entries" in line:
-            daily_status["state"] = "processing"
-            try:
-                parts = line.split("(")[1].split(")")[0].split("/")
-                current = int(parts[0])
-                total = int(parts[1])
-                daily_status["progress"] = current
-                daily_status["total"] = total
-            except:
-                pass
-        elif "Updated:" in line:
-            daily_status["state"] = "updated"
-            daily_status["message"] = clean_ansi_codes(line.split("[STATUS]")[1])
-            daily_status["last_update"] = datetime.now().isoformat()
-        elif "error" in line.lower():
-            daily_status["state"] = "error"
-            daily_status["message"] = clean_ansi_codes(line.split("[STATUS]")[1])
-        elif "Saving batch" in line or "Batch saved" in line:
-            # Keep the processing state but update the message
-            daily_status["message"] = clean_ansi_codes(line.split("[STATUS]")[1])
-
-def start_daily_update():
-    """Start the daily update process"""
-    global daily_process, daily_status
-    
-    # Set initial status
-    daily_status["state"] = "starting"
-    daily_status["progress"] = 0
-    daily_status["total"] = 0
-    daily_status["message"] = "Starting daily update..."
-    
-    def handle_output_stream(pipe, stream_name):
-        try:
-            print(f"{YELLOW}[DEBUG] Starting {stream_name} stream handler{RESET}", flush=True)
-            with io.TextIOWrapper(pipe, encoding='utf-8', errors='replace') as text_pipe:
-                while True:
-                    line = text_pipe.readline()
-                    if not line:
-                        break
-                    if line.strip():  # Only process non-empty lines
-                        handle_daily_output(line.strip())
-        except Exception as e:
-            print(f"Error in daily update {stream_name} stream: {e}", file=sys.stderr)
-    
+def cleanup():
+    """Cleanup function to be called on exit"""
     try:
-        print(f"{YELLOW}[DEBUG] Starting daily update process{RESET}", flush=True)
-        # Start the daily update process
-        daily_process = subprocess.Popen(
-            [sys.executable, "update_daily.py", "--auto", "--fast"],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            universal_newlines=False,
-            creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if os.name == 'nt' else 0
-        )
-        
-        # Create threads to handle stdout and stderr
-        stdout_thread = threading.Thread(target=handle_output_stream, args=(daily_process.stdout, "stdout"), daemon=True)
-        stderr_thread = threading.Thread(target=handle_output_stream, args=(daily_process.stderr, "stderr"), daemon=True)
-        
-        stdout_thread.start()
-        stderr_thread.start()
-        
-        print(f"{YELLOW}[DEBUG] Daily update process started with PID {daily_process.pid}{RESET}", flush=True)
-        return daily_process
-        
-    except Exception as e:
-        print(f"Error starting daily update: {e}", file=sys.stderr)
-        daily_status["state"] = "error"
-        daily_status["message"] = str(e)
-        return None
-
-async def handle_websocket(websocket):
-    """Handle WebSocket connections and send status updates"""
-    try:
-        while True:
-            # Read the daily update status file
-            try:
-                with open(os.path.join('json', 'daily_update_status.json'), 'r') as f:
-                    daily_status_file = json.load(f)
-                    # Always update the daily_status with file data if available
-                    if daily_status_file.get("last_update"):
-                        daily_status["last_update"] = daily_status_file["last_update"]
-            except Exception as e:
-                print(f"Error reading status file: {e}", file=sys.stderr)
-            
-            # Send both EDDN and daily update status
-            await websocket.send(json.dumps({
-                "eddn": eddn_status,
-                "daily": daily_status
-            }))
-            await asyncio.sleep(0.1)  # 100ms interval
-    except websockets.exceptions.ConnectionClosed:
+        status_socket.close()
+        zmq_context.term()
+    except:
         pass
 
-# Get the absolute path of the directory containing server.py
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+atexit.register(cleanup)
 
-app = Flask(__name__, 
-           template_folder=BASE_DIR,  # Set template folder to the root directory
-           static_folder=None)  # Disable default static folder handling
+@sock.route('/ws')
+def handle_websocket(ws):
+    """Handle WebSocket connections and send status updates to clients"""
+    try:
+        # Send initial status
+        log_message(RED, "WS-DEBUG", f"New WebSocket client connected to worker {os.getpid()}")
+        log_message(RED, "WS-DEBUG", f"Sending initial status: {shared_status}")
+        ws.send(json.dumps(shared_status))
+        
+        while True:
+            try:
+                # Use poll to avoid blocking forever
+                if status_socket and status_socket.poll(100):  # 100ms timeout
+                    message = status_socket.recv_string()
+                    try:
+                        status_data = json.loads(message)
+                        log_message(RED, "WS-DEBUG", f"Worker {os.getpid()} forwarding status to client: {status_data}")
+                        ws.send(message)
+                    except json.JSONDecodeError:
+                        log_message(RED, "WS-DEBUG", "Failed to decode status message")
+                        continue
+                else:
+                    log_message(RED, "WS-DEBUG", f"Worker {os.getpid()} - No ZMQ message to forward to WebSocket")
+            except zmq.ZMQError as e:
+                log_message(RED, "WS-DEBUG", f"ZMQ error in WebSocket handler: {e}")
+                continue
+            except Exception as e:
+                log_message(RED, "WS-DEBUG", f"Error in WebSocket handler: {e}")
+                break
+            
+            # Send periodic status updates even if no new messages
+            try:
+                ws.send(json.dumps(shared_status))
+                log_message(RED, "WS-DEBUG", f"Worker {os.getpid()} sent periodic status: {shared_status}")
+            except Exception as e:
+                log_message(RED, "WS-DEBUG", f"Failed to send periodic update: {e}")
+                break
+                
+            time.sleep(1)  # Send update every second
+            
+    except Exception as e:
+        log_message(RED, "WS-DEBUG", f"WebSocket connection error: {e}")
+    finally:
+        log_message(RED, "WS-DEBUG", f"WebSocket client disconnected from worker {os.getpid()}")
 
-# Routes for static files
 @app.route('/favicon.ico')
 def favicon():
-    return send_from_directory(os.path.join(app.root_path),
-                             'favicon.ico', mimetype='image/vnd.microsoft.icon')
+    return send_from_directory(os.path.join(app.root_path),'favicon.ico', mimetype='image/vnd.microsoft.icon')
 
 @app.route('/<path:filename>')
 def serve_static(filename):
-    # Set correct MIME types for different file extensions
-    mime_types = {
-        '.js': 'application/javascript',
-        '.css': 'text/css',
-        '.html': 'text/html',
-        '.ico': 'image/x-icon',
-        '.svg': 'image/svg+xml',
-        '.png': 'image/png',
-        '.jpg': 'image/jpeg',
-        '.jpeg': 'image/jpeg',
-        '.gif': 'image/gif',
-        '.woff': 'font/woff',
-        '.woff2': 'font/woff2',
-        '.ttf': 'font/ttf'
-    }
-    
-    # Get the file extension
+    mime_types = {'.js':'application/javascript','.css':'text/css','.html':'text/html','.ico':'image/x-icon',
+                  '.svg':'image/svg+xml','.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg',
+                  '.gif':'image/gif','.woff':'font/woff','.woff2':'font/woff2','.ttf':'font/ttf'}
     _, ext = os.path.splitext(filename)
-    # Get the corresponding MIME type, default to binary stream if not found
-    mimetype = mime_types.get(ext.lower(), 'application/octet-stream')
-    
-    response = send_from_directory(BASE_DIR, filename, mimetype=mimetype)
-    if ext.lower() == '.js':
-        response.headers['Access-Control-Allow-Origin'] = '*'
-    return response
+    mt = mime_types.get(ext.lower(),'application/octet-stream')
+    r = send_from_directory(BASE_DIR, filename, mimetype=mt)
+    if ext.lower() == '.js': r.headers['Access-Control-Allow-Origin'] = '*'
+    return r
 
 @app.route('/css/<path:filename>')
-def serve_css(filename):
-    return send_from_directory(os.path.join(BASE_DIR, 'css'), filename)
+def serve_css(filename): return send_from_directory(os.path.join(BASE_DIR, 'css'), filename)
 
 @app.route('/js/<path:filename>')
 def serve_js(filename):
-    response = send_from_directory(os.path.join(BASE_DIR, 'js'), filename, mimetype='application/javascript')
-    response.headers['Access-Control-Allow-Origin'] = '*'
-    return response
+    r = send_from_directory(os.path.join(BASE_DIR, 'js'), filename, mimetype='application/javascript')
+    r.headers['Access-Control-Allow-Origin'] = '*'
+    return r
 
 @app.route('/fonts/<path:filename>')
-def serve_fonts(filename):
-    return send_from_directory(os.path.join(BASE_DIR, 'fonts'), filename)
+def serve_fonts(filename): return send_from_directory(os.path.join(BASE_DIR, 'fonts'), filename)
 
 @app.route('/img/<path:filename>')
-def serve_images(filename):
-    return send_from_directory(os.path.join(BASE_DIR, 'img'), filename)
+def serve_images(filename): return send_from_directory(os.path.join(BASE_DIR, 'img'), filename)
 
 @app.route('/img/loading/<path:filename>')
 def serve_loading_js(filename):
     if filename.endswith('.js'):
-        response = send_from_directory(os.path.join(BASE_DIR, 'img', 'loading'), filename, mimetype='application/javascript')
-        response.headers['Access-Control-Allow-Origin'] = '*'
-        return response
-    return send_from_directory(os.path.join(BASE_DIR, 'img', 'loading'), filename)
+        r = send_from_directory(os.path.join(BASE_DIR, 'img','loading'), filename, mimetype='application/javascript')
+        r.headers['Access-Control-Allow-Origin']='*'; return r
+    return send_from_directory(os.path.join(BASE_DIR,'img','loading'),filename)
 
 @app.route('/Config.ini')
 def serve_config():
-    """Serve the Config.ini file."""
     try:
-        config_path = os.path.join(BASE_DIR, 'Config.ini')
-        if not os.path.exists(config_path):
-            # If Config.ini doesn't exist, create a default one
-            default_config = """[Defaults]
-system = Harma
-controlling_power = Archon Delaine
-max_distance = 200
-search_results = 30
-system_database = systems.db"""
-            with open(config_path, 'w') as f:
-                f.write(default_config)
-        
-        response = send_from_directory(BASE_DIR, 'Config.ini', mimetype='text/plain')
-        # Add headers to prevent caching
-        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
-        response.headers['Pragma'] = 'no-cache'
-        response.headers['Expires'] = '0'
-        return response
+        path = os.path.join(BASE_DIR,'Config.ini')
+        if not os.path.exists(path):
+            with open(path, 'w') as f: f.write("[Defaults]\nsystem = Harma\ncontrolling_power = Archon Delaine\nmax_distance = 200\nsearch_results = 30\n")
+        r = send_from_directory(BASE_DIR, 'Config.ini', mimetype='text/plain')
+        r.headers['Cache-Control']='no-cache, no-store, must-revalidate'; r.headers['Pragma']='no-cache'; r.headers['Expires']='0'
+        return r
     except Exception as e:
         app.logger.error(f"Error serving Config.ini: {str(e)}")
-        # Return a default configuration as JSON if file serving fails
-        return jsonify({
-            'Defaults': {
-                'system': 'Harma',
-                'controlling_power': 'Archon Delaine',
-                'max_distance': '200',
-                'search_results': '30',
-                'system_database': 'systems.db'
-            }
-        })
+        return jsonify({'Defaults':{'system':'Harma','controlling_power':'Archon Delaine','max_distance':'200','search_results':'30'}})
 
-def decompress_data(data: str) -> str:
-    """Decompress data if it was compressed during conversion."""
-    if not data.startswith('__compressed__'):
-        return data
-        
-    try:
-        # Extract compression method and compressed data
-        _, method, compressed_hex = data.split('__', 2)
-        compressed = bytes.fromhex(compressed_hex)
-        
-        if method == 'zlib':
-            decompressed = zlib.decompress(compressed)
-        elif method == 'zstandard':
-            if not ZSTD_AVAILABLE:
-                raise ImportError("zstandard package not installed. Install with: pip install zstandard")
-            dctx = zstandard.ZstdDecompressor()
-            decompressed = dctx.decompress(compressed)
-        elif method == 'lz4':
-            if not LZ4_AVAILABLE:
-                raise ImportError("lz4 package not installed. Install with: pip install lz4")
-            decompressed = lz4.frame.decompress(compressed)
-        else:
-            raise ValueError(f"Unknown compression method: {method}")
-            
-        return decompressed.decode('utf-8')
-    except Exception as e:
-        app.logger.error(f"Error decompressing data: {str(e)}")
-        return data  # Return original data if decompression fails
 
-# Modify the row_factory to handle compressed data
-def dict_factory(cursor, row):
+def dict_factory(cursor,row):
     d = {}
-    for idx, col in enumerate(cursor.description):
-        value = row[idx]
-        # Commented out full_data handling as it's currently unused
-        # if col[0] == 'full_data' and isinstance(value, str):
-        #     # Decompress if necessary
-        #     value = decompress_data(value)
-        #     # Parse JSON after decompression
-        #     try:
-        #         value = json.loads(value)
-        #     except json.JSONDecodeError:
-        #         app.logger.error(f"Error decoding JSON after decompression")
-        #         value = None
-        d[col[0]] = value
+    for i,col in enumerate(cursor.description):
+        d[col[0]]=row[i]
     return d
 
 def get_db_connection():
-    """Create a database connection with decompression support."""
-    db_file = request.args.get('database', 'systems.db')
-    # Ensure the database file exists
-    if not os.path.exists(db_file):
-        app.logger.error(f"Database file not found: {db_file}")
+    """Get a database connection"""
+    try:
+        conn = psycopg2.connect(DATABASE_URL)
+        conn.cursor_factory = DictCursor  # This provides dict-like access similar to sqlite3's dict_factory
+        return conn
+    except Exception as e:
+        app.logger.error(f"Database connection error: {str(e)}")
         return None
-    conn = sqlite3.connect(db_file)
-    conn.row_factory = dict_factory
-    return conn
 
-def calculate_distance(x1: float, y1: float, z1: float, x2: float, y2: float, z2: float) -> float:
-    """Calculate distance between two points in 3D space."""
-    return math.sqrt((x2-x1)**2 + (y2-y1)**2 + (z2-z1)**2)
+def calculate_distance(x1,y1,z1,x2,y2,z2): return math.sqrt((x2-x1)**2+(y2-y1)**2+(z2-z1)**2)
 
 def get_ring_materials():
-    """Load ring materials and their associated ring types."""
-    ring_materials = {}
+    rm={}
     try:
-        with open('data/ring_materials.csv', 'r') as f:
-            next(f)  # Skip header
+        with open('data/ring_materials.csv','r') as f:
+            next(f)
             for line in f:
-                material, abbrev, ring_types, conditions, value = line.strip().split(',')
-                ring_materials[material] = {
-                    'ring_types': [t.strip() for t in ring_types.split('/')],
-                    'abbreviation': abbrev,
-                    'conditions': conditions,
-                    'value': value
-                }
+                mat,ab,rt,cond,val=line.strip().split(',')
+                rm[mat]={'ring_types':[x.strip() for x in rt.split('/')],'abbreviation':ab,'conditions':cond,'value':val}
     except Exception as e:
         app.logger.error(f"Error loading ring materials: {str(e)}")
-    return ring_materials
+    return rm
 
 @app.route('/')
-def index():
-    """Render the main page."""
-    return render_template('index.html')
+def index(): return render_template('index.html')
 
 @app.route('/autocomplete')
 def autocomplete():
-    """Handle system name autocomplete."""
     try:
-        search = request.args.get('q', '').strip()
-        if len(search) < 2:
-            return jsonify([])
-        
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        # Search for system names that start with the input
-        cursor.execute('''
-            SELECT name, x, y, z 
-            FROM systems 
-            WHERE name LIKE ? || '%'
-            LIMIT 10
-        ''', (search,))
-        
-        results = [{'name': row['name'], 'coords': {'x': row['x'], 'y': row['y'], 'z': row['z']}} 
-                  for row in cursor.fetchall()]
-        
-        conn.close()
-        return jsonify(results)
+        s=request.args.get('q','').strip()
+        if len(s)<2: return jsonify([])
+        conn=get_db_connection()
+        if not conn: return jsonify({'error':'Database not found'}),500
+        c=conn.cursor()
+        c.execute("SELECT name,x,y,z FROM systems WHERE name LIKE ? || '%' LIMIT 10",(s,))
+        res=[{'name':r['name'],'coords':{'x':r['x'],'y':r['y'],'z':r['z']}} for r in c.fetchall()]
+        conn.close(); return jsonify(res)
     except Exception as e:
         app.logger.error(f"Autocomplete error: {str(e)}")
-        return jsonify({'error': 'Error during autocomplete'}), 500
+        return jsonify({'error':'Error during autocomplete'}),500
 
 @app.route('/search')
 def search():
-    """Handle the main search functionality."""
     try:
-        # Get search parameters
         ref_system = request.args.get('system', 'Sol')
-        max_distance = float(request.args.get('distance', '10000'))
+        max_dist = float(request.args.get('distance', '10000'))
         controlling_power = request.args.get('controlling_power')
         power_states = request.args.getlist('power_state[]')
         signal_type = request.args.get('signal_type')
@@ -600,404 +463,338 @@ def search():
         limit = int(request.args.get('limit', '30'))
         mining_types = request.args.getlist('mining_types[]')
 
-        # Early check for mining type filtering
+        log_message(BLUE, "SEARCH", f"Search parameters:")
+        log_message(BLUE, "SEARCH", f"- System: {ref_system}")
+        log_message(BLUE, "SEARCH", f"- Distance: {max_dist}")
+        log_message(BLUE, "SEARCH", f"- Power: {controlling_power}")
+        log_message(BLUE, "SEARCH", f"- Power states: {power_states}")
+        log_message(BLUE, "SEARCH", f"- Signal type: {signal_type}")
+        log_message(BLUE, "SEARCH", f"- Ring type filter: {ring_type_filter}")
+        log_message(BLUE, "SEARCH", f"- Mining types: {mining_types}")
+
         if mining_types and 'All' not in mining_types:
-            # Load material mining data
             with open('data/mining_data.json', 'r') as f:
-                material_data = json.load(f)
-            
-            # Check if material exists and has valid mining types
-            commodity_data = next((item for item in material_data['materials'] if item['name'] == signal_type), None)
-            if not commodity_data:
-                return jsonify([])  # Return empty results if material isn't found
-        
-        # Check if this is a ring-type material
+                mat_data = json.load(f)
+                log_message(BLUE, "SEARCH", f"Checking material {signal_type} in mining_data.json")
+                cd = next((i for i in mat_data['materials'] if i['name'] == signal_type), None)
+                if not cd:
+                    log_message(RED, "SEARCH", f"Material {signal_type} not found in mining_data.json")
+                    return jsonify([])
+                log_message(BLUE, "SEARCH", f"Material data: {cd}")
+
         ring_materials = get_ring_materials()
-        is_ring_material = signal_type in ring_materials
-        
+        is_ring_material = False
+
+        # Check mining_data.json for laser mining capability in selected ring type
+        try:
+            with open('data/mining_data.json', 'r') as f:
+                mat_data = json.load(f)
+                cd = next((i for i in mat_data['materials'] if i['name'] == signal_type), None)
+                if cd and ring_type_filter != 'All' and ring_type_filter in cd['ring_types']:
+                    ring_data = cd['ring_types'][ring_type_filter]
+                    # If material can be laser mined in this ring type, treat it as a ring material
+                    is_ring_material = ring_data.get('surfaceLaserMining', False)
+                    log_message(BLUE, "SEARCH", f"Checking laser mining capability for {signal_type} in {ring_type_filter} rings: {is_ring_material}")
+        except Exception as e:
+            log_message(RED, "ERROR", f"Error checking mining data: {str(e)}")
+            # Fallback to ring_materials.csv check
+            is_ring_material = signal_type in ring_materials
+
+        log_message(BLUE, "SEARCH", f"Is ring material: {is_ring_material}")
+
         conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        # Get reference system coordinates
-        cursor.execute('SELECT x, y, z FROM systems WHERE name = ?', (ref_system,))
-        ref_coords = cursor.fetchone()
+        if not conn:
+            return jsonify({'error': 'Database connection failed'}), 500
+
+        cur = conn.cursor()
+        cur.execute('SELECT x, y, z FROM systems WHERE name = %s', (ref_system,))
+        ref_coords = cur.fetchone()
         if not ref_coords:
             conn.close()
             return jsonify({'error': 'Reference system not found'}), 404
-        
-        ref_x, ref_y, ref_z = ref_coords['x'], ref_coords['y'], ref_coords['z']
-        
-        # Get mining type conditions if specified
-        mining_type_condition = ''
-        mining_type_params = []
-        if mining_types and 'All' not in mining_types:
-            mining_type_condition, mining_type_params = get_mining_type_conditions(signal_type, mining_types)
 
-        # Add ring type filter conditions
-        ring_type_condition = ''
-        ring_type_params = []  # New list for ring type parameters
+        rx, ry, rz = ref_coords['x'], ref_coords['y'], ref_coords['z']
+        mining_cond = ''
+        mining_params = []
+        if mining_types and 'All' not in mining_types:
+            mining_cond, mining_params = get_mining_type_conditions(signal_type, mining_types)
+
+        ring_cond = ''
+        ring_params = []
         if ring_type_filter != 'All':
             if ring_type_filter == 'Just Hotspots':
-                ring_type_condition = ' AND ms.mineral_type IS NOT NULL'
+                ring_cond = ' AND ms.mineral_type IS NOT NULL'
             elif ring_type_filter == 'Without Hotspots':
-                # For Without Hotspots, we want rings that either:
-                # 1. Don't have a hotspot of this type, AND
-                # 2. Are of a type where this material can be found
-                ring_type_condition = ' AND (ms.mineral_type IS NULL OR ms.mineral_type != ?)'
-                ring_type_params.append(signal_type)
-                
-                # Get potential ring types from mining_data.json
+                ring_cond = ' AND (ms.mineral_type IS NULL OR ms.mineral_type != %s)'
+                ring_params.append(signal_type)
                 try:
                     with open('data/mining_data.json', 'r') as f:
-                        material_data = json.load(f)
-                        commodity_data = next((item for item in material_data['materials'] if item['name'] == signal_type), None)
-                        if commodity_data:
-                            # Get ring types where this material can be mined
-                            ring_types = []
-                            for ring_type, ring_data in commodity_data['ring_types'].items():
-                                if any([
-                                    ring_data['surfaceLaserMining'],
-                                    ring_data['surfaceDeposit'],
-                                    ring_data['subSurfaceDeposit'],
-                                    ring_data['core']
-                                ]):
-                                    ring_types.append(ring_type)
-                            
-                            if ring_types:
-                                ring_type_condition += ' AND ms.ring_type IN (' + ','.join('?' * len(ring_types)) + ')'
-                                ring_type_params.extend(ring_types)
-                except Exception as e:
-                    app.logger.error(f"Error checking mining_data.json: {str(e)}")
+                        mat_data = json.load(f)
+                        cd = next((item for item in mat_data['materials'] if item['name'] == signal_type), None)
+                        if cd:
+                            rt = []
+                            for r_type, rd in cd['ring_types'].items():
+                                if any([rd['surfaceLaserMining'], rd['surfaceDeposit'], rd['subSurfaceDeposit'], rd['core']]):
+                                    rt.append(r_type)
+                            if rt:
+                                ring_cond += ' AND ms.ring_type = ANY(%s::text[])'
+                                ring_params.append(rt)
+                except:
+                    pass
             else:
-                # Specific ring type selected
-                ring_type_condition = ' AND ms.ring_type = ?'
-                ring_type_params.append(ring_type_filter)
-                
-                # Check if this material can be found in this ring type
+                ring_cond = ' AND ms.ring_type = %s'
+                ring_params.append(ring_type_filter)
+                log_message(BLUE, "SEARCH", f"Adding ring type filter: {ring_type_filter}")
                 try:
                     with open('data/mining_data.json', 'r') as f:
-                        material_data = json.load(f)
-                        commodity_data = next((item for item in material_data['materials'] if item['name'] == signal_type), None)
-                        if not commodity_data or ring_type_filter not in commodity_data['ring_types']:
-                            return jsonify([])  # Return empty results if material can't be found in this ring type
+                        mat_data = json.load(f)
+                        cd = next((i for i in mat_data['materials'] if i['name'] == signal_type), None)
+                        log_message(BLUE, "SEARCH", f"Material data for ring type check: {cd}")
+                        if not cd or ring_type_filter not in cd['ring_types']:
+                            log_message(RED, "SEARCH", f"Material {signal_type} not found in ring type {ring_type_filter}")
+                            return jsonify([])
+                        ring_data = cd['ring_types'][ring_type_filter]
+                        # Check if ANY mining method is valid for this ring type
+                        if not any([
+                            ring_data.get('surfaceLaserMining', False),
+                            ring_data.get('surfaceDeposit', False),
+                            ring_data.get('subSurfaceDeposit', False),
+                            ring_data.get('core', False)
+                        ]):
+                            log_message(RED, "SEARCH", f"No valid mining methods for {signal_type} in {ring_type_filter} rings")
+                            return jsonify([])
+                        log_message(BLUE, "SEARCH", f"Ring type data: {cd['ring_types'][ring_type_filter]}")
                 except Exception as e:
-                    app.logger.error(f"Error checking mining_data.json: {str(e)}")
-        
+                    log_message(RED, "ERROR", f"Error checking ring type: {str(e)}")
+                    pass
+
         # Define non-hotspot materials
-        non_hotspot_minerals = get_non_hotspot_materials_list()
-        is_non_hotspot = signal_type in non_hotspot_minerals
+        non_hotspot = get_non_hotspot_materials_list()
+        is_non_hotspot = signal_type in non_hotspot
+        non_hotspot_str = ','.join(f"'{material}'" for material in non_hotspot)
+        
+        # Build the ring type case statement
+        ring_type_cases = []
+        for material, ring_types in mining_data.NON_HOTSPOT_MATERIALS.items():
+            ring_types_str = ','.join(f"'{rt}'" for rt in ring_types)
+            ring_type_cases.append(f"WHEN hp.commodity_name = '{material}' AND ms.ring_type IN ({ring_types_str}) THEN 1")
+        ring_type_case = '\n'.join(ring_type_cases)
         
         if is_non_hotspot:
             # Get ring types from NON_HOTSPOT_MATERIALS dictionary
             ring_types = mining_data.NON_HOTSPOT_MATERIALS.get(signal_type, [])
-            ring_types_str = ','.join('?' * len(ring_types))
             
-            query = '''
+            # Build all WHERE conditions first
+            where_conditions = ["ms.ring_type = ANY(%s::text[])"]
+            params = []  # Start with empty params and build in order
+            
+            # Add distance and signal params first
+            params.extend([rx, rx, ry, ry, rz, rz, max_dist])
+            params.extend([signal_type, signal_type])
+            params.append(ring_types)  # For the ring_type ANY condition
+            params.append(ring_types)  # For the ANY condition in JOIN            
+            
+            if controlling_power:
+                where_conditions.append("s.controlling_power = %s")
+                params.append(controlling_power)
+
+            if power_states:
+                where_conditions.append("s.power_state = ANY(%s)")
+                params.append(power_states)
+
+            if mining_cond:
+                where_conditions.append(mining_cond)
+                params.extend(mining_params)
+
+            query = f"""
             WITH relevant_systems AS (
-                SELECT s.*, 
-                    sqrt(((s.x - ?) * (s.x - ?)) + 
-                            ((s.y - ?) * (s.y - ?)) + 
-                            ((s.z - ?) * (s.z - ?))) as distance
+                SELECT s.*, SQRT(POWER(s.x - %s, 2) + POWER(s.y - %s, 2) + POWER(s.z - %s, 2)) as distance
                 FROM systems s
-                WHERE (((s.x - ?) * (s.x - ?)) + 
-                    ((s.y - ?) * (s.y - ?)) + 
-                    ((s.z - ?) * (s.z - ?))) <= ? * ?
+                WHERE POWER(s.x - %s, 2) + POWER(s.y - %s, 2) + POWER(s.z - %s, 2) <= POWER(%s, 2)
             ),
             relevant_stations AS (
                 SELECT sc.system_id64, sc.station_name, sc.sell_price, sc.demand
                 FROM station_commodities sc
-                WHERE (sc.commodity_name = ? OR 
-                      (? = 'LowTemperatureDiamond' AND sc.commodity_name = 'Low Temperature Diamonds'))
-                        AND sc.demand > 0
-                        AND sc.sell_price > 0
+                WHERE (sc.commodity_name = %s OR (%s = 'LowTemperatureDiamond' AND sc.commodity_name = 'Low Temperature Diamonds'))
+                AND sc.demand > 0 AND sc.sell_price > 0
             )
-            SELECT DISTINCT
-                s.name as system_name,
-                s.id64 as system_id64,
-                s.controlling_power,
-                s.power_state,
-                s.distance,
-                ms.body_name,
-                ms.ring_name,
-                ms.ring_type,
-                ms.mineral_type,
-                ms.signal_count,
-                ms.reserve_level,
-                rs.station_name,
-                st.landing_pad_size,
-                st.distance_to_arrival as station_distance,
-                st.station_type,
-                rs.demand,
-                rs.sell_price,
-                st.update_time
-            FROM relevant_systems s
-            JOIN mineral_signals ms ON s.id64 = ms.system_id64
-            LEFT JOIN relevant_stations rs ON s.id64 = rs.system_id64
-            LEFT JOIN stations st ON s.id64 = st.system_id64 
-                AND rs.station_name = st.station_name
-            WHERE ms.ring_type IN (''' + ring_types_str + ''')''' + ring_type_condition + '''
-            '''
-            
-            params = [
-                ref_x, ref_x, ref_y, ref_y, ref_z, ref_z,  # for distance
-                ref_x, ref_x, ref_y, ref_y, ref_z, ref_z, max_distance, max_distance,  # for WHERE clause
-                signal_type, signal_type  # for commodity_name and LTD check
-            ]
-            params.extend(ring_types)  # for ring type IN (...)
-            params.extend(ring_type_params)  # Add ring type parameters
-            
-            # Add mining type conditions if specified
-            if mining_type_condition:
-                query += f' AND {mining_type_condition}'
-                params.extend(mining_type_params)
-        
-        elif is_ring_material:
-            ring_types = ring_materials[signal_type]['ring_types']
-            app.logger.info(f"Looking for rings of type: {ring_types}")
-            ring_types_str = ','.join('?' * len(ring_types))
-            
-            query = '''
-            WITH relevant_systems AS (
-                SELECT s.*, 
-                       (((s.x - ?) * (s.x - ?)) + 
-                        ((s.y - ?) * (s.y - ?)) + 
-                        ((s.z - ?) * (s.z - ?))) as distance_squared,
-                       sqrt(((s.x - ?) * (s.x - ?)) + 
-                            ((s.y - ?) * (s.y - ?)) + 
-                            ((s.z - ?) * (s.z - ?))) as distance
-                FROM systems s
-                WHERE (((s.x - ?) * (s.x - ?)) + 
-                      ((s.y - ?) * (s.y - ?)) + 
-                      ((s.z - ?) * (s.z - ?))) <= ? * ?
-            ),
-            relevant_stations AS (
-                SELECT DISTINCT 
-                    s.id64,
-                    s.name as system_name,
-                    s.controlling_power,
-                    s.power_state,
-                    s.distance,
-                    ms.body_name,
-                    ms.ring_name,
-                    ms.ring_type,
-                    ms.reserve_level,
-                    rs.station_name,
-                    rs.demand,
-                    rs.sell_price,
-                    st.landing_pad_size,
-                    st.distance_to_arrival
-                FROM relevant_systems s
-                JOIN mineral_signals ms ON s.id64 = ms.system_id64
-                LEFT JOIN station_commodities rs ON s.id64 = rs.system_id64 
-                    AND rs.commodity_name = ?
-                LEFT JOIN stations st ON s.id64 = st.system_id64 
-                    AND rs.station_name = st.station_name
-                WHERE ms.ring_type IN (''' + ring_types_str + ''')''' + ring_type_condition + '''
-            )
-            SELECT DISTINCT 
-                rs.system_name,
-                rs.controlling_power,
-                rs.power_state,
-                rs.distance,
-                rs.body_name,
-                rs.ring_name,
-                rs.ring_type,
-                rs.reserve_level,
-                rs.station_name,
-                st.landing_pad_size,
-                st.distance_to_arrival as station_distance,
-                rs.demand,
-                rs.sell_price,
-                st.update_time
-            FROM relevant_stations rs
-            JOIN mineral_signals ms ON rs.id64 = ms.system_id64
-            LEFT JOIN stations st ON rs.id64 = st.system_id64 
-                AND rs.station_name = st.station_name
-            WHERE 1=1
-            '''
-            
-            params = [
-                ref_x, ref_x, ref_y, ref_y, ref_z, ref_z,  # for distance_squared
-                ref_x, ref_x, ref_y, ref_y, ref_z, ref_z,  # for distance
-                ref_x, ref_x, ref_y, ref_y, ref_z, ref_z, max_distance, max_distance,  # for WHERE clause
-                signal_type,  # for relevant_stations
-                signal_type   # for mineral_signals
-            ]
-            params.extend(ring_types)  # for ring type filter
-            params.extend(ring_type_params)  # Add ring type parameters
-            
-            # Add mining type conditions if specified
-            if mining_type_condition:
-                query += f' AND {mining_type_condition}'
-                params.extend(mining_type_params)
-        
-        else:
-            # Original hotspot query
-            query = '''
-            WITH relevant_systems AS (
-                SELECT s.*, 
-                    sqrt(((s.x - ?) * (s.x - ?)) + 
-                            ((s.y - ?) * (s.y - ?)) + 
-                            ((s.z - ?) * (s.z - ?))) as distance
-                FROM systems s
-                WHERE (((s.x - ?) * (s.x - ?)) + 
-                    ((s.y - ?) * (s.y - ?)) + 
-                    ((s.z - ?) * (s.z - ?))) <= ? * ?
-            ),
-            relevant_stations AS (
-                SELECT sc.system_id64, sc.station_name, sc.sell_price, sc.demand
-                FROM station_commodities sc
-                WHERE (sc.commodity_name = ? OR 
-                      (? = 'LowTemperatureDiamond' AND sc.commodity_name = 'Low Temperature Diamonds'))
-                        AND sc.demand > 0
-                        AND sc.sell_price > 0
-            )
-            SELECT DISTINCT 
-                s.name as system_name,
-                s.id64 as system_id64,
-                s.controlling_power,
-                s.power_state,
-                s.distance,
-                ms.body_name,
-                ms.ring_name,
-                ms.ring_type,
-                ms.mineral_type,
-                ms.signal_count,
-                ms.reserve_level,
-                rs.station_name,
-                st.landing_pad_size,
-                st.distance_to_arrival as station_distance,
-                st.station_type,
-                rs.demand,
-                rs.sell_price,
-                st.update_time
-            FROM relevant_systems s
-            JOIN mineral_signals ms ON s.id64 = ms.system_id64''' + (
-                ' AND ms.mineral_type = ?' if ring_type_filter != 'Without Hotspots' else '') + ring_type_condition + '''
-            LEFT JOIN relevant_stations rs ON s.id64 = rs.system_id64
-            LEFT JOIN stations st ON s.id64 = st.system_id64 
-                AND rs.station_name = st.station_name
-            WHERE 1=1
-            '''
-            
-            params = [
-                ref_x, ref_x, ref_y, ref_y, ref_z, ref_z,  # for distance
-                ref_x, ref_x, ref_y, ref_y, ref_z, ref_z, max_distance, max_distance,  # for WHERE clause
-                signal_type, signal_type  # for commodity_name and LTD check
-            ]
-            if ring_type_filter != 'Without Hotspots':
-                params.append(signal_type)  # for mineral_type = ?
-            params.extend(ring_type_params)  # Add ring type parameters
-            
-            # Add mining type conditions if specified
-            if mining_type_condition:
-                query += f' AND {mining_type_condition}'
-                params.extend(mining_type_params)
-        
-        if controlling_power:
-            query += ' AND s.controlling_power = ?'
-            params.append(controlling_power)
-        
-        if power_states:
-            query += ' AND s.power_state IN ({})'.format(','.join('?' * len(power_states)))
-            params.extend(power_states)
-        
-        # Order by reserve level (pristine first) for ring materials, then by price and distance
-        if is_ring_material:
-            query += ''' ORDER BY 
+            SELECT DISTINCT s.name as system_name, s.id64 as system_id64, s.controlling_power,
+                s.power_state, s.distance, ms.body_name, ms.ring_name, ms.ring_type,
+                ms.mineral_type, ms.signal_count, ms.reserve_level, rs.station_name,
+                st.landing_pad_size, st.distance_to_arrival as station_distance,
+                st.station_type, rs.demand, rs.sell_price, st.update_time,
+                rs.sell_price as sort_price,
                 CASE 
                     WHEN ms.reserve_level = 'Pristine' THEN 1
                     WHEN ms.reserve_level = 'Major' THEN 2
                     WHEN ms.reserve_level = 'Common' THEN 3
                     WHEN ms.reserve_level = 'Low' THEN 4
                     WHEN ms.reserve_level = 'Depleted' THEN 5
-                    ELSE 6
-                END,
-                rs.sell_price DESC NULLS LAST,
-                s.distance ASC'''
+                    ELSE 6 
+                END as reserve_level_order
+            FROM relevant_systems s
+            JOIN mineral_signals ms ON s.id64 = ms.system_id64 
+            AND ms.mineral_type IS NULL  -- For regular rings
+            AND ms.ring_type = ANY(%s::text[])  -- Match any of the valid ring typess
+            LEFT JOIN relevant_stations rs ON s.id64 = rs.system_id64
+            LEFT JOIN stations st ON s.id64 = st.system_id64 AND rs.station_name = st.station_name
+            WHERE """ + " AND ".join(where_conditions) + """
+            ORDER BY sort_price DESC NULLS LAST, s.distance ASC"""
+
+            if limit:
+                query += " LIMIT %s"
+                params.append(limit)
+
         else:
-            query += ' ORDER BY rs.sell_price DESC NULLS LAST, s.distance ASC'
+            # Build all WHERE conditions first
+            where_conditions = ["1=1"]  # Start with a dummy condition
+            params = []  # We'll build this in order of appearance in the query
+            
+            # Build the query with parameters in exact order of placeholders
+            query = f"""
+            WITH relevant_systems AS (
+                SELECT s.*, SQRT(POWER(s.x - %s, 2) + POWER(s.y - %s, 2) + POWER(s.z - %s, 2)) as distance
+                FROM systems s
+                WHERE POWER(s.x - %s, 2) + POWER(s.y - %s, 2) + POWER(s.z - %s, 2) <= POWER(%s, 2)
+            ),
+            relevant_stations AS (
+                SELECT sc.system_id64, sc.station_name, sc.sell_price, sc.demand
+                FROM station_commodities sc
+                WHERE (sc.commodity_name = %s OR (%s = 'LowTemperatureDiamond' AND sc.commodity_name = 'Low Temperature Diamonds'))
+                AND sc.demand > 0 AND sc.sell_price > 0
+            )"""
+            
+            # Add parameters in order of appearance
+            params.extend([rx, rx, ry, ry, rz, rz, max_dist])  # Distance calculation
+            params.extend([signal_type, signal_type])  # CTE parameters
+            params.append(signal_type)  # For hotspot check in JOIN
+            params.append(ring_type_filter)  # For ring type check in JOIN  
+            
+            # Build the rest of the query
+            query += """
+            SELECT DISTINCT s.name as system_name, s.id64 as system_id64, s.controlling_power,
+                s.power_state, s.distance, ms.body_name, ms.ring_name, ms.ring_type,
+                ms.mineral_type, ms.signal_count, ms.reserve_level, rs.station_name,
+                st.landing_pad_size, st.distance_to_arrival as station_distance,
+                st.station_type, rs.demand, rs.sell_price, st.update_time,
+                rs.sell_price as sort_price,
+                CASE 
+                    WHEN ms.reserve_level = 'Pristine' THEN 1
+                    WHEN ms.reserve_level = 'Major' THEN 2
+                    WHEN ms.reserve_level = 'Common' THEN 3
+                    WHEN ms.reserve_level = 'Low' THEN 4
+                    WHEN ms.reserve_level = 'Depleted' THEN 5
+                    ELSE 6 
+                END as reserve_level_order
+            FROM relevant_systems s"""
+
+            query += """ JOIN mineral_signals ms ON s.id64 = ms.system_id64 
+            AND (
+                ms.mineral_type = %s  -- For hotspots
+                OR (
+                    ms.mineral_type IS NULL  -- For regular rings
+                    AND ms.ring_type = %s    -- With matching ring type
+                )
+            )"""
+
+            query += """
+            LEFT JOIN relevant_stations rs ON s.id64 = rs.system_id64
+            LEFT JOIN stations st ON s.id64 = st.system_id64 AND rs.station_name = st.station_name
+            WHERE """
+
+            # Add WHERE conditions in order
+            if controlling_power:
+                where_conditions.append("s.controlling_power = %s")
+                params.append(controlling_power)
+
+            if power_states:
+                where_conditions.append("s.power_state = ANY(%s)")
+                params.append(power_states)
+
+            if mining_cond:
+                where_conditions.append(mining_cond)
+                params.extend(mining_params)
+
+            if ring_cond:
+                where_conditions.append(ring_cond.lstrip(" AND "))
+                params.extend(ring_params)
+
+            query += " AND ".join(where_conditions)
+
+            # Add ORDER BY
+            if is_ring_material:
+                query += """
+                ORDER BY 
+                    reserve_level_order,
+                    rs.sell_price DESC NULLS LAST,
+                    s.distance ASC"""
+            else:
+                query += " ORDER BY sort_price DESC NULLS LAST, s.distance ASC"
+
+            if limit:
+                query += " LIMIT %s"
+                params.append(limit)
+
+        log_message(BLUE, "SEARCH", f"Final SQL query: {query}")
+        log_message(BLUE, "SEARCH", f"Query parameters: {params}")
         
-        cursor.execute(query, params)
-        rows = cursor.fetchall()
-        
-        # Process results
-        processed_results = []
-        current_system = None
-        
-        # First, collect all system_id64 and station_name pairs
-        station_pairs = [(row['system_id64'], row['station_name']) 
-                        for row in rows if row['station_name']]
-        
-        # Get all other commodities in a single query
+        try:
+            cur.execute(query, params)
+        except Exception as e:
+            log_message(RED, "ERROR", f"Error executing query: {e}")
+            return jsonify({'error': f'Error executing query: {e}'}), 500
+
+        rows = cur.fetchall()
+        app.logger.info(f"Query returned {len(rows)} rows")
+
+        pr = []
+        cur_sys = None
+
+        station_pairs = [(r['system_id64'], r['station_name']) for r in rows if r['station_name']]
         other_commodities = {}
+
         if station_pairs:
-            other_cursor = conn.cursor()
-            placeholders = ','.join(['(?,?)' for _ in station_pairs])
-            params = [item for pair in station_pairs for item in pair]
-            
-            # Get the selected materials from the request
-            selected_materials = request.args.getlist('selected_materials[]', type=str)
-            
-            if selected_materials and selected_materials != ['Default']:
-                # Convert codes to full names using cached mapping
-                full_names = [mining_data.MATERIAL_CODES.get(mat, mat) for mat in selected_materials]
-                
-                # Get all specified materials for each station
-                other_cursor.execute(f'''
+            oc = conn.cursor()
+            ph = ','.join(['(%s,%s)'] * len(station_pairs))
+            ps = [x for pair in station_pairs for x in pair]
+            sel_mats = request.args.getlist('selected_materials[]', type=str)
+
+            if sel_mats and sel_mats != ['Default']:
+                full_names = [mining_data.MATERIAL_CODES.get(m,m) for m in sel_mats]
+                oc.execute(f"""
                     SELECT sc.system_id64, sc.station_name, sc.commodity_name, sc.sell_price, sc.demand,
-                           COUNT(*) OVER (PARTITION BY sc.system_id64, sc.station_name) as total_commodities
+                    COUNT(*) OVER (PARTITION BY sc.system_id64, sc.station_name) total_commodities
                     FROM station_commodities sc
-                    WHERE (sc.system_id64, sc.station_name) IN ({placeholders})
-                    AND sc.commodity_name IN ({','.join('?' for _ in full_names)})
+                    WHERE (sc.system_id64, sc.station_name) IN ({ph})
+                    AND sc.commodity_name = ANY(%s::text[])
                     AND sc.sell_price > 0 AND sc.demand > 0
                     ORDER BY sc.system_id64, sc.station_name, sc.sell_price DESC
-                ''', params + full_names)
-                
-                # Process results - store all materials for each station
-                for row in other_cursor.fetchall():
-                    key = (row['system_id64'], row['station_name'])
-                    if key not in other_commodities:
-                        other_commodities[key] = []
-                    # Always append the material since it's one of our selected ones
-                    other_commodities[key].append({
-                        'name': row['commodity_name'],
-                        'sell_price': row['sell_price'],
-                        'demand': row['demand']
-                    })
-                    
-                    # Debug log to verify we're getting all materials
-                    if row['total_commodities'] > 1:
-                        app.logger.info(f"Station {row['station_name']} has {row['total_commodities']} selected commodities")
+                """, ps + [full_names])
             else:
-                # Default behavior - just get top 6 by price
-                other_cursor.execute(f'''
+                oc.execute(f"""
                     SELECT system_id64, station_name, commodity_name, sell_price, demand
                     FROM station_commodities
-                    WHERE (system_id64, station_name) IN ({placeholders})
+                    WHERE (system_id64, station_name) IN ({ph})
                     AND sell_price > 0 AND demand > 0
                     ORDER BY sell_price DESC
-                ''', params)
-                
-                for row in other_cursor.fetchall():
-                    key = (row['system_id64'], row['station_name'])
-                    if key not in other_commodities:
-                        other_commodities[key] = []
-                    if len(other_commodities[key]) < 6:  # Limit to 6 commodities per station
-                        other_commodities[key].append({
-                            'name': row['commodity_name'],
-                            'sell_price': row['sell_price'],
-                            'demand': row['demand']
-                        })
-            
-            other_cursor.close()
-        
+                """, ps)
+
+            for r2 in oc.fetchall():
+                k = (r2['system_id64'], r2['station_name'])
+                if k not in other_commodities:
+                    other_commodities[k] = []
+                if len(other_commodities[k]) < 6:
+                    other_commodities[k].append({
+                        'name': r2['commodity_name'],
+                        'sell_price': r2['sell_price'],
+                        'demand': r2['demand']
+                    })
+
         for row in rows:
-            if current_system is None or current_system['name'] != row['system_name']:
-                if current_system is not None:
-                    processed_results.append(current_system)
-                
-                current_system = {
+            if cur_sys is None or cur_sys['name'] != row['system_name']:
+                if cur_sys:
+                    pr.append(cur_sys)
+                cur_sys = {
                     'name': row['system_name'],
                     'controlling_power': row['controlling_power'],
                     'power_state': row['power_state'],
@@ -1007,157 +804,142 @@ def search():
                     'stations': [],
                     'all_signals': []
                 }
-            
-            # Add ring if not already present
+
             if is_ring_material:
-                ring_entry = {
+                re = {
                     'name': row['ring_name'],
                     'body_name': row['body_name'],
                     'signals': f"{signal_type} ({row['ring_type']}, {row['reserve_level']})"
                 }
-                if ring_entry not in current_system['rings']:
-                    current_system['rings'].append(ring_entry)
+                if re not in cur_sys['rings']:
+                    cur_sys['rings'].append(re)
             else:
                 if ring_type_filter == 'Without Hotspots':
-                    # For Without Hotspots, just show the ring type and reserve level
-                    ring_entry = {
+                    re = {
                         'name': row['ring_name'],
                         'body_name': row['body_name'],
                         'signals': f"{signal_type} ({row['ring_type']}, {row['reserve_level']})"
                     }
-                    if ring_entry not in current_system['rings']:
-                        current_system['rings'].append(ring_entry)
+                    if re not in cur_sys['rings']:
+                        cur_sys['rings'].append(re)
                 else:
-                    # For other filters, show hotspot signals
                     if row['mineral_type'] == signal_type:
-                        ring_entry = {
+                        re = {
                             'name': row['ring_name'],
                             'body_name': row['body_name'],
                             'signals': f"{signal_type}: {row['signal_count'] or ''} ({row['reserve_level']})"
                         }
-                        if ring_entry not in current_system['rings']:
-                            current_system['rings'].append(ring_entry)
-                
-            # Add to all_signals if not already present
-            signal_entry = {
+                        if re not in cur_sys['rings']:
+                            cur_sys['rings'].append(re)
+
+            si = {
                 'ring_name': row['ring_name'],
                 'mineral_type': row['mineral_type'],
                 'signal_count': row['signal_count'] or '',
                 'reserve_level': row['reserve_level'],
                 'ring_type': row['ring_type']
             }
-            if signal_entry not in current_system['all_signals'] and signal_entry['mineral_type'] is not None:
-                current_system['all_signals'].append(signal_entry)
-            
-            # Add station if present and not already added
+            if si not in cur_sys['all_signals'] and si['mineral_type']:
+                cur_sys['all_signals'].append(si)
+
             if row['station_name']:
                 try:
-                    # Get or create station entry
-                    existing_station = next((s for s in current_system['stations'] if s['name'] == row['station_name']), None)
-                    if existing_station:
-                        # Update existing station's commodities
-                        existing_station['other_commodities'] = other_commodities.get((row['system_id64'], row['station_name']), [])
+                    ex = next((s for s in cur_sys['stations'] if s['name'] == row['station_name']), None)
+                    if ex:
+                        ex['other_commodities'] = other_commodities.get((row['system_id64'], row['station_name']), [])
                     else:
-                        # Create new station entry
-                        station_entry = {
+                        stn = {
                             'name': row['station_name'],
                             'pad_size': row['landing_pad_size'],
                             'distance': float(row['station_distance']) if row['station_distance'] else 0,
                             'demand': int(row['demand']) if row['demand'] else 0,
                             'sell_price': int(row['sell_price']) if row['sell_price'] else 0,
                             'station_type': row['station_type'],
-                            'update_time': row.get('update_time'),
+                            'update_time': row['update_time'].strftime('%Y-%m-%d') if row['update_time'] else None,
                             'system_id64': row['system_id64'],
                             'other_commodities': other_commodities.get((row['system_id64'], row['station_name']), [])
                         }
-                        current_system['stations'].append(station_entry)
-                except (TypeError, ValueError) as e:
-                    app.logger.error(f"Error processing station data: {str(e)}")
-                    continue
-        
-        if current_system is not None:
-            processed_results.append(current_system)
-        
-        # Limit results before returning
-        processed_results = processed_results[:limit]
-        
-        # After processing the main results, get all other signals for these systems
-        if not is_non_hotspot and processed_results:
-            system_ids = [system['system_id64'] for system in processed_results]
-            placeholders = ','.join(['?' for _ in system_ids])
-            
-            # Get all signals for these systems
-            cursor.execute(f'''
+                        cur_sys['stations'].append(stn)
+                except:
+                    pass
+
+        if cur_sys:
+            pr.append(cur_sys)
+
+        # Apply the limit here, after processing all results
+        pr = pr[:limit]
+
+        if not is_non_hotspot and pr:
+            sys_ids = [s['system_id64'] for s in pr]
+            cur.execute("""
                 SELECT system_id64, ring_name, mineral_type, signal_count, reserve_level, ring_type
                 FROM mineral_signals
-                WHERE system_id64 IN ({placeholders})
-                AND mineral_type != ?
-            ''', system_ids + [signal_type])
-            
-            # Group signals by system
-            other_signals = {}
-            for row in cursor.fetchall():
-                if row['system_id64'] not in other_signals:
-                    other_signals[row['system_id64']] = []
-                other_signals[row['system_id64']].append({
-                    'ring_name': row['ring_name'],
-                    'mineral_type': row['mineral_type'],
-                    'signal_count': row['signal_count'] or '',
-                    'reserve_level': row['reserve_level'],
-                    'ring_type': row['ring_type']
+                WHERE system_id64 = ANY(%s::bigint[]) AND mineral_type != %s
+            """, [sys_ids, signal_type])
+
+            other_sigs = {}
+            for r in cur.fetchall():
+                if r['system_id64'] not in other_sigs:
+                    other_sigs[r['system_id64']] = []
+                other_sigs[r['system_id64']].append({
+                    'ring_name': r['ring_name'],
+                    'mineral_type': r['mineral_type'],
+                    'signal_count': r['signal_count'] or '',
+                    'reserve_level': r['reserve_level'],
+                    'ring_type': r['ring_type']
                 })
-            
-            # Add other signals to the results
-            for system in processed_results:
-                system['all_signals'].extend(other_signals.get(system['system_id64'], []))
-        
+
+            for s in pr:
+                s['all_signals'].extend(other_sigs.get(s['system_id64'], []))
+
         conn.close()
-        return jsonify(processed_results)
-        
+        return jsonify(pr)
+
     except Exception as e:
         app.logger.error(f"Search error: {str(e)}")
         return jsonify({'error': f'Search error: {str(e)}'}), 500
 
 @app.route('/search_highest')
 def search_highest():
-    """Handle the highest price search functionality."""
     try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        # Get search parameters
+        # Get power filters
         controlling_power = request.args.get('controlling_power')
         power_states = request.args.getlist('power_state[]')
         limit = int(request.args.get('limit', '30'))
         
-        # Build power state filter
-        power_state_filter = ''
-        power_filter_params = []
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'error': 'Database connection failed'}), 500
+            
+        cur = conn.cursor()
+        
+        # Build all WHERE conditions first
+        where_conditions = ["sc.demand > 0", "sc.sell_price > 0"]
+        params = []
         
         if controlling_power:
-            power_state_filter += ' AND s.controlling_power = ?'
-            power_filter_params.append(controlling_power)
+            where_conditions.append("s.controlling_power = %s")
+            params.append(controlling_power)
         
         if power_states:
-            placeholders = ','.join(['?' for _ in power_states])
-            power_state_filter += f' AND s.power_state IN ({placeholders})'
-            power_filter_params.extend(power_states)
+            where_conditions.append("s.power_state = ANY(%s)")
+            params.append(power_states)
+        
+        where_clause = " AND ".join(where_conditions)
         
         # Get the list of non-hotspot materials
-        non_hotspot_materials = get_non_hotspot_materials_list()
-        non_hotspot_str = ', '.join(f"'{material}'" for material in non_hotspot_materials)
+        non_hotspot = get_non_hotspot_materials_list()
+        non_hotspot_str = ','.join([f"'{material}'" for material in non_hotspot])
         
-        # Build the ring type case statement
+        # Build ring type case statement
         ring_type_cases = []
-        for material, ring_types in NON_HOTSPOT_MATERIALS.items():
-            ring_types_str = "', '".join(ring_types)
-            ring_type_cases.append(f"WHEN hp.commodity_name = '{material}' AND ms.ring_type IN ('{ring_types_str}') THEN 1")
-        
+        for material, ring_types in mining_data.NON_HOTSPOT_MATERIALS.items():
+            ring_types_str = ','.join([f"'{rt}'" for rt in ring_types])
+            ring_type_cases.append(f"WHEN hp.commodity_name = '{material}' AND ms.ring_type IN ({ring_types_str}) THEN 1")
         ring_type_case = '\n'.join(ring_type_cases)
         
-        query = '''
+        query = f"""
         WITH HighestPrices AS (
-            -- First get all prices ordered by highest first
             SELECT DISTINCT 
                 sc.commodity_name,
                 sc.sell_price,
@@ -1174,27 +956,22 @@ def search_highest():
             FROM station_commodities sc
             JOIN systems s ON s.id64 = sc.system_id64
             JOIN stations st ON st.system_id64 = s.id64 AND st.station_name = sc.station_name
-            WHERE sc.demand > 0
-            AND sc.sell_price > 0''' + power_state_filter + '''
+            WHERE {where_clause}
             ORDER BY sc.sell_price DESC
             LIMIT 1000
         ),
         MinableCheck AS (
-            -- Then check each system if the material can be mined there
             SELECT DISTINCT
                 hp.*,
                 ms.mineral_type,
                 ms.ring_type,
                 ms.reserve_level,
                 CASE
-                    -- For hotspot materials
-                    WHEN hp.commodity_name NOT IN (''' + non_hotspot_str + ''')
+                    WHEN hp.commodity_name NOT IN ({non_hotspot_str})
                         AND ms.mineral_type = hp.commodity_name THEN 1
-                    -- For Low Temperature Diamonds
                     WHEN hp.commodity_name = 'Low Temperature Diamonds' 
                         AND ms.mineral_type = 'LowTemperatureDiamond' THEN 1
-                    -- For non-hotspot materials
-                    ''' + ring_type_case + '''
+                    {ring_type_case}
                     ELSE 0
                 END as is_minable
             FROM HighestPrices hp
@@ -1214,294 +991,304 @@ def search_highest():
             station_type,
             update_time
         FROM MinableCheck
-        WHERE is_minable = 1  -- Only include systems where the material can be mined
+        WHERE is_minable = 1
         ORDER BY max_price DESC
-        LIMIT ?
-        '''
+        LIMIT %s
+        """
         
-        power_filter_params.append(limit)
-        cursor.execute(query, power_filter_params)
-        results = cursor.fetchall()
+        params.append(limit)
+        cur.execute(query, params)
+        results = cur.fetchall()
+        
+        # Format results
+        formatted_results = []
+        for row in results:
+            formatted_results.append({
+                'commodity_name': row['commodity_name'],
+                'max_price': int(row['max_price']) if row['max_price'] is not None else 0,
+                'system_name': row['system_name'],
+                'controlling_power': row['controlling_power'],
+                'power_state': row['power_state'],
+                'landing_pad_size': row['landing_pad_size'],
+                'distance_to_arrival': float(row['distance_to_arrival']) if row['distance_to_arrival'] is not None else 0,
+                'demand': int(row['demand']) if row['demand'] is not None else 0,
+                'reserve_level': row['reserve_level'],
+                'station_name': row['station_name'],
+                'station_type': row['station_type'],
+                'update_time': row['update_time'].isoformat() if row['update_time'] is not None else None
+            })
         
         conn.close()
-        return jsonify(results)
-    
+        return jsonify(formatted_results)
+        
     except Exception as e:
         app.logger.error(f"Search highest error: {str(e)}")
-        return jsonify({'error': f'Search error: {str(e)}'}), 500
+        return jsonify({'error': f'Search highest error: {str(e)}'}), 500
 
 @app.route('/get_price_comparison', methods=['POST'])
 def get_price_comparison_endpoint():
-    """Handle price comparison requests."""
     try:
-        data = request.json
-        items = data.get('items', [])
-        use_max = data.get('use_max', False)
-        
-        if not items:
-            return jsonify([])
-            
-        results = []
+        data=request.json; items=data.get('items',[]); use_max=data.get('use_max',False)
+        if not items: return jsonify([])
+        results=[]
         for item in items:
-            price = int(item.get('price', 0))
-            commodity = item.get('commodity')
-            
+            price=int(item.get('price',0))
+            commodity=item.get('commodity')
             if not commodity:
-                results.append({'color': None, 'indicator': ''})
-                continue
-                
-            # Always normalize the commodity name first
-            normalized_commodity = normalize_commodity_name(commodity)
-            
-            if normalized_commodity not in PRICE_DATA:
-                # If normalization didn't work, try the original name
-                if commodity in PRICE_DATA:
-                    normalized_commodity = commodity
+                results.append({'color':None,'indicator':''}); continue
+            norm=normalize_commodity_name(commodity)
+            if norm not in PRICE_DATA:
+                if commodity in PRICE_DATA: norm=commodity
                 else:
-                    results.append({'color': None, 'indicator': ''})
-                    continue
-            
-            reference_price = int(PRICE_DATA[normalized_commodity]['max_price' if use_max else 'avg_price'])
-            color, indicator = get_price_comparison(price, reference_price)
-            
-            results.append({
-                'color': color,
-                'indicator': indicator
-            })
-        
+                    results.append({'color':None,'indicator':''}); continue
+            ref=int(PRICE_DATA[norm]['max_price' if use_max else 'avg_price'])
+            color,indicator=get_price_comparison(price,ref)
+            results.append({'color':color,'indicator':indicator})
         return jsonify(results)
-    
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error':str(e)}),500
 
 @app.route('/search_res_hotspots', methods=['POST'])
 def search_res_hotspots():
-    """Handle RES hotspot search functionality."""
     try:
-        # Get reference system and database
+        # Get reference system from query parameters
         ref_system = request.args.get('system', 'Sol')
-        database = request.json.get('database', 'systems.db')
         
         conn = get_db_connection()
         if not conn:
             return jsonify({'error': 'Database connection failed'}), 500
-            
-        cursor = conn.cursor()
-        cursor.row_factory = res_data.dict_factory
+        c = conn.cursor()
         
-        # Get reference system coordinates
-        cursor.execute('SELECT x, y, z FROM systems WHERE name = ?', (ref_system,))
-        ref_coords = cursor.fetchone()
+        c.execute('SELECT x, y, z FROM systems WHERE name = %s', (ref_system,))
+        ref_coords = c.fetchone()
         if not ref_coords:
             conn.close()
             return jsonify({'error': 'Reference system not found'}), 404
-        
-        ref_x, ref_y, ref_z = ref_coords['x'], ref_coords['y'], ref_coords['z']
-        
-        # Load RES hotspot data with database path
-        hotspot_data = res_data.load_res_data(database)
-        
-        # Process each system
-        results = []
-        for entry in hotspot_data:
-            # Get system info from database
-            cursor.execute('''
-                SELECT s.*, 
-                    sqrt(((s.x - ?) * (s.x - ?)) + 
-                         ((s.y - ?) * (s.y - ?)) + 
-                         ((s.z - ?) * (s.z - ?))) as distance
-                FROM systems s
-                WHERE s.name = ?
-            ''', (ref_x, ref_x, ref_y, ref_y, ref_z, ref_z, entry['system']))
             
-            system = cursor.fetchone()
+        rx, ry, rz = ref_coords['x'], ref_coords['y'], ref_coords['z']
+        hotspot_data = res_data.load_res_data()
+        if not hotspot_data:
+            conn.close()
+            return jsonify({'error': 'No RES hotspot data available'}), 404
+            
+        results = []
+        for e in hotspot_data:
+            c.execute('''SELECT s.*, sqrt(power(s.x - %s, 2) + power(s.y - %s, 2) + power(s.z - %s, 2)) as distance
+                        FROM systems s WHERE s.name = %s''', 
+                     (rx, ry, rz, e['system']))
+            system = c.fetchone()
             if not system:
                 continue
                 
-            # Get station data
-            stations = res_data.get_station_commodities(conn, system['id64'])
-            
+            st = res_data.get_station_commodities(conn, system['id64'])
             results.append({
-                'system': entry['system'],
+                'system': e['system'],
                 'power': system['controlling_power'] or 'None',
                 'distance': float(system['distance']),
-                'ring': entry['ring'],
-                'ls': entry['ls'],
-                'res_zone': entry['res_zone'],
-                'comment': entry['comment'],
-                'stations': stations
+                'ring': e['ring'],
+                'ls': e['ls'],
+                'res_zone': e['res_zone'],
+                'comment': e['comment'],
+                'stations': st
             })
-        
+            
         conn.close()
         return jsonify(results)
-    
     except Exception as e:
         app.logger.error(f"RES hotspot search error: {str(e)}")
-        return jsonify({'error': f'Search error: {str(e)}'}), 500
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/search_high_yield_platinum', methods=['POST'])
 def search_high_yield_platinum():
     try:
-        # Get reference system and database
+        # Get reference system from query parameters
         ref_system = request.args.get('system', 'Sol')
-        database = request.json.get('database', 'systems.db')
         
         conn = get_db_connection()
         if not conn:
             return jsonify({'error': 'Database connection failed'}), 500
-            
-        cursor = conn.cursor()
-        cursor.row_factory = res_data.dict_factory
+        c = conn.cursor()
         
-        # Get reference system coordinates
-        cursor.execute('SELECT x, y, z FROM systems WHERE name = ?', (ref_system,))
-        ref_coords = cursor.fetchone()
+        c.execute('SELECT x, y, z FROM systems WHERE name = %s', (ref_system,))
+        ref_coords = c.fetchone()
         if not ref_coords:
             conn.close()
             return jsonify({'error': 'Reference system not found'}), 404
-        
-        ref_x, ref_y, ref_z = ref_coords['x'], ref_coords['y'], ref_coords['z']
-        
-        # Load high yield platinum data
-        data = res_data.load_high_yield_platinum()
-        
-        # Process each system
-        results = []
-        for entry in data:
-            # Get system info from database
-            cursor.execute('''
-                SELECT s.*, 
-                    sqrt(((s.x - ?) * (s.x - ?)) + 
-                         ((s.y - ?) * (s.y - ?)) + 
-                         ((s.z - ?) * (s.z - ?))) as distance
-                FROM systems s
-                WHERE s.name = ?
-            ''', (ref_x, ref_x, ref_y, ref_y, ref_z, ref_z, entry['system']))
             
-            system = cursor.fetchone()
+        rx, ry, rz = ref_coords['x'], ref_coords['y'], ref_coords['z']
+        data = res_data.load_high_yield_platinum()
+        if not data:
+            conn.close()
+            return jsonify({'error': 'No high yield platinum data available'}), 404
+            
+        results = []
+        for e in data:
+            c.execute('''SELECT s.*, sqrt(power(s.x - %s, 2) + power(s.y - %s, 2) + power(s.z - %s, 2)) as distance
+                        FROM systems s WHERE s.name = %s''', 
+                     (rx, ry, rz, e['system']))
+            system = c.fetchone()
             if not system:
                 continue
                 
-            # Get station data
-            stations = res_data.get_station_commodities(conn, system['id64'])
-            
+            st = res_data.get_station_commodities(conn, system['id64'])
             results.append({
-                'system': entry['system'],
+                'system': e['system'],
                 'power': system['controlling_power'] or 'None',
                 'distance': float(system['distance']),
-                'ring': entry['ring'],
-                'percentage': entry['percentage'],  # Include the percentage from CSV
-                'comment': entry['comment'],
-                'stations': stations
+                'ring': e['ring'],
+                'percentage': e['percentage'],
+                'comment': e['comment'],
+                'stations': st
             })
-        
+            
         conn.close()
         return jsonify(results)
     except Exception as e:
         app.logger.error(f"High yield platinum search error: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
-def run_server(host, port, args):
-    """Run the HTTP server with appropriate update mode"""
-    global live_update_requested, daily_process, eddn_status
-    app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
+def run_server(host,port,args):
+    global live_update_requested, eddn_status
+    app.config['SEND_FILE_MAX_AGE_DEFAULT']=0
     print(f"Running on http://{host}:{port}")
-    
-    # Set live_update_requested flag before anything else
     if args.live_update:
-        live_update_requested = True
-        print(f"{YELLOW}[DEBUG] Set live_update_requested to True{RESET}", flush=True)
-    
-    if args.daily_update:
-        # Start daily update in background
-        daily_process = start_daily_update()  # This now updates the global variable
-        if daily_process:
-            time.sleep(0.5)  # Give the daily update a moment to start
-            if args.live_update:
-                eddn_status["state"] = "offline"  # Keep it offline until daily update finishes
-    elif args.live_update:
-        # Only live updates requested, no daily update running
-        eddn_status["state"] = "starting"  # Set initial state before starting
+        live_update_requested=True
+        eddn_status["state"]="starting"
         start_updater()
-        time.sleep(0.5)  # Give the updater a moment to start and connect
+        time.sleep(0.5)
     else:
-        # No updates requested
-        eddn_status["state"] = "offline"
-    
+        eddn_status["state"]="offline"
     return app
 
 async def main():
-    """Run both HTTP and WebSocket servers"""
     parser = argparse.ArgumentParser(description='Power Mining Web Server')
     parser.add_argument('--host', default='127.0.0.1', help='Host to bind to')
     parser.add_argument('--port', type=int, default=5000, help='Port to bind to')
     parser.add_argument('--live-update', action='store_true', help='Enable live EDDN updates')
-    parser.add_argument('--daily-update', action='store_true', help='Run daily database update')
+    parser.add_argument('--db', help='Database URL (e.g. postgresql://user:pass@host:port/dbname)')
     args = parser.parse_args()
 
-    # Start WebSocket server
-    ws_server = await websockets.serve(handle_websocket, args.host, 8765)
-    
-    # Start Flask server with appropriate update mode
-    app = run_server(args.host, args.port, args)
-    
-    # Create task for input handling
+    # Set DATABASE_URL from argument or environment variable
+    global DATABASE_URL
+    DATABASE_URL = args.db or os.getenv('DATABASE_URL')
+    if not DATABASE_URL:
+        print("ERROR: Database URL must be provided via --db argument or DATABASE_URL environment variable")
+        return 1
+
+    # Bind websocket to all interfaces but web server to specified host
+    ws_server = await websockets.serve(
+        handle_websocket, 
+        '0.0.0.0',  # Always bind to all interfaces
+        WEBSOCKET_PORT
+    )
+    app_obj = run_server(args.host, args.port, args)
     async def check_quit():
         while True:
             try:
-                if await asyncio.get_event_loop().run_in_executor(None, lambda: sys.stdin.readline().strip()) == 'q':
-                    print("\nQuitting...")
-                    print("Stopping EDDN Update Service...")
-                    kill_updater_process()
-                    print("Stopping Web Server...")
-                    ws_server.close()
-                    os._exit(0)
-            except (EOFError, KeyboardInterrupt):
-                break
+                if await asyncio.get_event_loop().run_in_executor(None,lambda:sys.stdin.readline().strip())=='q':
+                    print("\nQuitting..."); print("Stopping EDDN Update Service...")
+                    kill_updater_process(); print("Stopping Web Server...")
+                    ws_server.close(); os._exit(0)
+            except: break
             await asyncio.sleep(0.1)
-    
     try:
-        # Run both servers and input handler
         await asyncio.gather(
             ws_server.wait_closed(),
-            asyncio.to_thread(lambda: app.run(
-                host=args.host, 
-                port=args.port,
-                use_reloader=False,    # Disable reloader
-                debug=False,           # Disable debug mode
-                processes=1            # Force single process
-            )),
+            asyncio.to_thread(lambda: app_obj.run(host=args.host,port=args.port,use_reloader=False,debug=False,processes=1)),
             check_quit()
         )
-    except (KeyboardInterrupt, SystemExit):
-        print("\nShutting down...")
-        print("Stopping EDDN Update Service...")
-        kill_updater_process()
-        print("Stopping Web Server...")
-        ws_server.close()
-        os._exit(0)
+    except (KeyboardInterrupt,SystemExit):
+        print("\nShutting down..."); print("Stopping EDDN Update Service...")
+        kill_updater_process(); print("Stopping Web Server...")
+        ws_server.close(); os._exit(0)
+
+def check_existing_process():
+    """Check if update_live.py is already running"""
+    try:
+        # First check if we have a PID file
+        if os.path.exists(PID_FILE):
+            with open(PID_FILE, 'r') as f:
+                try:
+                    pid = int(f.read().strip())
+                    process = psutil.Process(pid)
+                    if "update_live.py" in process.cmdline():
+                        print(f"{ORANGE}[UPDATE-CHECK] Found existing update process with PID: {pid}{RESET}", flush=True)
+                        return True
+                except (ValueError, psutil.NoSuchProcess):
+                    os.remove(PID_FILE)
+        
+        # Check for any running instances
+        for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+            try:
+                if proc.info['cmdline'] and "update_live.py" in " ".join(proc.info['cmdline']):
+                    print(f"{ORANGE}[UPDATE-CHECK] Found running update process with PID: {proc.pid}{RESET}", flush=True)
+                    # Update PID file
+                    with open(PID_FILE, 'w') as f:
+                        f.write(str(proc.pid))
+                    return True
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                continue
+                
+        print(f"{ORANGE}[UPDATE-CHECK] No running update service found{RESET}", flush=True)
+        return False
+    except Exception as e:
+        print(f"{ORANGE}[UPDATE-CHECK] Error checking for existing process: {e}{RESET}", flush=True)
+        return False
+
+def handle_output_stream(pipe):
+    """Handle output from the EDDN updater process"""
+    try:
+        # Use binary mode and decode manually to avoid buffering issues
+        while True:
+            line = pipe.readline()
+            if not line:
+                break
+            try:
+                decoded_line = line.decode('utf-8', errors='replace')
+                if decoded_line.strip():
+                    handle_output(decoded_line)
+            except Exception as e:
+                print(f"Error decoding output: {e}", file=sys.stderr)
+    except Exception as e:
+        print(f"Error in output stream: {e}", file=sys.stderr)
 
 def start_updater():
     """Start the EDDN updater process"""
     global updater_process, eddn_status
     
-    # Set initial status to "starting"
-    eddn_status["state"] = "starting"
-    
-    def handle_output_stream(pipe, color):
-        try:
-            with io.TextIOWrapper(pipe, encoding='utf-8', errors='replace') as text_pipe:
-                while True:
-                    line = text_pipe.readline()
-                    if not line:
-                        break
-                    if line.strip():  # Only process non-empty lines
-                        handle_output(line.strip())  # This will handle both printing and status updates
-        except Exception as e:
-            print(f"Error in output stream: {e}", file=sys.stderr)
-    
     try:
-        # Start the updater process
+        # Only allow starting from main process
+        if os.environ.get('GUNICORN_WORKER_ID'):
+            log_message(YELLOW, "MONITOR", f"Worker {os.environ.get('GUNICORN_WORKER_ID')} skipping updater start")
+            return
+            
+        # Check PID file first
+        if os.path.exists(PID_FILE):
+            try:
+                with open(PID_FILE, 'r') as f:
+                    pid = int(f.read().strip())
+                    process = psutil.Process(pid)
+                    if "update_live.py" in " ".join(process.cmdline()):
+                        log_message(BLUE, "MONITOR", f"Found existing update process from PID file: {pid}")
+                        return
+            except (ValueError, psutil.NoSuchProcess, psutil.AccessDenied):
+                os.remove(PID_FILE)
+        
+        # Check for any running instances
+        for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+            try:
+                if proc.info['cmdline'] and "update_live.py" in " ".join(proc.info['cmdline']):
+                    log_message(BLUE, "MONITOR", f"Found running update process: {proc.pid}")
+                    with open(PID_FILE, 'w') as f:
+                        f.write(str(proc.pid))
+                    return
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                continue
+        
+        # No running instance found, clean up and start new one
+        kill_updater_process()
+        
+        # Start new process
         updater_process = subprocess.Popen(
             [sys.executable, "update_live.py", "--auto"],
             stdout=subprocess.PIPE,
@@ -1510,25 +1297,74 @@ def start_updater():
             creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if os.name == 'nt' else 0
         )
         
-        print(f"{YELLOW}[STATUS] Starting EDDN Live Update (PID: {updater_process.pid}){RESET}", flush=True)
+        # Write PID to file
+        with open(PID_FILE, 'w') as f:
+            f.write(str(updater_process.pid))
         
-        # Create threads to handle stdout and stderr
-        threading.Thread(target=handle_output_stream, args=(updater_process.stdout, BLUE), daemon=True).start()
-        threading.Thread(target=handle_output_stream, args=(updater_process.stderr, BLUE), daemon=True).start()
+        log_message(GREEN, "MONITOR", f"Started new update process with PID: {updater_process.pid}")
         
-        # Wait a moment to ensure process starts
+        # Start output handling threads
+        threading.Thread(target=handle_output_stream, args=(updater_process.stdout,), daemon=True).start()
+        threading.Thread(target=handle_output_stream, args=(updater_process.stderr,), daemon=True).start()
+        
         time.sleep(0.5)
-        
-        # Check if process is still running
         if updater_process.poll() is None:
-            eddn_status["state"] = "starting"  # Process is running, waiting for connection
+            eddn_status["state"] = "starting"
         else:
-            eddn_status["state"] = "error"  # Process failed to start
-            print(f"{YELLOW}[ERROR] EDDN updater failed to start{RESET}", file=sys.stderr)
-        
+            eddn_status["state"] = "error"
+            log_message(RED, "ERROR", "EDDN updater failed to start")
+            if os.path.exists(PID_FILE):
+                os.remove(PID_FILE)
+            
     except Exception as e:
-        print(f"Error starting updater: {e}", file=sys.stderr)
+        log_message(RED, "ERROR", f"Error starting updater: {e}")
         eddn_status["state"] = "error"
+        if os.path.exists(PID_FILE):
+            os.remove(PID_FILE)
+
+async def monitor_update_process():
+    """Monitor update_live.py and restart if needed"""
+    global eddn_status
+    
+    # Initial delay to let Appliku worker start
+    await asyncio.sleep(30)
+    
+    while True:
+        try:
+            if not is_update_process_running():
+                log_message(YELLOW, "MONITOR", "No update process found, waiting additional 30s to confirm...")
+                # Double check after a delay to avoid race conditions
+                await asyncio.sleep(30)
+                
+                if not is_update_process_running():
+                    log_message(YELLOW, "MONITOR", "Update process confirmed dead, starting new instance...")
+                    eddn_status["state"] = "starting"
+                    start_updater()
+                    # Wait to let the new process initialize
+                    await asyncio.sleep(10)
+            else:
+                log_message(BLUE, "MONITOR", "Update process is running")
+        except Exception as e:
+            log_message(RED, "ERROR", f"Error in monitor thread: {e}")
+        
+        # Check again in 60 seconds
+        await asyncio.sleep(60)
+
+def log_message(color, tag, message):
+    """Log a message with timestamp and PID"""
+    timestamp = datetime.now().strftime("%Y:%m:%d-%H:%M:%S")
+    worker_id = os.environ.get('GUNICORN_WORKER_ID', 'MAIN')
+    print(f"{color}[{timestamp}] [{tag}-{os.getpid()}] {message}{RESET}", flush=True)
+
+# Add cleanup for ZMQ context
+def cleanup_zmq():
+    try:
+        status_socket.close()
+        zmq_context.term()
+    except:
+        pass
+
+atexit.register(cleanup_zmq)
 
 if __name__ == '__main__':
-    asyncio.run(main()) 
+    asyncio.run(main())

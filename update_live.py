@@ -1,22 +1,52 @@
-import time
-import sys
-import zlib
-import json
-import zmq
-import sqlite3
-import csv
 import os
-import argparse
+import sys
+import json
+import zlib
+import time
 import signal
+import argparse
 from datetime import datetime, timezone
+import csv
+import msgspec
+import psycopg2
+import zmq
+from psycopg2.extras import DictCursor
+import atexit
+import platform
 
 # ANSI color codes
-YELLOW = '\033[93m'
+YELLOW = '\033[93m'  # Default color
 BLUE = '\033[94m'
 GREEN = '\033[92m'
 RED = '\033[91m'
-ORANGE = '\033[38;5;208m'  # Add orange color code
+CYAN = '\033[96m'  # For database operations
+ORANGE = '\033[38;5;208m'
 RESET = '\033[0m'
+
+def get_timestamp():
+    """Get current timestamp in YYYY:MM:DD-HH:MM:SS format"""
+    return datetime.now().strftime("%Y:%m:%d-%H:%M:%S")
+
+def log_message(tag, message):
+    """Log a message with timestamp and PID"""
+    timestamp = datetime.now().strftime("%Y:%m:%d-%H:%M:%S")
+    color = YELLOW  # Default color
+    
+    if tag == "STATUS":
+        color = RED
+    elif tag == "DATABASE":
+        color = CYAN
+    elif tag == "ERROR":
+        color = RED
+    
+    print(f"{color}[{timestamp}] [{os.getpid()}] [{tag}] {message}{RESET}", flush=True)
+
+# Constants
+DATABASE_URL = None  # Will be set from args or env in main()
+STATUS_PORT = int(os.getenv('STATUS_PORT', '5557'))
+
+COMMODITIES_CSV = os.path.join("data", "commodities_mining.csv")
+EDDN_RELAY = "tcp://eddn.edcd.io:9500"
 
 # How often (in seconds) to flush changes to DB
 DB_UPDATE_INTERVAL = 10
@@ -24,37 +54,64 @@ DB_UPDATE_INTERVAL = 10
 # Debug flag for detailed commodity changes
 DEBUG = False
 
-# Path to your existing SQLite database
-DB_PATH = "systems.db"
+# Global state
+running = True
+commodity_buffer = {}
+commodity_map = {}
+reverse_map = {}
 
-# Path to your commodities.csv cross-reference
-# CSV format:
-#   id,name
-#   advancedcatalysers,Advanced Catalysers
-#   ...
-COMMODITIES_CSV = os.path.join("data", "commodities_mining.csv")
+# ZMQ setup
+zmq_context = zmq.Context()
+status_publisher = zmq_context.socket(zmq.PUB)
+try:
+    status_publisher.bind(f"tcp://*:{STATUS_PORT}")
+except Exception as e:
+    log_message("ERROR", f"Failed to bind to status port: {e}")
+    # Don't exit, just continue without status updates
+
+def publish_status(state, last_db_update=None):
+    """Publish status update via ZMQ"""
+    try:
+        status = {
+            "state": state,
+            "last_db_update": last_db_update.isoformat() if last_db_update else None,
+            "pid": os.getpid()  # Add PID to status messages
+        }
+        log_message("STATUS", f"Publishing state: {state}")
+        status_publisher.send_string(json.dumps(status))
+    except Exception as e:
+        log_message("ERROR", f"Failed to publish status: {e}")
+        import traceback
+        log_message("ERROR", f"Status traceback: {traceback.format_exc()}")
+
+def cleanup():
+    """Cleanup function to be called on exit"""
+    try:
+        status_publisher.close()
+        zmq_context.term()
+    except:
+        pass
+
+# Register cleanup
+atexit.register(cleanup)
 
 def signal_handler(signum, frame):
     """Handle shutdown signals"""
-    print("[STOPPING] EDDN Update Service")
-    sys.exit(0)
+    global running
+    log_message("STOPPING", "EDDN Update Service")
+    publish_status("offline")
+    running = False
 
 # Register signal handlers
 signal.signal(signal.SIGINT, signal_handler)
 signal.signal(signal.SIGTERM, signal_handler)
 
-def load_commodity_map(csv_path):
-    """
-    Loads a CSV of:
-        id,name
-        advancedcatalysers,Advanced Catalysers
-        ...
-    Returns (commodity_map, reverse_map):
-      - commodity_map: { eddn_id: local_name }   # e.g. {"alexandrite": "Alexandrite"}
-      - reverse_map:   { local_name: eddn_id }   # e.g. {"Alexandrite": "alexandrite"}
-    """
+def load_commodity_map():
+    """Load commodity mapping from CSV"""
+    log_message("INIT", f"Loading commodity mapping from {COMMODITIES_CSV}")
     commodity_map = {}
-    with open(csv_path, "r", encoding="utf-8") as f:
+    reverse_map = {}
+    with open(COMMODITIES_CSV, "r", encoding="utf-8") as f:
         reader = csv.DictReader(f)
         for row in reader:
             eddn_id = row["id"].strip()
@@ -63,364 +120,121 @@ def load_commodity_map(csv_path):
             if local_name == "Void Opals":
                 local_name = "Void Opal"
             commodity_map[eddn_id] = local_name
-
-    # Build reverse map to handle "deleted" items
-    reverse_map = {local_name: eddn_id for eddn_id, local_name in commodity_map.items()}
-    
-    # Special case: allow both forms to map to the same ID
-    if "Void Opal" in reverse_map:
-        reverse_map["Void Opals"] = reverse_map["Void Opal"]
-
+            reverse_map[local_name] = eddn_id
+    log_message("INIT", f"Loaded {len(commodity_map)} commodities from CSV (mapping EDDN ID -> local name)")
     return commodity_map, reverse_map
 
-def main():
-    parser = argparse.ArgumentParser(description='EDDN data updater for Power Mining')
-    parser.add_argument('--auto', action='store_true', help='Automatically commit changes without asking')
-    args = parser.parse_args()
-
-    print(f"[INIT] Starting Live EDDN Update every {DB_UPDATE_INTERVAL} seconds", flush=True)
-    commodity_map, reverse_map = load_commodity_map(COMMODITIES_CSV)
-    print(f"Loaded {len(commodity_map)} commodities from CSV (mapping EDDN ID -> local name).", flush=True)
-
-    context = zmq.Context()
-    subscriber = context.socket(zmq.SUB)
-    subscriber.connect("tcp://eddn.edcd.io:9500")
-    subscriber.setsockopt_string(zmq.SUBSCRIBE, "")  # subscribe to all messages
-
-    conn = sqlite3.connect(DB_PATH)
-    conn.execute("PRAGMA journal_mode=WAL;")
-    conn.execute("PRAGMA synchronous=NORMAL;")
-
-    # Buffers:
-    #   commodity_buffer[station_name] = {
-    #       local_name: (eddn_id, sell_price, demand)
-    #   }
-    commodity_buffer = {}
-    #   power_buffer[system_name] = (controlling_power, power_state)
-    power_buffer = {}
-
-    last_update = time.time()
-    print(f"Listening to EDDN. Flush changes every {DB_UPDATE_INTERVAL}s. (Press Ctrl+C to stop)", flush=True)
-    print("Mode:", "automatic" if args.auto else "manual", flush=True)
-
-    try:
-        while True:
-            raw_msg = subscriber.recv()
-            decompressed = zlib.decompress(raw_msg)
-            eddn_data = json.loads(decompressed)
-
-            schema_ref = eddn_data.get("$schemaRef", "").lower()
-            message = eddn_data.get("message", {})
-
-            if "commodity" in schema_ref:
-                handle_commodity_message(message, commodity_buffer, commodity_map)
-            elif "journal" in schema_ref:
-                handle_journal_message(message, power_buffer)
-
-            current_time = time.time()
-            if current_time - last_update >= DB_UPDATE_INTERVAL:
-                print("[DATABASE] Writing to Database starting...", flush=True)
-                stations_updated, commodities_updated = flush_commodities_to_db(conn, commodity_buffer, reverse_map, args.auto)
-                power_systems_updated = flush_power_to_db(conn, power_buffer, args.auto)
-                print(f"[DATABASE] Writing to Database finished. Updated {stations_updated} stations, {commodities_updated} commodities, {power_systems_updated} power systems.", flush=True)
-                last_update = current_time
-
-    except KeyboardInterrupt:
-        print("[STOPPING] EDDN Update Service", flush=True)
-    except Exception as e:
-        print(f"Error: {e}", file=sys.stderr, flush=True)
-    finally:
-        # Final flush
-        print("[DATABASE] Writing to Database starting...", flush=True)
-        stations_updated, commodities_updated = flush_commodities_to_db(conn, commodity_buffer, reverse_map, args.auto)
-        power_systems_updated = flush_power_to_db(conn, power_buffer, args.auto)
-        print(f"[DATABASE] Writing to Database finished. Updated {stations_updated} stations, {commodities_updated} commodities, {power_systems_updated} power systems.", flush=True)
-        conn.close()
-        print("[TERMINATED] EDDN Update Service", flush=True)
-
-def handle_commodity_message(msg, commodity_buffer, commodity_map):
-    """
-    EDDN commodity data structure (v3.0):
-    message: {
-        "stationName": string,
-        "commodities": [
-            {
-                "name": string,      # This is the EDDN commodity name
-                "sellPrice": int,
-                "demand": int,
-                ...
-            }
-        ]
-    }
-    """
-    station_name = msg.get("stationName")
-    market_id = msg.get("marketId")
-    
-    # Check if this is a Fleet Carrier (either by economy or station type)
-    if msg.get("stationType") == "FleetCarrier" or \
-       (msg.get("economies") and msg["economies"][0].get("name") == "Carrier"):
-        print(f"{YELLOW}[DEBUG] Skipped Fleet Carrier Data: {station_name}{RESET}", flush=True)
-        return
-    
-    if market_id is None:
-        print(f"{YELLOW}[DEBUG] Live update without marketId: {station_name}{RESET}", flush=True)
-    
-    if not station_name:
-        return
-
-    commodities = msg.get("commodities", [])
-    station_data = {}
-
-    for c in commodities:
-        commodity_name = c.get("name")  # This is the EDDN commodity name
-        if not commodity_name:
-            continue
-
-        # Only process commodities that are in our mining CSV
-        local_name = commodity_map.get(commodity_name.lower())
-        if local_name is None:  # Skip if not in our mining commodities list
-            continue
-
-        sell_price = c.get("sellPrice", 0)
-        demand = c.get("demand", 0)
-
-        # Store (original_name, sell_price, demand, market_id)
-        station_data[local_name] = (commodity_name, sell_price, demand, market_id)
-
-    commodity_buffer[station_name] = station_data
-
-def flush_commodities_to_db(conn, commodity_buffer, reverse_map, auto_commit=False):
-    """
-    Compares old DB data vs new EDDN data for each station.
-    Returns (stations_updated, commodities_updated) tuple.
-    """
+def flush_commodities_to_db(conn, commodity_buffer, auto_commit=False):
+    """Write buffered commodities to database"""
     if not commodity_buffer:
+        log_message("DATABASE", "No commodities in buffer to write")
         return 0, 0
 
     cursor = conn.cursor()
-    changes = {}
     total_commodities = 0
-    missing_station_ids = 0
+    stations_processed = 0
+    total_stations = len(commodity_buffer)
 
-    # First check for any NULL station_ids in the database
-    cursor.execute("SELECT COUNT(*) FROM station_commodities WHERE station_id IS NULL")
-    null_count = cursor.fetchone()[0]
-    if null_count > 0:
-        print(f"{YELLOW}[DEBUG] Found {null_count} existing entries with NULL station_id{RESET}", flush=True)
-
-    for station_name, new_map in commodity_buffer.items():
-        # Get the market_id from the first commodity's data (all entries for a station have the same market_id)
-        first_commodity = list(new_map.values())[0] if new_map else None
-        market_id = first_commodity[3] if first_commodity and len(first_commodity) > 3 else None
+    try:
+        log_message("DATABASE", f"Writing to Database starting... ({total_stations} stations to process)")
         
-        # Step 1: lookup station in 'stations'
-        cursor.execute("""
-            SELECT system_id64, station_id
-              FROM stations
-             WHERE station_name = ?
-        """, (station_name,))
-        row = cursor.fetchone()
-        if not row:
-            # Skip if we can't find the station - we don't want to store data for unknown stations
-            continue
-            
-        system_id64, st_id = row
-        
-        # If we have a market_id but no station_id, update the stations table
-        if market_id and (st_id is None or st_id != market_id):
-            cursor.execute("""
-                UPDATE stations 
-                SET station_id = ? 
-                WHERE station_name = ? AND system_id64 = ?
-            """, (market_id, station_name, system_id64))
-            conn.commit()
-            st_id = market_id
-        
-        if st_id is None:
-            missing_station_ids += 1
-            print(f"{YELLOW}[DEBUG] No station_id found for station: {station_name}{RESET}", flush=True)
-            continue
-
-        # Step 2: read old data from station_commodities
-        cursor.execute("""
-            SELECT commodity_name, sell_price, demand
-              FROM station_commodities
-             WHERE system_id64 = ?
-               AND station_name = ?
-        """, (system_id64, station_name))
-        old_rows = cursor.fetchall()
-
-        # old_map[local_name] = (sell, demand)
-        old_map = {r[0]: (r[1], r[2]) for r in old_rows}
-
-        # ---- DEBUG INFO: EDDN vs DB counts ----
-        eddn_count = len(new_map)      # how many commodities we got from EDDN
-        db_count = len(old_map)        # how many are in DB
-        # matched_count: local_name in both
-        matched_count = 0  
-        # changed_count: matched but price/demand differs
-        changed_count = 0
-
-        for local_name, (old_sell, old_demand) in old_map.items():
-            if local_name in new_map:
-                matched_count += 1
-                (_, new_sell, new_demand, _) = new_map[local_name]
-                if (new_sell != old_sell) or (new_demand != old_demand):
-                    changed_count += 1
-
-        if DEBUG:
-            print(f"\n[DEBUG] Station '{station_name}': EDDN commodities={eddn_count}, DB commodities={db_count}")
-            print(f"[DEBUG] Matches found in both DB & new EDDN data: {matched_count}, "
-                f"of which {changed_count} have different price/demand.")
-
-        # Step 3: detect add/updated/delete as usual
-        added_list = []
-        updated_list = []
-        deleted_list = []
-
-        # (a) Check old DB items => "deleted" or "updated"
-        for old_name, (old_sell, old_demand) in old_map.items():
-            if old_name not in new_map:
-                # Deleted
-                old_id = reverse_map.get(old_name, "???")
-                deleted_list.append((old_id, old_name, old_sell, old_demand))
-            else:
-                (new_id, new_sell, new_demand, _) = new_map[old_name]
-                if new_sell != old_sell or new_demand != old_demand:
-                    updated_list.append((new_id, old_name, old_sell, old_demand, new_sell, new_demand))
-
-        # (b) Check new EDDN items => "added"
-        for local_name, (eddn_id, s_price, dem, _) in new_map.items():
-            if local_name not in old_map:
-                added_list.append((eddn_id, local_name, s_price, dem))
-
-        if added_list or updated_list or deleted_list:
-            print(f"\nCommodity changes detected:", flush=True)
-            print(f"- {station_name}: {len(updated_list)} updated, {len(added_list)} added, {len(deleted_list)} deleted", flush=True)
-            changes[station_name] = {
-                "system_id64": system_id64,
-                "station_id": st_id,
-                "added": added_list,
-                "updated": updated_list,
-                "deleted": deleted_list,
-                "new_data": new_map
-            }
-
-    if not changes:
-        print("\nNo commodity changes to commit.")
-        commodity_buffer.clear()
-        return 0, 0
-
-    # Step 4: Show summary
-    print("\nCommodity changes detected:")
-    for station_name, info in changes.items():
-        adds = info["added"]
-        upds = info["updated"]
-        dels = info["deleted"]
-
-        print(f"  - {station_name}:", end="")
-        parts = []
-        if adds: parts.append(f"{len(adds)} added")
-        if upds: parts.append(f"{len(upds)} updated")
-        if dels: parts.append(f"{len(dels)} deleted")
-        print(" and ".join(parts) + ".")
-
-        # Show up to 10 added
-        if DEBUG:
-            for (cid, cname, sp, dm) in adds[:10]:
-                print(f"     + Added: [id={cid}, name={cname}], sellPrice={sp}, demand={dm}")
-            if len(adds) > 10:
-                print("       ... (only first 10 added) ...")
-
-        # Show up to 10 updated
-        if DEBUG:
-            for (cid, cname, o_s, o_d, n_s, n_d) in upds[:10]:
-                print(f"     ~ Updated: [id={cid}, name={cname}], sellPrice {o_s}->{n_s}, demand {o_d}->{n_d}")
-            if len(upds) > 10:
-                print("       ... (only first 10 updated) ...")
-
-        # Show up to 10 deleted
-        if DEBUG:
-            for (cid, cname, o_s, o_d) in dels[:10]:
-                print(f"     - Deleted: [id={cid}, name={cname}], oldSellPrice={o_s}, oldDemand={o_d}")
-            if len(dels) > 10:
-                print("       ... (only first 10 deleted) ...")
-
-    # Step 5: commit changes based on mode
-    should_commit = auto_commit
-    if not auto_commit:
-        ans = input("Commit these commodity changes? [Y/N] ").strip().lower()
-        should_commit = ans == "y"
-
-    stations_updated = 0
-    if should_commit:
-        try:
-            print("[DATABASE] Writing to Database starting")
-            for station_name, info in changes.items():
-                sys_id = info["system_id64"]
-                st_id = info["station_id"]
-                new_map = info["new_data"]
-
-                # Delete old
+        # Process each station's commodities
+        for station_name, new_map in commodity_buffer.items():
+            try:
+                stations_processed += 1
+                
+                # Get station info
                 cursor.execute("""
-                    DELETE FROM station_commodities
-                     WHERE system_id64 = ?
-                       AND station_name = ?
-                """, (sys_id, station_name))
-
-                # Insert new
-                ins_sql = """
-                    INSERT INTO station_commodities 
-                        (system_id64, station_id, station_name, commodity_name, sell_price, demand)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                """
-                for local_name, (cid, sell_p, dmnd, _) in new_map.items():
-                    cursor.execute(ins_sql, (sys_id, st_id, station_name, local_name, sell_p, dmnd))
-                    total_commodities += 1
-
+                    SELECT system_id64, station_id
+                    FROM stations
+                    WHERE station_name = %s
+                """, (station_name,))
+                row = cursor.fetchone()
+                if not row:
+                    log_message("ERROR", f"Station not found in database: {station_name}")
+                    continue
+                    
+                system_id64, station_id = row
+                log_message("DATABASE", f"Processing station {station_name} ({len(new_map)} commodities)")
+                
+                # Delete existing commodities
+                try:
+                    cursor.execute("""
+                        DELETE FROM station_commodities 
+                        WHERE system_id64 = %s AND station_name = %s
+                    """, (system_id64, station_name))
+                    log_message("DATABASE", f"Deleted existing commodities for {station_name}")
+                except Exception as e:
+                    log_message("ERROR", f"Failed to delete existing commodities for {station_name}: {str(e)}")
+                    continue
+                
+                # Insert new commodities
+                try:
+                    cursor.executemany("""
+                        INSERT INTO station_commodities 
+                            (system_id64, station_id, station_name, commodity_name, sell_price, demand)
+                        VALUES (%s, %s, %s, %s, %s, %s)
+                        ON CONFLICT (system_id64, station_name, commodity_name) 
+                        DO UPDATE SET 
+                            sell_price = EXCLUDED.sell_price,
+                            demand = EXCLUDED.demand
+                    """, [(system_id64, station_id, station_name, commodity_name, data[0], data[1]) 
+                          for commodity_name, data in new_map.items()])
+                    log_message("DATABASE", f"Inserted {len(new_map)} commodities for {station_name}")
+                except Exception as e:
+                    log_message("ERROR", f"Failed to insert commodities for {station_name}: {str(e)}")
+                    continue
+                
                 # Update station timestamp
-                now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S+00")
-                cursor.execute("""
-                    UPDATE stations
-                       SET update_time = ?
-                     WHERE system_id64 = ?
-                       AND station_id = ?
-                """, (now_str, sys_id, st_id))
-                stations_updated += 1
+                try:
+                    cursor.execute("""
+                        UPDATE stations
+                        SET update_time = %s
+                        WHERE system_id64 = %s AND station_id = %s
+                    """, (datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S+00"), system_id64, station_id))
+                    log_message("DATABASE", f"Updated timestamp for {station_name}")
+                except Exception as e:
+                    log_message("ERROR", f"Failed to update timestamp for {station_name}: {str(e)}")
+                
+                total_commodities += len(new_map)
+                
+                # Log progress every 10 stations
+                if stations_processed % 10 == 0:
+                    conn.commit()
+                    log_message("DATABASE", f"Progress: {stations_processed}/{total_stations} stations processed")
 
-            conn.commit()
-            print(f"Updated {stations_updated} stations")
-            print(f"Updated {total_commodities} commodities")
-            print("[DATABASE] Writing to Database finished")
-            if not auto_commit:
-                print("Commodity changes committed.")
-        except Exception as ex:
-            conn.rollback()
-            print(f"Error while committing commodity changes: {ex}", file=sys.stderr)
-            return 0, 0
-    else:
+            except Exception as e:
+                log_message("ERROR", f"Failed to process station {station_name}: {str(e)}")
+                continue
+
+        # Final commit
+        conn.commit()
+        log_message("DATABASE", f"✓ Successfully updated {stations_processed} stations with {total_commodities} commodities")
+        
+    except Exception as e:
+        log_message("ERROR", f"Database error: {str(e)}")
         conn.rollback()
-        if not auto_commit:
-            print("Commodity changes rolled back.")
+        return 0, 0
+        
+    finally:
+        cursor.close()
+        commodity_buffer.clear()
+        
+    return stations_processed, total_commodities
 
-    cursor.close()
-    commodity_buffer.clear()
-    return stations_updated, total_commodities
-
-def handle_journal_message(msg, power_buffer):
-    """
-    We skip if controlling_power is None. Only do partial power updates otherwise.
-    """
-    event = msg.get("event", "")
+def handle_journal_message(message):
+    """Process power data from journal messages"""
+    event = message.get("event", "")
     if event not in ("FSDJump", "Location"):
         return
 
-    system_name = msg.get("StarSystem", "")
-    if not system_name:
+    system_name = message.get("StarSystem", "")
+    system_id64 = message.get("SystemAddress")
+    if not system_name or not system_id64:
         return
 
-    powers = msg.get("Powers", [])
-    power_state = msg.get("PowerplayState", "")
+    powers = message.get("Powers", [])
+    power_state = message.get("PowerplayState", "")
 
     controlling_power = None
     if isinstance(powers, list) and len(powers) == 1:
@@ -431,76 +245,270 @@ def handle_journal_message(msg, power_buffer):
     if controlling_power is None:
         return
 
-    print(f"[PowerData] system={system_name}, controlling_power={controlling_power}, power_state={power_state}")
-    power_buffer[system_name] = (controlling_power, power_state)
+    # Log the power info we received from EDDN
+    log_message("POWER", f"EDDN Power Info - System: {system_name}, Power: {controlling_power}, State: {power_state}")
 
-def flush_power_to_db(conn, power_buffer, auto_commit=False):
-    """
-    Updates controlling_power/power_state only if different from what's in DB.
-    Returns number of systems updated.
-    """
-    if not power_buffer:
-        return 0
+    try:
+        with psycopg2.connect(DATABASE_URL) as conn:
+            cur = conn.cursor()
+            # First check if power or state has changed
+            cur.execute("""
+                SELECT controlling_power, power_state
+                FROM systems
+                WHERE id64 = %s AND name = %s
+            """, (system_id64, system_name))
+            row = cur.fetchone()
+            if row:
+                old_power, old_state = row
+                if old_power == controlling_power and old_state == power_state:
+                    log_message("POWER", f"No change needed for {system_name} (already {controlling_power}, {power_state})")
+                    return  # No change needed
+                
+            # Only update if different
+            cur.execute("""
+                UPDATE systems 
+                SET controlling_power = %s,
+                    power_state = %s
+                WHERE id64 = %s AND name = %s
+            """, (controlling_power, power_state, system_id64, system_name))
+            
+            if cur.rowcount > 0:
+                log_message("POWER", f"✓ Updated power status for {system_name}: {controlling_power} ({power_state})")
+            conn.commit()
+    except Exception as e:
+        log_message("ERROR", f"Failed to update power status: {e}")
 
-    cursor = conn.cursor()
-    changed = []
-
-    for system_name, (new_pwr, new_st) in power_buffer.items():
-        cursor.execute("""
-            SELECT id64, controlling_power, power_state
-              FROM systems
-             WHERE name = ?
-        """, (system_name,))
-        row = cursor.fetchone()
-        if row:
-            sys_id, old_pwr, old_state = row
-            if (old_pwr != new_pwr) or (old_state != new_st):
-                cursor.execute("""
-                    UPDATE systems
-                       SET controlling_power = ?,
-                           power_state       = ?
-                     WHERE id64 = ?
-                """, (new_pwr, new_st, sys_id))
-                changed.append((system_name, old_pwr, old_state, new_pwr, new_st))
-
-    systems_updated = 0
-    if changed:
-        print("\nPower changes detected:")
-        print(f"  Updating {len(changed)} system(s).")
-        for info in changed[:10]:
-            s_name, o_p, o_s, n_p, n_s = info
-            print(f"    - {s_name}: from [{o_p}/{o_s}] to [{n_p}/{n_s}]")
-        if len(changed) > 10:
-            print("      ... (only first 10 shown) ...")
-
-        should_commit = auto_commit
-        if not auto_commit:
-            ans = input("Commit these power changes? [Y/N] ").strip().lower()
-            should_commit = ans == "y"
-
-        if should_commit:
-            try:
-                print("[DATABASE] Writing to Database starting")
-                conn.commit()
-                systems_updated = len(changed)
-                print(f"Updated {systems_updated} power systems")
-                print("[DATABASE] Writing to Database finished")
-                if not auto_commit:
-                    print("Power changes committed.")
-            except Exception as ex:
-                conn.rollback()
-                print(f"Error while committing power changes: {ex}", file=sys.stderr)
+def process_message(message, commodity_map):
+    """Process a single EDDN message"""
+    try:
+        # Skip fleet carriers
+        if message.get("stationType") == "FleetCarrier" or \
+           (message.get("economies") and message["economies"][0].get("name") == "Carrier"):
+            log_message("DEBUG", f"Skipped Fleet Carrier Data: {message.get('stationName')}")
+            return None, None
+            
+        station_name = message.get("stationName")
+        system_name = message.get("systemName", "Unknown")
+        market_id = message.get("marketId")
+        
+        log_message("DEBUG", f"Processing station {station_name} in {system_name}")
+        
+        if market_id is None:
+            log_message("DEBUG", f"Live update without marketId: {station_name} in system {system_name}")
+        
+        if not station_name:
+            log_message("DEBUG", "Message missing station name")
+            return None, None
+            
+        # Process commodities
+        station_commodities = {}
+        commodities = message.get("commodities", [])
+        log_message("DEBUG", f"Found {len(commodities)} commodities")
+        
+        for commodity in commodities:
+            name = commodity.get("name", "").lower()
+            if not name:
+                continue
+                
+            if name not in commodity_map:
+                continue  # Skip logging unknown commodities
+                
+            sell_price = commodity.get("sellPrice", 0)
+            if sell_price <= 0:
+                continue
+                
+            demand = commodity.get("demand", 0)
+            log_message("DEBUG", f"Processing commodity: {name} (price: {sell_price}, demand: {demand})")
+            station_commodities[commodity_map[name]] = (sell_price, demand, market_id)
+            log_message("COMMODITY", f"✓ {commodity_map[name]} at {station_name}: {sell_price:,} cr (demand: {demand:,})")
+            
+        if station_commodities:
+            log_message("COMMODITY", f"Added {len(station_commodities)} mining commodities to buffer for {station_name}")
+            # Publish status update to indicate activity
+            publish_status("running", datetime.now(timezone.utc))
+            return station_name, station_commodities
         else:
-            conn.rollback()
-            if not auto_commit:
-                print("Power changes rolled back.")
-    else:
-        if not auto_commit:
-            print("\nNo power changes to commit.")
+            log_message("DEBUG", f"No relevant commodities found at {station_name}")
+            
+    except Exception as e:
+        log_message("ERROR", f"Error processing message: {str(e)}")
+        import traceback
+        log_message("ERROR", f"Traceback: {traceback.format_exc()}")
+        
+    return None, None
 
-    cursor.close()
-    power_buffer.clear()
-    return systems_updated
+def main():
+    """Main function"""
+    global running, commodity_buffer, commodity_map, reverse_map, DATABASE_URL
+    
+    parser = argparse.ArgumentParser(description='EDDN Live Update Service')
+    parser.add_argument('--auto', action='store_true', help='Automatically commit changes')
+    parser.add_argument('--db', help='Database URL (e.g. postgresql://user:pass@host:port/dbname)')
+    args = parser.parse_args()
+    
+    # Set DATABASE_URL from argument or environment variable
+    DATABASE_URL = args.db or os.getenv('DATABASE_URL')
+    if not DATABASE_URL:
+        log_message("ERROR", "Database URL must be provided via --db argument or DATABASE_URL environment variable")
+        return 1
+    
+    try:
+        log_message("INIT", f"Starting Live EDDN Update every {DB_UPDATE_INTERVAL} seconds")
+        
+        publish_status("starting")
+        
+        # Load commodity mapping
+        commodity_map, reverse_map = load_commodity_map()
+        
+        # Parse database URL for logging
+        from urllib.parse import urlparse
+        db_url = urlparse(DATABASE_URL)
+        log_message("DATABASE", f"Connecting to database: {db_url.hostname}:{db_url.port}/{db_url.path[1:]}")
+        
+        # Connect to database with simple configuration
+        conn_start = time.time()
+        try:
+            conn = psycopg2.connect(DATABASE_URL)
+            conn.autocommit = False
+            
+            conn_time = time.time() - conn_start
+            log_message("DATABASE", f"Connected to database in {conn_time:.2f}s")
+            
+            # Log connection info
+            cursor = conn.cursor()
+            cursor.execute("SELECT version()")
+            version = cursor.fetchone()[0]
+            cursor.execute("SHOW server_version")
+            server_version = cursor.fetchone()[0]
+            cursor.execute("SHOW max_connections")
+            max_connections = cursor.fetchone()[0]
+            cursor.execute("SELECT count(*) FROM pg_stat_activity")
+            current_connections = cursor.fetchone()[0]
+            
+            log_message("DATABASE", f"PostgreSQL version: {version}")
+            log_message("DATABASE", f"Server version: {server_version}")
+            log_message("DATABASE", f"Connections: {current_connections}/{max_connections}")
+            
+            # Test tables
+            cursor.execute("SELECT COUNT(*) FROM systems")
+            systems_count = cursor.fetchone()[0]
+            cursor.execute("SELECT COUNT(*) FROM stations")
+            stations_count = cursor.fetchone()[0]
+            cursor.execute("SELECT COUNT(*) FROM station_commodities")
+            commodities_count = cursor.fetchone()[0]
+            
+            log_message("DATABASE", f"Database contains: {systems_count} systems, {stations_count} stations, {commodities_count} commodity records")
+            
+            cursor.close()
+        except Exception as e:
+            log_message("ERROR", f"Database connection failed: {str(e)}")
+            raise
+        
+        publish_status("running")
+        
+        # Create message decoder
+        decoder = msgspec.json.Decoder()
+        
+        # Connect to EDDN
+        context = zmq.Context()
+        subscriber = context.socket(zmq.SUB)
+        subscriber.setsockopt(zmq.RCVTIMEO, 10000)  # 10 second timeout
+        subscriber.connect(EDDN_RELAY)
+        subscriber.setsockopt_string(zmq.SUBSCRIBE, "")  # subscribe to all messages
+        
+        log_message("CONNECTED", f"Listening to EDDN. Flush changes every {DB_UPDATE_INTERVAL}s. (Press Ctrl+C to stop)")
+        log_message("MODE", "automatic" if args.auto else "manual")
+        
+        last_flush = time.time()
+        last_message = time.time()
+        messages_processed = 0
+        total_messages = 0
+        commodity_messages = 0
+        db_operations = 0
+        db_errors = 0
+        
+        while running:
+            try:
+                # Get message from EDDN
+                try:
+                    raw_msg = subscriber.recv()
+                    last_message = time.time()
+                    total_messages += 1
+                    if total_messages % 100 == 0:
+                        log_message("STATUS", f"Received {total_messages} total messages ({commodity_messages} commodity messages)")
+                except zmq.error.Again:
+                    continue  # Timeout, continue loop
+                
+                message = zlib.decompress(raw_msg)
+                data = decoder.decode(message)
+                
+                # Check schema
+                schema = data.get("$schemaRef", "").lower()
+                if "commodity" in schema.lower():
+                    commodity_messages += 1
+                    log_message("DEBUG", f"Processing commodity message {commodity_messages}")
+                    log_message("DEBUG", f"Message schema: {schema}")
+                else:
+                    continue
+                    
+                # Process message
+                station_name, commodities = process_message(data.get("message", {}), commodity_map)
+                if station_name and commodities:
+                    commodity_buffer[station_name] = commodities
+                    messages_processed += 1
+                    log_message("DEBUG", f"Buffer now contains {len(commodity_buffer)} stations")
+                    
+                    # Print status every 100 messages
+                    if messages_processed % 100 == 0:
+                        log_message("STATUS", f"Processed {messages_processed} commodity messages")
+                    
+                    # Flush to database every DB_UPDATE_INTERVAL seconds
+                    current_time = time.time()
+                    if current_time - last_flush >= DB_UPDATE_INTERVAL:
+                        log_message("DEBUG", f"Time since last flush: {current_time - last_flush:.1f}s")
+                        if commodity_buffer:
+                            log_message("DATABASE", f"Writing to Database starting... ({len(commodity_buffer)} stations in buffer)")
+                            for station, commodities in commodity_buffer.items():
+                                log_message("DATABASE", f"Station {station}: {len(commodities)} commodities buffered")
+                            publish_status("updating", datetime.now(timezone.utc))
+                            stations, commodities = flush_commodities_to_db(conn, commodity_buffer)
+                            if stations > 0:
+                                db_operations += 1
+                                log_message("DATABASE", f"✓ Successfully updated {stations} stations with {commodities} commodities")
+                            else:
+                                db_errors += 1
+                                log_message("ERROR", "No stations were updated")
+                            publish_status("running", datetime.now(timezone.utc))
+                        else:
+                            log_message("DATABASE", "No commodities in buffer to write")
+                        last_flush = current_time
+                
+            except Exception as e:
+                log_message("ERROR", f"Error processing message: {str(e)}")
+                publish_status("error")
+                continue
+                    
+        # Final flush on exit
+        if commodity_buffer:
+            log_message("DATABASE", "Writing to Database starting...")
+            publish_status("updating", datetime.now(timezone.utc))
+            stations, commodities = flush_commodities_to_db(conn, commodity_buffer)
+            if stations > 0:
+                log_message("DATABASE", f"[DATABASE] Writing to Database finished. Updated {stations} stations, {commodities} commodities")
+            publish_status("running", datetime.now(timezone.utc))
+                
+    except Exception as e:
+        log_message("ERROR", f"Fatal error: {str(e)}")
+        publish_status("error")
+        return 1
+        
+    finally:
+        if 'conn' in locals():
+            conn.close()
+        publish_status("offline")
+        log_message("TERMINATED", "EDDN Update Service")
+        
+    return 0
 
-if __name__ == "__main__":
-    main()
+if __name__ == '__main__':
+    sys.exit(main()) 

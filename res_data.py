@@ -1,45 +1,51 @@
 import csv
-import sqlite3
 import json
 import zlib
 import base64
 from pathlib import Path
 from typing import Dict, List, Optional
+import psycopg2
+from psycopg2.extras import DictCursor
 
 def dict_factory(cursor, row):
     """Simple dict factory without decompression."""
     return {col[0]: row[idx] for idx, col in enumerate(cursor.description)}
 
-def load_res_data(database_path) -> List[Dict]:
+def load_res_data() -> List[Dict]:
     """Load RES hotspot data from CSV file."""
-    res_data = []
-    with open('data/plat-hs-and-res-maps.csv', 'r') as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            res_data.append({
-                'system': row['System'],
-                'ring': row['Ring'],
-                'ls': row['ls'],
-                'res_zone': row['RES/Pt HS?'],
-                'comment': row['For edtools list']
-            })
-    return res_data
+    try:
+        res_data = []
+        csv_path = 'data/plat-hs-and-res-maps.csv'
+        with open(csv_path, 'r') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                if not row['System'] or not row['Ring']:  # Skip empty rows
+                    continue
+                res_data.append({
+                    'system': row['System'],
+                    'ring': row['Ring'],
+                    'ls': row['ls'],
+                    'res_zone': row['RES/Pt HS?'],
+                    'comment': row['For edtools list']
+                })
+        return res_data
+    except Exception as e:
+        print(f"Error loading RES data: {str(e)}")
+        return []
 
-def get_system_info(conn: sqlite3.Connection, system_name: str) -> Optional[Dict]:
+def get_system_info(conn, system_name: str) -> Optional[Dict]:
     """Get system information from database."""
     cursor = conn.cursor()
-    cursor.row_factory = dict_factory
     cursor.execute('''
         SELECT name, controlling_power, x, y, z
         FROM systems
-        WHERE name = ?
+        WHERE name = %s
     ''', (system_name,))
     return cursor.fetchone()
 
-def get_station_commodities(conn: sqlite3.Connection, system_id64: int) -> List[Dict]:
+def get_station_commodities(conn, system_id64: int) -> List[Dict]:
     """Get station commodity information for a system."""
     cursor = conn.cursor()
-    cursor.row_factory = dict_factory
     
     # Get all commodities in a single query
     cursor.execute('''
@@ -59,7 +65,7 @@ def get_station_commodities(conn: sqlite3.Connection, system_id64: int) -> List[
         FROM stations s
         JOIN station_commodities sc ON s.system_id64 = sc.system_id64 
             AND s.station_name = sc.station_name
-        WHERE s.system_id64 = ?
+        WHERE s.system_id64 = %s
         AND sc.sell_price > 0 AND sc.demand > 0
         ORDER BY s.station_name, priority, sc.sell_price DESC
     ''', (system_id64,))
@@ -101,20 +107,23 @@ def calculate_distance(x1: float, y1: float, z1: float, x2: float, y2: float, z2
 
 def load_high_yield_platinum():
     """Load high yield platinum hotspot data from CSV file."""
-    data = []
-    csv_path = Path(__file__).parent / 'data' / 'plat-high-yield-hotspots.csv'
-    
-    with open(csv_path, 'r') as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            data.append({
-                'system': row['Name'],
-                'dst': row['Dist'],
-                'ring': row['Ring'],
-                'percentage': row['Percentage'],
-                'comment': row['Comment']
-            })
-    
-    # Sort by distance
-    data.sort(key=lambda x: float(x['dst']))
-    return data 
+    try:
+        data = []
+        csv_path = 'data/plat-high-yield-hotspots.csv'
+        
+        with open(csv_path, 'r') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                if not row['Name'] or not row['Ring']:  # Skip empty rows
+                    continue
+                data.append({
+                    'system': row['Name'],
+                    'ring': row['Ring'],
+                    'percentage': row['Percentage'],
+                    'comment': row['Comment']
+                })
+        
+        return data
+    except Exception as e:
+        print(f"Error loading high yield platinum data: {str(e)}")
+        return [] 

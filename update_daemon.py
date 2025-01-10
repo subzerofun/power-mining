@@ -19,9 +19,9 @@ ORANGE = '\033[38;5;208m'
 RESET = '\033[0m'
 
 # Constants
-STATUS_RECEIVE_PORT = 5557  # Port to receive updates from update_live_web.py
+STATUS_RECEIVE_PORT = 5557  # Port to receive updates from update_live.py
 STATUS_PUBLISH_PORT = 5558  # Port to publish status to web workers
-PID_FILE = os.path.join(tempfile.gettempdir(), 'update_live_web.pid')
+PID_FILE = os.path.join(tempfile.gettempdir(), 'update_live.pid')
 DAEMON_PID_FILE = os.path.join(tempfile.gettempdir(), 'update_daemon.pid')
 
 # Global state
@@ -43,12 +43,12 @@ def write_daemon_pid():
         log_message(RED, "ERROR", f"Failed to write daemon PID file: {e}")
 
 def kill_updater_process():
-    """Kill the update_live_web.py process if running"""
+    """Kill the update_live.py process if running"""
     global updater_process
     if updater_process:
         try:
             p = psutil.Process(updater_process.pid)
-            if "update_live_web.py" in p.cmdline():
+            if "update_live.py" in p.cmdline():
                 for c in p.children(recursive=True):
                     try: c.kill()
                     except: pass
@@ -60,25 +60,25 @@ def kill_updater_process():
         except: pass
 
 def start_updater():
-    """Find or start the update_live_web.py process"""
+    """Find or start the update_live.py process"""
     global updater_process, current_status
     
     try:
         # Check if process is already running
         for proc in psutil.Process(1).children(recursive=True):
             try:
-                if "update_live_web.py" in " ".join(proc.cmdline()):
+                if "update_live.py" in " ".join(proc.cmdline()):
                     updater_process = proc
-                    log_message(GREEN, "MONITOR", f"Found existing update_live_web.py with PID: {proc.pid}")
+                    log_message(GREEN, "MONITOR", f"Found existing update_live.py with PID: {proc.pid}")
                     current_status["updater_pid"] = proc.pid
                     return True
             except (psutil.NoSuchProcess, psutil.AccessDenied):
                 continue
         
         # If not found, start new process
-        log_message(YELLOW, "MONITOR", "No update_live_web.py found, starting new process...")
+        log_message(YELLOW, "MONITOR", "No update_live.py found, starting new process...")
         updater_process = subprocess.Popen(
-            [sys.executable, "update_live_web.py", "--auto"],
+            [sys.executable, "update_live.py", "--auto"],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             universal_newlines=False
@@ -88,7 +88,7 @@ def start_updater():
         with open(PID_FILE, 'w') as f:
             f.write(str(updater_process.pid))
         
-        log_message(GREEN, "MONITOR", f"Started update_live_web.py with PID: {updater_process.pid}")
+        log_message(GREEN, "MONITOR", f"Started update_live.py with PID: {updater_process.pid}")
         current_status["updater_pid"] = updater_process.pid
         
         # Start output handling threads
@@ -103,7 +103,7 @@ def start_updater():
         return False
 
 def handle_output(pipe):
-    """Handle output from update_live_web.py"""
+    """Handle output from update_live.py"""
     try:
         while True:
             line = pipe.readline()
@@ -149,7 +149,7 @@ def main():
     # Setup ZMQ
     context = zmq.Context()
     
-    # Socket to receive status from update_live_web.py
+    # Socket to receive status from update_live.py
     status_receiver = context.socket(zmq.SUB)
     status_receiver.setsockopt(zmq.RCVTIMEO, 1000)  # 1 second timeout
     status_receiver.setsockopt(zmq.LINGER, 0)       # Don't wait on close
@@ -184,7 +184,7 @@ def main():
     
     while running:
         try:
-            # Check for status updates from update_live_web.py
+            # Check for status updates from update_live.py
             if status_receiver.poll(100):
                 message = status_receiver.recv_string()
                 try:

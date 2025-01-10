@@ -9,9 +9,10 @@
 </head>
 <body>
     <div class="container">
-        <h1>Elite Dangerous Merit Miner</h1>
+        <h1>Elite Dangerous Merit Miner | Web Version</h1>
         
         <form class="search-form" id="searchForm">
+            <input type="hidden" id="database" value="systems.db">
             <div class="form-row">
                 <div class="form-group inline-group">
                     <label for="system">Reference System:</label>
@@ -180,21 +181,6 @@
                             <div class="status-circle eddn-circle"></div>
                             <div class="status-text eddn-text">Offline</div>
                         </div>
-                    </div>
-                    <div class="eddn-status daily-status">
-                        <div class="eddn-title">Daily Updates:</div>
-                        <div class="status-indicator">
-                            <div class="status-circle daily-circle"></div>
-                            <div class="status-text daily-text">Not Updated</div>
-                        </div>
-                    </div>
-                </div>
-                <div class="database-selector">
-                    <label for="database">Database:</label>
-                    <div class="input-group">
-                        <input type="text" id="database" name="database" value="systems.db" readonly>
-                        <button type="button" class="btn btn-secondary" onclick="document.getElementById('databaseFile').click()">Browse</button>
-                        <input type="file" id="databaseFile" accept=".db" style="display: none" onchange="updateDatabasePath(this)">
                     </div>
                 </div>
             </div>

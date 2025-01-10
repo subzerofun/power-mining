@@ -2,6 +2,8 @@
 
 import csv
 import json
+import psycopg2
+from psycopg2.extras import DictCursor
 
 # Materials that can be mined without hotspots
 NON_HOTSPOT_MATERIALS = {
@@ -88,11 +90,11 @@ def get_material_sql_conditions(material_name: str) -> tuple[str, list]:
     ring_types = get_material_ring_types(material_name)
     
     if material_name == 'Low Temperature Diamonds':
-        return 'ms.mineral_type = ?', ['LowTemperatureDiamond']
+        return 'ms.mineral_type = %s', ['LowTemperatureDiamond']
     elif 'hotspot' in ring_types:
-        return 'ms.mineral_type = ?', [material_name]
+        return 'ms.mineral_type = %s', [material_name]
     else:
-        placeholders = ','.join(['?' for _ in ring_types])
+        placeholders = ','.join(['%s' for _ in ring_types])
         return f'ms.ring_type IN ({placeholders})', ring_types 
 
 def get_ring_type_case_statement(commodity_column: str = 'commodity_name') -> str:
@@ -107,9 +109,16 @@ def get_ring_type_case_statement(commodity_column: str = 'commodity_name') -> st
     
     return f'CASE {commodity_column}\n' + '\n'.join(f'{case}' for case in cases) + '\nEND'
 
-def get_non_hotspot_materials_list() -> str:
-    """Get a comma-separated string of non-hotspot material names for SQL IN clause."""
-    return ', '.join(f"'{material}'" for material in NON_HOTSPOT_MATERIALS.keys()) 
+def get_non_hotspot_materials_list():
+    """Get list of non-hotspot materials."""
+    non_hotspot_minerals = {'Bauxite', 'Bertrandite', 
+                        'Coltan', 'Gallite', 'Goslarite', 'Indite', 'Lepidolite', 'Methane Clathrate', 
+                        'Methanol Monohydrate Crystals', 'Moissanite', 'Rutile', 
+                        'Uraninite', 'Jadeite', 'Pyrophyllite', 'Taaffeite', 'Cryolite', 'Lithium Hydroxide', 'Void Opal'}
+    non_hotspot_metals = {'Aluminium', 'Beryllium', 'Cobalt', 'Copper', 'Gallium', 'Gold', 'Hafnium 178', 'Indium',
+                        'Lanthanum', 'Lithium', 'Osmium', 'Palladium','Praseodymium', 'Samarium', 'Silver', 'Tantalum', 
+                        'Thallium', 'Thorium', 'Titanium', 'Uranium'}
+    return list(non_hotspot_minerals | non_hotspot_metals)
 
 def load_price_data():
     """Load price data from CSV file."""
@@ -121,7 +130,6 @@ def load_price_data():
                 'avg_price': int(row['Average Price']),
                 'max_price': int(row['Max Price'])
             }
-            #print(f"Loaded price data for {row['Material']}: avg={row['Average Price']}, max={row['Max Price']}")
     return price_data
 
 def get_price_comparison(current_price, reference_price):
@@ -191,28 +199,45 @@ def get_mining_type_conditions(commodity: str, mining_types: list) -> tuple[str,
         # Find the commodity data
         commodity_data = next((item for item in material_data['materials'] if item['name'] == commodity), None)
         if not commodity_data:
+            # Check if it's a ring material from NON_HOTSPOT_MATERIALS
+            if commodity in NON_HOTSPOT_MATERIALS:
+                ring_types = NON_HOTSPOT_MATERIALS[commodity]
+                conditions = []
+                params = []
+                for ring_type in ring_types:
+                    conditions.append('(ms.ring_type = %s AND ms.mineral_type IS NULL)')
+                    params.append(ring_type)
+                return '(' + ' OR '.join(conditions) + ')', params
             return '', []
         
         # Build conditions for each ring type
         conditions = []
         params = []
         
+        # Split mining types into core and non-core
+        has_core = 'Core' in mining_types
+        non_core_types = [mt for mt in mining_types if mt != 'Core']
+        
         for ring_type, ring_data in commodity_data['ring_types'].items():
-            mining_type_matches = []
+            # Handle core mining - requires hotspots
+            if has_core and ring_data['core']:
+                conditions.append('(ms.ring_type = %s AND ms.mineral_type = %s)')
+                params.extend([ring_type, commodity])
             
-            for mining_type in mining_types:
-                if mining_type == 'Core' and ring_data['core']:
-                    mining_type_matches.append(True)
-                elif mining_type == 'Laser Surface' and ring_data['surfaceLaserMining']:
-                    mining_type_matches.append(True)
-                elif mining_type == 'Surface Deposit' and ring_data['surfaceDeposit']:
-                    mining_type_matches.append(True)
-                elif mining_type == 'Sub Surface Deposit' and ring_data['subSurfaceDeposit']:
-                    mining_type_matches.append(True)
-            
-            if mining_type_matches:
-                conditions.append('(ms.ring_type = ?)')
-                params.append(ring_type)
+            # Handle non-core mining methods - must not have hotspots
+            if non_core_types:
+                non_core_matches = []
+                for mining_type in non_core_types:
+                    if mining_type == 'Laser Surface' and ring_data['surfaceLaserMining']:
+                        non_core_matches.append(True)
+                    elif mining_type == 'Surface Deposit' and ring_data['surfaceDeposit']:
+                        non_core_matches.append(True)
+                    elif mining_type == 'Sub Surface Deposit' and ring_data['subSurfaceDeposit']:
+                        non_core_matches.append(True)
+                
+                if non_core_matches:
+                    conditions.append('(ms.ring_type = %s AND ms.mineral_type IS NULL)')
+                    params.append(ring_type)
     
     except Exception as e:
         app.logger.error(f"Error loading mining_data.json: {str(e)}")
@@ -250,47 +275,39 @@ def get_ring_materials():
                         'conditions': item['conditions'],
                         'value': ''
                     }
+    
     except Exception as e:
         app.logger.error(f"Error loading mining_data.json: {str(e)}")
-    
+        
     return materials
 
-def get_non_hotspot_materials_list():
-    """Get the list of materials that don't use hotspots."""
-    non_hotspot_minerals = {'Bauxite', 'Bertrandite', 
-                        'Coltan', 'Gallite', 'Goslarite', 'Indite', 'Lepidolite', 'Methane Clathrate', 
-                        'Methanol Monohydrate Crystals', 'Moissanite', 'Rutile', 
-                        'Uraninite', 'Jadeite', 'Pyrophyllite', 'Taaffeite', 'Cryolite', 'Lithium Hydroxide', 'Void Opal'}
-    non_hotspot_metals = {'Aluminium', 'Beryllium', 'Cobalt', 'Copper', 'Gallium', 'Gold', 'Hafnium 178', 'Indium',
-                        'Lanthanum', 'Lithium', 'Osmium', 'Palladium','Praseodymium', 'Samarium', 'Silver', 'Tantalum', 
-                        'Thallium', 'Thorium', 'Titanium', 'Uranium'}
-    return non_hotspot_minerals | non_hotspot_metals 
-
 def get_potential_ring_types(material_name: str) -> list:
-    """Get potential ring types for a material from mining_data.json."""
-    ring_types = set()  # Use a set to avoid duplicates
-    
+    """Get list of ring types where a material can potentially be found."""
+    if material_name in NON_HOTSPOT_MATERIALS:
+        return NON_HOTSPOT_MATERIALS[material_name]
+        
     try:
         with open('data/mining_data.json', 'r') as f:
             material_data = json.load(f)
             
-            # Find the material data
-            material = next((item for item in material_data['materials'] if item['name'] == material_name), None)
-            if material:
-                # Check each ring type if it's possible to mine there
-                for ring_type, ring_data in material['ring_types'].items():
-                    if any([
-                        ring_data['surfaceLaserMining'],
-                        ring_data['surfaceDeposit'],
-                        ring_data['subSurfaceDeposit'],
-                        ring_data['core']
-                    ]):
-                        ring_types.add(ring_type)
+        # Find the material data
+        material_info = next((item for item in material_data['materials'] if item['name'] == material_name), None)
+        if not material_info:
+            return []
+            
+        # Get list of ring types where this material can be found
+        valid_ring_types = []
+        for ring_type, ring_data in material_info['ring_types'].items():
+            if any([
+                ring_data['surfaceLaserMining'],
+                ring_data['surfaceDeposit'],
+                ring_data['subSurfaceDeposit'],
+                ring_data['core']
+            ]):
+                valid_ring_types.append(ring_type)
+                
+        return valid_ring_types
+        
     except Exception as e:
         app.logger.error(f"Error loading mining_data.json: {str(e)}")
-    
-    # Also check NON_HOTSPOT_MATERIALS dictionary for backward compatibility
-    if material_name in NON_HOTSPOT_MATERIALS:
-        ring_types.update(NON_HOTSPOT_MATERIALS[material_name])
-    
-    return list(ring_types) 
+        return [] 
