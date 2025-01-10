@@ -73,8 +73,11 @@ def monitor_status():
             
             # Check if we haven't received status updates for a while
             if time.time() - last_status_time > 60:
-                shared_status["state"] = "offline"
-                log_message(RED, "ZMQ-DEBUG", f"Worker {os.getpid()} - No status updates for 60s, marking offline")
+                if shared_status["state"] == "connecting":
+                    log_message(RED, "ZMQ-DEBUG", f"Worker {os.getpid()} - Still trying to connect to daemon...")
+                else:
+                    shared_status["state"] = "offline"
+                    log_message(RED, "ZMQ-DEBUG", f"Worker {os.getpid()} - No status updates for 60s, marking offline")
                 # Try to reconnect if we haven't received updates for a while
                 if consecutive_errors == 0:  # Only try once to avoid spam
                     log_message(RED, "ZMQ-DEBUG", "Attempting to reconnect to daemon...")
@@ -91,8 +94,8 @@ def setup_zmq():
     """Setup ZMQ connection to update daemon"""
     global zmq_context, status_socket, shared_status, last_status_time
     
-    # Initialize shared status and time
-    shared_status = {"state": "offline", "last_db_update": None}
+    # Initialize shared status and time with "connecting" state
+    shared_status = {"state": "connecting", "last_db_update": None}  # Changed from "offline" to "connecting"
     last_status_time = time.time()
     
     try:
@@ -116,7 +119,7 @@ def setup_zmq():
         status_socket.setsockopt(zmq.TCP_KEEPALIVE_INTVL, 1)  # Probe every 1s
         
         # Connect to daemon's publish port using service name
-        endpoint = f"tcp://daemon:5558"  # Changed from localhost to daemon
+        endpoint = f"tcp://daemon:5558"
         status_socket.connect(endpoint)
         log_message(RED, "ZMQ-DEBUG", f"Worker {os.getpid()} connecting to daemon at {endpoint}")
         
@@ -139,10 +142,10 @@ def setup_zmq():
         
     except zmq.error.ZMQError as e:
         log_message(RED, f"ZMQ-DEBUG", f"Worker {os.getpid()} could not connect to daemon: {e}")
-        shared_status = {"state": "offline", "last_db_update": None}
+        shared_status = {"state": "connecting", "last_db_update": None}  # Keep as "connecting" on error
     except Exception as e:
         log_message(RED, f"ZMQ-DEBUG", f"Worker {os.getpid()} setup error: {e}")
-        shared_status = {"state": "offline", "last_db_update": None}
+        shared_status = {"state": "connecting", "last_db_update": None}  # Keep as "connecting" on error
 
 def is_update_process_running():
     """Check if update_live_web.py is running using shared status"""
