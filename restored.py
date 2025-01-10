@@ -48,36 +48,6 @@ updater_process = None
 live_update_requested = False
 eddn_status = {"state": "offline", "last_db_update": None}
 
-# Gunicorn entry point
-app_wsgi = None
-
-def create_app(*args, **kwargs):
-    global app_wsgi, DATABASE_URL
-    if app_wsgi is None:
-        app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
-        app_wsgi = app
-        
-        # Set DATABASE_URL for all workers
-        DATABASE_URL = os.getenv('DATABASE_URL')
-        if not DATABASE_URL:
-            print("ERROR: DATABASE_URL environment variable must be set")
-            sys.exit(1)
-        
-        # Start the monitor loop only in the main process
-        if os.getenv('ENABLE_LIVE_UPDATE', 'false').lower() == 'true':
-            if os.getppid() == 1:  # Running under init (main Gunicorn process)
-                # Create event loop for the thread
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                
-                def run_monitor():
-                    loop.run_until_complete(monitor_update_process())
-                
-                monitor_thread = threading.Thread(target=run_monitor, daemon=True)
-                monitor_thread.start()
-    
-    return app_wsgi
-
 def kill_updater_process():
     global updater_process
     if updater_process:
@@ -1043,34 +1013,27 @@ def start_updater():
     try:
         # Only allow starting from main process
         if os.environ.get('GUNICORN_WORKER_ID'):
-            log_message(YELLOW, "MONITOR", f"Worker {os.environ.get('GUNICORN_WORKER_ID')} skipping updater start")
             return
             
-        # Check PID file first
-        if os.path.exists(PID_FILE):
-            try:
-                with open(PID_FILE, 'r') as f:
-                    pid = int(f.read().strip())
-                    process = psutil.Process(pid)
-                    if "update_live_web.py" in " ".join(process.cmdline()):
-                        log_message(BLUE, "MONITOR", f"Found existing update process from PID file: {pid}")
-                        return
-            except (ValueError, psutil.NoSuchProcess, psutil.AccessDenied):
-                os.remove(PID_FILE)
-        
-        # Check for any running instances
+        # Check for any running instances first
+        running_pid = None
         for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
             try:
                 if proc.info['cmdline'] and "update_live_web.py" in " ".join(proc.info['cmdline']):
-                    log_message(BLUE, "MONITOR", f"Found running update process: {proc.pid}")
-                    with open(PID_FILE, 'w') as f:
-                        f.write(str(proc.pid))
+                    running_pid = proc.pid
+                    print(f"{ORANGE}[UPDATE-CHECK] Update service already running with PID: {proc.pid}{RESET}", flush=True)
                     return
             except (psutil.NoSuchProcess, psutil.AccessDenied):
                 continue
         
-        # No running instance found, clean up and start new one
+        # No running instance found, clean up
         kill_updater_process()
+        
+        if os.path.exists(PID_FILE):
+            try:
+                os.remove(PID_FILE)
+            except:
+                pass
         
         # Start new process
         updater_process = subprocess.Popen(
@@ -1085,7 +1048,7 @@ def start_updater():
         with open(PID_FILE, 'w') as f:
             f.write(str(updater_process.pid))
         
-        log_message(GREEN, "MONITOR", f"Started new update process with PID: {updater_process.pid}")
+        print(f"{ORANGE}[UPDATE-CHECK] Starting EDDN Live Update (PID: {updater_process.pid}){RESET}", flush=True)
         
         # Start output handling threads
         threading.Thread(target=handle_output_stream, args=(updater_process.stdout,), daemon=True).start()
@@ -1096,37 +1059,113 @@ def start_updater():
             eddn_status["state"] = "starting"
         else:
             eddn_status["state"] = "error"
-            log_message(RED, "ERROR", "EDDN updater failed to start")
+            print(f"{ORANGE}[ERROR] EDDN updater failed to start{RESET}", file=sys.stderr)
             if os.path.exists(PID_FILE):
                 os.remove(PID_FILE)
             
     except Exception as e:
-        log_message(RED, "ERROR", f"Error starting updater: {e}")
+        print(f"Error starting updater: {e}", file=sys.stderr)
         eddn_status["state"] = "error"
         if os.path.exists(PID_FILE):
             os.remove(PID_FILE)
 
+def monitor_process():
+    """Monitor the update process and restart if needed"""
+    global updater_process, eddn_status
+    last_check_time = 0
+    restart_cooldown = 60  # Wait at least 60 seconds between restart attempts
+    
+    while True:
+        try:
+            time.sleep(30)  # Check less frequently
+            current_time = time.time()
+            
+            # Only try to start if we're the main process and no updater is running
+            if not os.environ.get('GUNICORN_WORKER_ID'):
+                running_pids = []
+                for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+                    try:
+                        if proc.info['cmdline'] and "update_live_web.py" in " ".join(proc.info['cmdline']):
+                            running_pids.append(proc.pid)
+                    except (psutil.NoSuchProcess, psutil.AccessDenied):
+                        continue
+                
+                if not running_pids:
+                    # Check if enough time has passed since last restart attempt
+                    if current_time - last_check_time >= restart_cooldown:
+                        log_message(YELLOW, "MONITOR", "No update process found, waiting additional 30s to confirm...")
+                        time.sleep(30)  # Wait additional time to confirm process is really dead
+                        
+                        # Check again after waiting
+                        still_dead = True
+                        for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+                            try:
+                                if proc.info['cmdline'] and "update_live_web.py" in " ".join(proc.info['cmdline']):
+                                    still_dead = False
+                                    break
+                            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                                continue
+                        
+                        if still_dead:
+                            log_message(YELLOW, "MONITOR", "Update process confirmed dead, starting new instance...")
+                            start_updater()
+                            last_check_time = current_time
+                    elif len(running_pids) > 1:
+                        # Kill all but the first one
+                        log_message(YELLOW, "MONITOR", f"Found {len(running_pids)} update processes, cleaning up duplicates...")
+                        for pid in running_pids[1:]:
+                            try:
+                                os.kill(pid, signal.SIGTERM)
+                                log_message(YELLOW, "MONITOR", f"Terminated duplicate process {pid}")
+                            except:
+                                pass
+                    else:
+                        log_message(BLUE, "MONITOR", "Update process is running")
+                
+        except Exception as e:
+            log_message(RED, "ERROR", f"Error in monitor thread: {e}")
+            time.sleep(5)  # Wait before retrying after error
+
+# Start the monitor thread when the module loads
+monitor_thread = threading.Thread(target=monitor_process, name="monitor_thread", daemon=True)
+monitor_thread.start()
+
+# Gunicorn entry point
+app_wsgi = None
+
+def create_app(*args, **kwargs):
+    global app_wsgi, DATABASE_URL
+    if app_wsgi is None:
+        app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
+        app_wsgi = app
+        
+        # Set DATABASE_URL for all workers
+        DATABASE_URL = os.getenv('DATABASE_URL')
+        if not DATABASE_URL:
+            print("ERROR: DATABASE_URL environment variable must be set")
+            sys.exit(1)
+        
+        # Start the monitor loop only in the main process
+        if os.getenv('ENABLE_LIVE_UPDATE', 'false').lower() == 'true':
+            if os.getppid() == 1:  # Running under init (main Gunicorn process)
+                # Create event loop for the thread
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                
+                def run_monitor():
+                    loop.run_until_complete(monitor_update_process())
+                
+                monitor_thread = threading.Thread(target=run_monitor, daemon=True)
+                monitor_thread.start()
+    
+    return app_wsgi
+
 def is_update_process_running():
     """Check if update_live_web.py is running on the server"""
     try:
-        # Check PID file first
-        if os.path.exists(PID_FILE):
-            try:
-                with open(PID_FILE, 'r') as f:
-                    pid = int(f.read().strip())
-                    process = psutil.Process(pid)
-                    if "update_live_web.py" in " ".join(process.cmdline()):
-                        return True
-            except (ValueError, psutil.NoSuchProcess, psutil.AccessDenied):
-                os.remove(PID_FILE)
-        
-        # Fallback to process search
         for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
             try:
                 if proc.info['cmdline'] and "update_live_web.py" in " ".join(proc.info['cmdline']):
-                    # Update PID file if found
-                    with open(PID_FILE, 'w') as f:
-                        f.write(str(proc.pid))
                     return True
             except (psutil.NoSuchProcess, psutil.AccessDenied):
                 continue
