@@ -38,62 +38,62 @@ zmq_context = None
 status_socket = None
 last_status_time = 0
 updater_pid = None
+shared_status = {"state": "offline", "last_db_update": None}  # Shared across workers
 
 def setup_zmq():
     """Setup ZMQ connection in the main process"""
     global zmq_context, status_socket
+    if os.getppid() != 1:  # Only setup in main Gunicorn process
+        return
+        
     zmq_context = zmq.Context()
     status_socket = zmq_context.socket(zmq.SUB)
     try:
         status_socket.connect(f"tcp://localhost:{STATUS_PORT}")
         status_socket.setsockopt_string(zmq.SUBSCRIBE, "")
-        log_message(BLUE, f"MAIN-{os.getpid()}", "ZMQ connection established")
+        log_message(BLUE, f"MAIN", "ZMQ connection established")
+        
+        # Start status monitoring thread
+        def monitor_status():
+            global shared_status, last_status_time, updater_pid
+            while True:
+                try:
+                    if status_socket.poll(100):
+                        message = status_socket.recv_string()
+                        last_status_time = time.time()
+                        try:
+                            status_data = json.loads(message)
+                            shared_status.update(status_data)
+                            if 'pid' in status_data:
+                                updater_pid = status_data['pid']
+                                log_message(BLUE, "STATUS", f"Update process active (PID: {updater_pid})")
+                        except:
+                            pass
+                except:
+                    time.sleep(0.1)
+                    
+        status_thread = threading.Thread(target=monitor_status, daemon=True)
+        status_thread.start()
+        
     except zmq.error.ZMQError as e:
-        log_message(RED, f"MAIN-{os.getpid()}", f"Could not connect to status port: {e}")
-
-def check_updater_status():
-    """Check if we're receiving status updates from the updater"""
-    global last_status_time, updater_pid
-    try:
-        if status_socket and status_socket.poll(100):  # 100ms timeout
-            message = status_socket.recv_string()
-            last_status_time = time.time()
-            try:
-                status_data = json.loads(message)
-                if 'pid' in status_data:
-                    updater_pid = status_data['pid']
-            except:
-                pass
-            return True
-    except zmq.ZMQError:
-        pass
-    return False
+        log_message(RED, f"MAIN", f"Could not connect to status port: {e}")
 
 def is_update_process_running():
-    """Check if update_live_web.py is running using ZMQ status"""
-    global last_status_time, updater_pid
+    """Check if update_live_web.py is running using shared status"""
+    global shared_status, last_status_time, updater_pid
     
-    # First check ZMQ status
-    if check_updater_status():
-        return True
-    
-    # If we haven't received a status update in 60 seconds, consider the process dead
-    if time.time() - last_status_time > 60:
-        return False
+    # If we have recent status updates, trust those
+    if time.time() - last_status_time < 60:
+        return shared_status.get("state") not in ["offline", "error"]
         
-    # Fallback to PID file check if we haven't received any ZMQ messages yet
-    if last_status_time == 0:
-        if os.path.exists(PID_FILE):
-            try:
-                with open(PID_FILE, 'r') as f:
-                    pid = int(f.read().strip())
-                    process = psutil.Process(pid)
-                    if "update_live_web.py" in " ".join(process.cmdline()):
-                        updater_pid = pid
-                        return True
-            except:
-                if os.path.exists(PID_FILE):
-                    os.remove(PID_FILE)
+    # Fallback to PID check only if no recent status
+    if updater_pid:
+        try:
+            process = psutil.Process(updater_pid)
+            if "update_live_web.py" in " ".join(process.cmdline()):
+                return True
+        except:
+            pass
     
     return False
 
@@ -113,7 +113,7 @@ eddn_status = {"state": "offline", "last_db_update": None}
 app_wsgi = None
 
 def create_app(*args, **kwargs):
-    global app_wsgi, DATABASE_URL, zmq_context, status_socket
+    global app_wsgi, DATABASE_URL
     if app_wsgi is None:
         app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
         app_wsgi = app
@@ -124,7 +124,7 @@ def create_app(*args, **kwargs):
             print("ERROR: DATABASE_URL environment variable must be set")
             sys.exit(1)
         
-        # Setup ZMQ in main process only
+        # Setup ZMQ and monitor in main process only
         if os.getppid() == 1:  # Running under init (main Gunicorn process)
             setup_zmq()
             
