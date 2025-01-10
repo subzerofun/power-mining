@@ -553,6 +553,16 @@ def search():
                         if not cd or ring_type_filter not in cd['ring_types']:
                             log_message(RED, "SEARCH", f"Material {signal_type} not found in ring type {ring_type_filter}")
                             return jsonify([])
+                        ring_data = cd['ring_types'][ring_type_filter]
+                        # Check if ANY mining method is valid for this ring type
+                        if not any([
+                            ring_data.get('surfaceLaserMining', False),
+                            ring_data.get('surfaceDeposit', False),
+                            ring_data.get('subSurfaceDeposit', False),
+                            ring_data.get('core', False)
+                        ]):
+                            log_message(RED, "SEARCH", f"No valid mining methods for {signal_type} in {ring_type_filter} rings")
+                            return jsonify([])
                         log_message(BLUE, "SEARCH", f"Ring type data: {cd['ring_types'][ring_type_filter]}")
                 except Exception as e:
                     log_message(RED, "ERROR", f"Error checking ring type: {str(e)}")
@@ -612,7 +622,15 @@ def search():
                 ms.mineral_type, ms.signal_count, ms.reserve_level, rs.station_name,
                 st.landing_pad_size, st.distance_to_arrival as station_distance,
                 st.station_type, rs.demand, rs.sell_price, st.update_time,
-                rs.sell_price as sort_price
+                rs.sell_price as sort_price,
+                CASE 
+                    WHEN ms.reserve_level = 'Pristine' THEN 1
+                    WHEN ms.reserve_level = 'Major' THEN 2
+                    WHEN ms.reserve_level = 'Common' THEN 3
+                    WHEN ms.reserve_level = 'Low' THEN 4
+                    WHEN ms.reserve_level = 'Depleted' THEN 5
+                    ELSE 6 
+                END as reserve_level_order
             FROM relevant_systems s
             JOIN mineral_signals ms ON s.id64 = ms.system_id64 
             AND (
@@ -663,7 +681,15 @@ def search():
                 ms.mineral_type, ms.signal_count, ms.reserve_level, rs.station_name,
                 st.landing_pad_size, st.distance_to_arrival as station_distance,
                 st.station_type, rs.demand, rs.sell_price, st.update_time,
-                rs.sell_price as sort_price
+                rs.sell_price as sort_price,
+                CASE 
+                    WHEN ms.reserve_level = 'Pristine' THEN 1
+                    WHEN ms.reserve_level = 'Major' THEN 2
+                    WHEN ms.reserve_level = 'Common' THEN 3
+                    WHEN ms.reserve_level = 'Low' THEN 4
+                    WHEN ms.reserve_level = 'Depleted' THEN 5
+                    ELSE 6 
+                END as reserve_level_order
             FROM relevant_systems s"""
 
             query += """ JOIN mineral_signals ms ON s.id64 = ms.system_id64 
@@ -703,14 +729,7 @@ def search():
             if is_ring_material:
                 query += """
                 ORDER BY 
-                    CASE 
-                        WHEN ms.reserve_level = 'Pristine' THEN 1
-                        WHEN ms.reserve_level = 'Major' THEN 2
-                        WHEN ms.reserve_level = 'Common' THEN 3
-                        WHEN ms.reserve_level = 'Low' THEN 4
-                        WHEN ms.reserve_level = 'Depleted' THEN 5
-                        ELSE 6 
-                    END,
+                    reserve_level_order,
                     rs.sell_price DESC NULLS LAST,
                     s.distance ASC"""
             else:
