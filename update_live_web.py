@@ -339,17 +339,6 @@ def process_message(message, commodity_map):
         
     return None, None
 
-def get_db_connection():
-    """Get a database connection"""
-    try:
-        conn = psycopg2.connect(DATABASE_URL)
-        conn.set_session(autocommit=False)  # Set session parameters before any transaction
-        conn.cursor_factory = DictCursor  # This provides dict-like access similar to sqlite3's dict_factory
-        return conn
-    except Exception as e:
-        log_message(RED, "ERROR", f"Database connection error: {str(e)}")
-        return None
-
 def main():
     """Main function"""
     global running, commodity_buffer, commodity_map, reverse_map, DATABASE_URL
@@ -378,13 +367,12 @@ def main():
         db_url = urlparse(DATABASE_URL)
         log_message(BLUE, "DATABASE", f"Connecting to database: {db_url.hostname}:{db_url.port}/{db_url.path[1:]}")
         
-        # Connect to database with connection status monitoring
+        # Connect to database with simple configuration
         conn_start = time.time()
         try:
-            conn = get_db_connection()
-            if not conn:
-                raise Exception("Failed to establish database connection")
-                
+            conn = psycopg2.connect(DATABASE_URL)
+            conn.autocommit = False
+            
             conn_time = time.time() - conn_start
             log_message(GREEN, "DATABASE", f"Connected to database in {conn_time:.2f}s")
             
@@ -414,8 +402,6 @@ def main():
             log_message(BLUE, "DATABASE", f"Database contains: {systems_count} systems, {stations_count} stations, {commodities_count} commodity records")
             
             cursor.close()
-            conn.autocommit = False
-            log_message(BLUE, "DATABASE", "Database connection configured (autocommit=False)")
         except Exception as e:
             log_message(RED, "ERROR", f"Database connection failed: {str(e)}")
             raise

@@ -66,3 +66,4 @@ log/
 Thumbs.db
 .env.example
 server_web_old.py
+update_live_web_old.py
