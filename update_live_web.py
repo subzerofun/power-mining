@@ -64,9 +64,12 @@ def publish_status(state, last_db_update=None):
             "state": state,
             "last_db_update": last_db_update.isoformat() if last_db_update else None
         }
+        log_message(BLUE, "STATUS", f"Publishing state: {state}")
         status_publisher.send_string(json.dumps(status))
     except Exception as e:
         log_message(RED, "ERROR", f"Failed to publish status: {e}")
+        import traceback
+        log_message(RED, "ERROR", f"Status traceback: {traceback.format_exc()}")
 
 def cleanup():
     """Cleanup function to be called on exit"""
@@ -286,20 +289,24 @@ def process_message(message, commodity_map):
         system_name = message.get("systemName", "Unknown")
         market_id = message.get("marketId")
         
+        log_message(BLUE, "DEBUG", f"Processing message for {station_name} in {system_name}")
+        
         if market_id is None:
             log_message(YELLOW, "DEBUG", f"Live update without marketId: {station_name} in system {system_name}")
         
         if not station_name:
+            log_message(YELLOW, "DEBUG", "Message missing station name")
             return None, None
             
         # Process commodities
         station_commodities = {}
         commodities = message.get("commodities", [])
-        log_message(BLUE, "DEBUG", f"Processing {len(commodities)} commodities at {station_name} in {system_name}")
+        log_message(BLUE, "DEBUG", f"Found {len(commodities)} commodities at {station_name} in {system_name}")
         
         for commodity in commodities:
             name = commodity.get("name", "").lower()
             if not name:
+                log_message(YELLOW, "DEBUG", "Commodity missing name")
                 continue
                 
             if name not in commodity_map:
@@ -325,6 +332,8 @@ def process_message(message, commodity_map):
             
     except Exception as e:
         log_message(RED, "ERROR", f"Error processing message: {str(e)}")
+        import traceback
+        log_message(RED, "ERROR", f"Traceback: {traceback.format_exc()}")
         
     return None, None
 
@@ -438,6 +447,7 @@ def main():
                 if "commodity/3" in schema.lower():
                     commodity_messages += 1
                     log_message(BLUE, "DEBUG", f"Processing commodity message {commodity_messages}")
+                    log_message(BLUE, "DEBUG", f"Message schema: {schema}")
                 else:
                     continue
                     
