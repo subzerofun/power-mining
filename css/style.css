@@ -154,6 +154,7 @@ button:not(:hover) {
     margin-top: 20px;
     font-family: monospace;
     font-size: 14px;
+    border-color: black;
 }
 
 .results-table th,
