@@ -15,3 +15,17 @@ __pycache__/
 json/Commodity-2025-01-04.jsonl
 json/galaxy_populated.json
 json/galaxy_populated.json.gz
+dumps/IMPORT_INSTRUCTIONS.txt
+dumps/power_mining_20250108_233202.sql
+dumps/power_mining_20250108_234339.sql
+dumps/power_mining_20250109_012114.sql
+dumps/power_mining_20250110_192901.sql
+json/Commodity-2025-01-07.jsonl
+json/old/Commodity-2025-01-05.jsonl
+json/old/Commodity-2025-01-06.jsonl
+json/old/Commodity-2025-01-07.jsonl
+json/old/daily_update_status.json
+server_web_old.py
+update_live_web_old.py
+check_timestamps.py
+.env.example
