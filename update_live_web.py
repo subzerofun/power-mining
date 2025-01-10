@@ -208,6 +208,9 @@ def handle_journal_message(message):
     if controlling_power is None:
         return
 
+    # Log the power info we received from EDDN
+    log_message(BLUE, "POWER", f"EDDN Power Info - System: {system_name}, Power: {controlling_power}, State: {power_state}")
+
     try:
         with psycopg2.connect(DATABASE_URL) as conn:
             cur = conn.cursor()
@@ -221,6 +224,7 @@ def handle_journal_message(message):
             if row:
                 old_power, old_state = row
                 if old_power == controlling_power and old_state == power_state:
+                    log_message(BLUE, "POWER", f"No change needed for {system_name} (already {controlling_power}, {power_state})")
                     return  # No change needed
                 
             # Only update if different
@@ -232,7 +236,7 @@ def handle_journal_message(message):
             """, (controlling_power, power_state, system_id64, system_name))
             
             if cur.rowcount > 0:
-                log_message(GREEN, "POWER", f"Updated power status for {system_name}: {controlling_power} ({power_state})")
+                log_message(GREEN, "POWER", f"✓ Updated power status for {system_name}: {controlling_power} ({power_state})")
             conn.commit()
     except Exception as e:
         log_message(RED, "ERROR", f"Failed to update power status: {e}")
@@ -242,13 +246,13 @@ def process_message(message, commodity_map):
     try:
         schema_ref = message.get("$schemaRef", "").lower()
         
-        # Skip if not a commodity message
-        if "commodity" not in schema_ref:
-            return None, None
-            
         # Handle journal messages for power data
         if "journal" in schema_ref:
             handle_journal_message(message)
+            return None, None
+            
+        # Skip if not a commodity message
+        if "commodity" not in schema_ref:
             return None, None
             
         # Skip fleet carriers
@@ -270,7 +274,7 @@ def process_message(message, commodity_map):
         # Process commodities
         station_commodities = {}
         commodities = message.get("commodities", [])
-        log_message(BLUE, "DEBUG", f"Processing {len(commodities)} commodities from {station_name} in system {system_name}")
+        log_message(BLUE, "COMMODITY", f"Found {len(commodities)} commodities at {station_name} in {system_name}")
         
         for commodity in commodities:
             name = commodity.get("name", "").lower()
@@ -286,19 +290,18 @@ def process_message(message, commodity_map):
                 
             demand = commodity.get("demand", 0)
             station_commodities[commodity_map[name]] = (sell_price, demand, market_id)
-            log_message(BLUE, "DEBUG", f"Found commodity {commodity_map[name]} at {station_name} (price: {sell_price}, demand: {demand})")
+            log_message(GREEN, "COMMODITY", f"✓ {commodity_map[name]} at {station_name}: {sell_price:,} cr (demand: {demand:,})")
             
         if station_commodities:
-            log_message(GREEN, "DEBUG", f"Found {len(station_commodities)} relevant commodities for {station_name} in {system_name}")
+            log_message(GREEN, "COMMODITY", f"Added {len(station_commodities)} mining commodities to buffer for {station_name}")
             # Publish status update to indicate activity
             publish_status("running", datetime.now(timezone.utc))
             return station_name, station_commodities
         else:
-            log_message(YELLOW, "DEBUG", f"No relevant commodities found for {station_name} in {system_name}")
+            log_message(YELLOW, "COMMODITY", f"No relevant commodities found at {station_name}")
             
     except Exception as e:
         log_message(RED, "ERROR", f"Error processing message: {str(e)}")
-        publish_status("error")
         
     return None, None
 
@@ -429,7 +432,9 @@ def main():
                     current_time = time.time()
                     if current_time - last_flush >= DB_UPDATE_INTERVAL:
                         if commodity_buffer:
-                            log_message(YELLOW, "DATABASE", f"Writing to Database starting... ({len(commodity_buffer)} stations)")
+                            log_message(YELLOW, "DATABASE", f"Writing to Database starting... ({len(commodity_buffer)} stations in buffer)")
+                            for station, commodities in commodity_buffer.items():
+                                log_message(BLUE, "DATABASE", f"Station {station}: {len(commodities)} commodities buffered")
                             publish_status("updating", datetime.now(timezone.utc))
                             stations, commodities = flush_commodities_to_db(conn, commodity_buffer)
                             if stations > 0:
@@ -439,6 +444,8 @@ def main():
                                 db_errors += 1
                                 log_message(RED, "ERROR", "No stations were updated")
                             publish_status("running", datetime.now(timezone.utc))
+                        else:
+                            log_message(BLUE, "DATABASE", "No commodities in buffer to write")
                         last_flush = current_time
                 
             except Exception as e:
