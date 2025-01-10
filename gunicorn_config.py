@@ -4,8 +4,8 @@ import multiprocessing
 bind = "0.0.0.0:8000"
 backlog = 2048
 
-# Worker processes - reduce to minimum needed
-workers = 2  # Just two workers
+# Worker processes
+workers = 5  # (2 x 2 cores) + 1 = 5 workers
 worker_class = 'sync'
 worker_connections = 1000
 timeout = 30
