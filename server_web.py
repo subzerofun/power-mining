@@ -1003,8 +1003,27 @@ def start_updater():
     global updater_process, eddn_status
     
     try:
-        # Kill any existing process first
+        # Check for any running instances first
+        for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+            try:
+                if proc.info['cmdline'] and "update_live_web.py" in " ".join(proc.info['cmdline']):
+                    print(f"{ORANGE}[UPDATE-CHECK] Update service already running with PID: {proc.pid}{RESET}", flush=True)
+                    # Update PID file
+                    with open(PID_FILE, 'w') as f:
+                        f.write(str(proc.pid))
+                    return
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                continue
+        
+        # No running instance found, clean up any zombie processes
         kill_updater_process()
+        
+        # Remove stale PID file if it exists
+        if os.path.exists(PID_FILE):
+            try:
+                os.remove(PID_FILE)
+            except:
+                pass
         
         # Start new process
         updater_process = subprocess.Popen(
@@ -1012,9 +1031,12 @@ def start_updater():
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             universal_newlines=False,
-            bufsize=0,  # No buffering
             creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if os.name == 'nt' else 0
         )
+        
+        # Write PID to file
+        with open(PID_FILE, 'w') as f:
+            f.write(str(updater_process.pid))
         
         print(f"{ORANGE}[UPDATE-CHECK] Starting EDDN Live Update (PID: {updater_process.pid}){RESET}", flush=True)
         
@@ -1022,17 +1044,20 @@ def start_updater():
         threading.Thread(target=handle_output_stream, args=(updater_process.stdout,), daemon=True).start()
         threading.Thread(target=handle_output_stream, args=(updater_process.stderr,), daemon=True).start()
         
-        # Wait a moment to ensure process starts
-        time.sleep(1)
+        time.sleep(0.5)
         if updater_process.poll() is None:
             eddn_status["state"] = "starting"
-            eddn_status["last_activity"] = time.time()
         else:
             eddn_status["state"] = "error"
-            print(f"{ORANGE}[UPDATE-CHECK] EDDN updater failed to start{RESET}", flush=True)
+            print(f"{ORANGE}[ERROR] EDDN updater failed to start{RESET}", file=sys.stderr)
+            if os.path.exists(PID_FILE):
+                os.remove(PID_FILE)
+            
     except Exception as e:
-        print(f"{ORANGE}[UPDATE-CHECK] Error starting updater: {e}{RESET}", flush=True)
+        print(f"Error starting updater: {e}", file=sys.stderr)
         eddn_status["state"] = "error"
+        if os.path.exists(PID_FILE):
+            os.remove(PID_FILE)
 
 def monitor_process():
     """Monitor the update process and restart if needed"""
@@ -1084,12 +1109,29 @@ def create_app(*args, **kwargs):
             print("ERROR: DATABASE_URL environment variable must be set")
             sys.exit(1)
         
-        # Start updater if environment variable is set
+        # Only start updater in the main process, not in workers
         if os.getenv('ENABLE_LIVE_UPDATE', 'false').lower() == 'true':
-            global live_update_requested
-            live_update_requested = True
-            eddn_status["state"] = "starting"
-            start_updater()
+            if not os.environ.get('GUNICORN_WORKER_ID'):  # Only start in main process
+                global live_update_requested
+                live_update_requested = True
+                eddn_status["state"] = "starting"
+                
+                # Clean up any existing PID files
+                if os.path.exists(PID_FILE):
+                    try:
+                        os.remove(PID_FILE)
+                    except:
+                        pass
+                
+                # Kill any existing processes
+                for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+                    try:
+                        if proc.info['cmdline'] and "update_live_web.py" in " ".join(proc.info['cmdline']):
+                            proc.kill()
+                    except (psutil.NoSuchProcess, psutil.AccessDenied):
+                        continue
+                
+                start_updater()
     
     return app_wsgi
 

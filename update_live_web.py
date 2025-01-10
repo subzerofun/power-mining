@@ -55,7 +55,7 @@ try:
     status_publisher.connect(f"tcp://localhost:{STATUS_PORT}")
 except Exception as e:
     log_message(RED, "ERROR", f"Failed to connect to status port: {e}")
-    sys.exit(1)
+    # Don't exit, just continue without status updates
 
 def publish_status(state, last_db_update=None):
     """Publish status update via ZMQ"""
