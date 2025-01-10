@@ -451,7 +451,7 @@ def main():
                 
                 # Check schema
                 schema = data.get("$schemaRef", "").lower()
-                if "commodity/3" in schema.lower():
+                if "https://eddn.edcd.io/schemas/commodity/3" in schema.lower():
                     commodity_messages += 1
                     log_message(BLUE, "DEBUG", f"Processing commodity message {commodity_messages}")
                     log_message(BLUE, "DEBUG", f"Message schema: {schema}")
