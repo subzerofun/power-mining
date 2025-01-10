@@ -653,6 +653,8 @@ def search():
             # Add parameters in order of appearance
             params.extend([rx, rx, ry, ry, rz, rz, max_dist])  # Distance calculation
             params.extend([signal_type, signal_type])  # CTE parameters
+            params.append(signal_type)  # For hotspot check in JOIN
+            params.append(ring_type_filter)  # For ring type check in JOIN  
             
             # Build the rest of the query
             query += """
