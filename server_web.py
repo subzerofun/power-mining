@@ -21,7 +21,8 @@ YELLOW = '\033[93m'
 BLUE = '\033[94m'
 GREEN = '\033[92m'
 RED = '\033[91m'
-ORANGE = '\033[38;5;208m'  # Add orange color code
+CYAN = '\033[96m'  # Add cyan color code
+ORANGE = '\033[38;5;208m'
 RESET = '\033[0m'
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -41,37 +42,50 @@ shared_status = {"state": "offline", "last_db_update": None}  # Shared across wo
 
 def monitor_status():
     """Monitor status updates from the daemon"""
-    global shared_status, last_status_time
+    global shared_status, last_status_time, status_socket
     log_message(RED, "ZMQ-DEBUG", f"Starting monitor_status thread in worker {os.getpid()}")
+    
+    consecutive_errors = 0
     while True:
         try:
-            if status_socket.poll(100):
-                message = status_socket.recv_string()
-                last_status_time = time.time()
+            if status_socket and status_socket.poll(100):
                 try:
+                    message = status_socket.recv_string()
+                    last_status_time = time.time()
                     status_data = json.loads(message)
                     shared_status.update(status_data)
                     log_message(RED, "ZMQ-DEBUG", 
                         f"Worker {os.getpid()} received status: {status_data.get('state')} "
                         f"from daemon PID: {status_data.get('daemon_pid')}")
+                    consecutive_errors = 0  # Reset error counter on successful receive
+                except zmq.ZMQError as e:
+                    consecutive_errors += 1
+                    log_message(RED, "ZMQ-DEBUG", f"ZMQ error in monitor thread: {e}")
+                    if consecutive_errors > 3:
+                        log_message(RED, "ZMQ-DEBUG", "Too many consecutive errors, recreating socket...")
+                        setup_zmq()  # Recreate the socket
+                        consecutive_errors = 0
+                    time.sleep(1)
                 except json.JSONDecodeError as e:
                     log_message(RED, "ERROR", f"Failed to decode status message: {e}")
-            else:
-                # Log when no message is received
-                log_message(RED, "ZMQ-DEBUG", f"Worker {os.getpid()} - No status message in poll")
-        except zmq.ZMQError as e:
-            log_message(RED, "ERROR", f"ZMQ error in monitor thread: {e}")
-            time.sleep(1)
+                except Exception as e:
+                    log_message(RED, "ERROR", f"Error in monitor thread: {e}")
+            
+            # Check if we haven't received status updates for a while
+            if time.time() - last_status_time > 60:
+                shared_status["state"] = "offline"
+                log_message(RED, "ZMQ-DEBUG", f"Worker {os.getpid()} - No status updates for 60s, marking offline")
+                # Try to reconnect if we haven't received updates for a while
+                if consecutive_errors == 0:  # Only try once to avoid spam
+                    log_message(RED, "ZMQ-DEBUG", "Attempting to reconnect to daemon...")
+                    setup_zmq()
+                    consecutive_errors += 1
+            
+            time.sleep(0.1)
+            
         except Exception as e:
             log_message(RED, "ERROR", f"Error in monitor thread: {e}")
             time.sleep(1)
-            
-        # Check if we haven't received status updates for a while
-        if time.time() - last_status_time > 60:
-            shared_status["state"] = "offline"
-            log_message(RED, "ZMQ-DEBUG", f"Worker {os.getpid()} - No status updates for 60s, marking offline")
-            
-        time.sleep(0.1)
 
 def setup_zmq():
     """Setup ZMQ connection to update daemon"""
@@ -84,7 +98,12 @@ def setup_zmq():
     try:
         # Create new context and socket
         if zmq_context:
-            zmq_context.term()
+            try:
+                status_socket.close()
+                zmq_context.term()
+            except:
+                pass
+                
         zmq_context = zmq.Context()
         status_socket = zmq_context.socket(zmq.SUB)
         
@@ -92,10 +111,14 @@ def setup_zmq():
         status_socket.setsockopt(zmq.RCVTIMEO, 1000)  # 1 second timeout
         status_socket.setsockopt(zmq.LINGER, 0)       # Don't wait on close
         status_socket.setsockopt_string(zmq.SUBSCRIBE, "")  # Subscribe to all messages
+        status_socket.setsockopt(zmq.TCP_KEEPALIVE, 1)     # Enable keepalive
+        status_socket.setsockopt(zmq.TCP_KEEPALIVE_IDLE, 60)  # Probe after 60s
+        status_socket.setsockopt(zmq.TCP_KEEPALIVE_INTVL, 1)  # Probe every 1s
         
         # Connect to daemon's publish port
-        status_socket.connect(f"tcp://localhost:{STATUS_PORT}")
-        log_message(RED, "ZMQ-DEBUG", f"Worker {os.getpid()} connecting to daemon on port {STATUS_PORT}")
+        endpoint = f"tcp://localhost:{STATUS_PORT}"
+        status_socket.connect(endpoint)
+        log_message(RED, "ZMQ-DEBUG", f"Worker {os.getpid()} connecting to daemon at {endpoint}")
         
         # Try to get initial status
         if status_socket.poll(1000):  # Wait up to 1 second for initial status
@@ -105,8 +128,10 @@ def setup_zmq():
                 shared_status.update(status_data)
                 last_status_time = time.time()
                 log_message(RED, "ZMQ-DEBUG", f"Worker {os.getpid()} received initial status: {shared_status['state']}")
-            except:
-                log_message(RED, "ZMQ-DEBUG", f"Worker {os.getpid()} - No initial status received")
+            except Exception as e:
+                log_message(RED, "ZMQ-DEBUG", f"Worker {os.getpid()} - Failed to get initial status: {e}")
+        else:
+            log_message(RED, "ZMQ-DEBUG", f"Worker {os.getpid()} - No initial status received after 1s")
         
         # Start status monitoring thread
         status_thread = threading.Thread(target=monitor_status, daemon=True)
@@ -114,6 +139,9 @@ def setup_zmq():
         
     except zmq.error.ZMQError as e:
         log_message(RED, f"ZMQ-DEBUG", f"Worker {os.getpid()} could not connect to daemon: {e}")
+        shared_status = {"state": "offline", "last_db_update": None}
+    except Exception as e:
+        log_message(RED, f"ZMQ-DEBUG", f"Worker {os.getpid()} setup error: {e}")
         shared_status = {"state": "offline", "last_db_update": None}
 
 def is_update_process_running():
