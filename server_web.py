@@ -466,11 +466,16 @@ def search():
         if mining_types and 'All' not in mining_types:
             with open('data/mining_data.json', 'r') as f:
                 mat_data = json.load(f)
-            if not next((i for i in mat_data['materials'] if i['name'] == signal_type), None):
-                return jsonify([])
+                app.logger.info(f"Searching for material: {signal_type}")
+                cd = next((i for i in mat_data['materials'] if i['name'] == signal_type), None)
+                if not cd:
+                    app.logger.info(f"Material {signal_type} not found in mining_data.json")
+                    return jsonify([])
 
         ring_materials = get_ring_materials()
         is_ring_material = signal_type in ring_materials
+        app.logger.info(f"Material type check - signal_type: {signal_type}, is_ring_material: {is_ring_material}")
+        
         conn = get_db_connection()
         if not conn:
             return jsonify({'error': 'Database connection failed'}), 500
@@ -513,11 +518,13 @@ def search():
             else:
                 ring_cond = ' AND ms.ring_type = %s'
                 ring_params.append(ring_type_filter)
+                app.logger.info(f"Ring type filter: {ring_type_filter}")
                 try:
                     with open('data/mining_data.json', 'r') as f:
                         mat_data = json.load(f)
                         cd = next((i for i in mat_data['materials'] if i['name'] == signal_type), None)
                         if not cd or ring_type_filter not in cd['ring_types']:
+                            app.logger.info(f"Material data check - cd: {cd}, ring_type_filter: {ring_type_filter}, ring_types: {cd['ring_types'] if cd else None}")
                             return jsonify([])
                 except:
                     pass
@@ -672,6 +679,9 @@ def search():
                 query += " LIMIT %s"
                 params.append(limit)
 
+        app.logger.info(f"Final query: {query}")
+        app.logger.info(f"Query parameters: {params}")
+        
         cur.execute(query, params)
         rows = cur.fetchall()
         pr = []
