@@ -140,19 +140,30 @@ def main():
     
     # Socket to receive status from update_live_web.py
     status_receiver = context.socket(zmq.SUB)
-    status_receiver.connect(f"tcp://localhost:{STATUS_RECEIVE_PORT}")
+    status_receiver.setsockopt(zmq.RCVTIMEO, 1000)  # 1 second timeout
+    status_receiver.setsockopt(zmq.LINGER, 0)       # Don't wait on close
     status_receiver.setsockopt_string(zmq.SUBSCRIBE, "")
+    status_receiver.connect(f"tcp://localhost:{STATUS_RECEIVE_PORT}")
     
     # Socket to publish status to web workers
     status_publisher = context.socket(zmq.PUB)
+    status_publisher.setsockopt(zmq.LINGER, 0)  # Don't wait on close
     status_publisher.bind(f"tcp://*:{STATUS_PUBLISH_PORT}")
     
-    log_message(GREEN, "INIT", f"Update daemon started. PID: {os.getpid()}")
-    log_message(BLUE, "ZMQ", f"Receiving status on port {STATUS_RECEIVE_PORT}")
-    log_message(BLUE, "ZMQ", f"Publishing status on port {STATUS_PUBLISH_PORT}")
+    # Small delay to allow publisher to fully bind
+    time.sleep(0.2)
+    
+    log_message(RED, "ZMQ-DEBUG", f"Daemon started. PID: {os.getpid()}")
+    log_message(RED, "ZMQ-DEBUG", f"Receiving status on port {STATUS_RECEIVE_PORT}")
+    log_message(RED, "ZMQ-DEBUG", f"Publishing status on port {STATUS_PUBLISH_PORT}")
     
     # Start initial updater process
     start_updater()
+    
+    # Send initial status to ensure workers get it
+    current_status["daemon_pid"] = os.getpid()
+    status_publisher.send_string(json.dumps(current_status))
+    log_message(RED, "ZMQ-DEBUG", f"Sent initial status: {current_status['state']}")
     
     last_status_time = time.time()
     
@@ -169,17 +180,15 @@ def main():
                     
                     # Forward status to web workers with daemon info
                     status_publisher.send_string(json.dumps(current_status))
-                    log_message(BLUE, "STATUS", f"Forwarded status: {current_status['state']}")
+                    log_message(RED, "ZMQ-DEBUG", f"Received status from updater and forwarded to workers: {current_status['state']}")
                 except Exception as e:
                     log_message(RED, "ERROR", f"Failed to process status: {e}")
             
-            # Check if updater is running
-            if time.time() - last_status_time > 60:
-                if updater_process and updater_process.poll() is not None:
-                    log_message(YELLOW, "MONITOR", "Update process died, restarting...")
-                    kill_updater_process()
-                    start_updater()
-                    last_status_time = time.time()
+            # Periodically resend status even if no updates
+            if time.time() - last_status_time > 5:  # Every 5 seconds
+                status_publisher.send_string(json.dumps(current_status))
+                log_message(RED, "ZMQ-DEBUG", f"Sent periodic status update: {current_status['state']}")
+                last_status_time = time.time()
             
             time.sleep(0.1)
             
