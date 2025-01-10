@@ -33,15 +33,46 @@ DATABASE_URL = None  # Will be set from args or env in main()
 PID_FILE = os.path.join(tempfile.gettempdir(), 'update_live_web.pid')
 
 # ZMQ setup for status updates
-STATUS_PORT = int(os.getenv('STATUS_PORT', '5558'))  # Changed to daemon's publish port
+STATUS_PORT = 5558  # Port to receive status from update daemon
 zmq_context = None
 status_socket = None
 last_status_time = 0
 shared_status = {"state": "offline", "last_db_update": None}  # Shared across workers
 
+def monitor_status():
+    """Monitor status updates from the daemon"""
+    global shared_status, last_status_time
+    while True:
+        try:
+            if status_socket.poll(100):
+                message = status_socket.recv_string()
+                last_status_time = time.time()
+                try:
+                    status_data = json.loads(message)
+                    shared_status.update(status_data)
+                    log_message(BLUE, "STATUS", 
+                        f"Received status from daemon (PID: {status_data.get('daemon_pid')}): "
+                        f"state={status_data.get('state')}, "
+                        f"updater_pid={status_data.get('updater_pid')}")
+                except json.JSONDecodeError as e:
+                    log_message(RED, "ERROR", f"Failed to decode status message: {e}")
+        except zmq.ZMQError as e:
+            log_message(RED, "ERROR", f"ZMQ error in monitor thread: {e}")
+            time.sleep(1)
+        except Exception as e:
+            log_message(RED, "ERROR", f"Error in monitor thread: {e}")
+            time.sleep(1)
+            
+        # Check if we haven't received status updates for a while
+        if time.time() - last_status_time > 60:
+            shared_status["state"] = "offline"
+            log_message(YELLOW, "STATUS", "No status updates received for 60s, marking as offline")
+            
+        time.sleep(0.1)
+
 def setup_zmq():
     """Setup ZMQ connection to update daemon"""
-    global zmq_context, status_socket
+    global zmq_context, status_socket, shared_status
     zmq_context = zmq.Context()
     status_socket = zmq_context.socket(zmq.SUB)
     try:
@@ -49,31 +80,26 @@ def setup_zmq():
         status_socket.setsockopt_string(zmq.SUBSCRIBE, "")
         log_message(BLUE, f"WORKER", f"Connected to update daemon on port {STATUS_PORT}")
         
+        # Initialize shared status
+        shared_status = {"state": "offline", "last_db_update": None}
+        
         # Start status monitoring thread
-        def monitor_status():
-            global shared_status, last_status_time
-            while True:
-                try:
-                    if status_socket.poll(100):
-                        message = status_socket.recv_string()
-                        last_status_time = time.time()
-                        try:
-                            status_data = json.loads(message)
-                            shared_status.update(status_data)
-                            log_message(BLUE, "STATUS", 
-                                f"Received status from daemon (PID: {status_data.get('daemon_pid')}): "
-                                f"state={status_data.get('state')}, "
-                                f"updater_pid={status_data.get('updater_pid')}")
-                        except:
-                            pass
-                except:
-                    time.sleep(0.1)
-                    
         status_thread = threading.Thread(target=monitor_status, daemon=True)
         status_thread.start()
         
+        # Try to get initial status
+        if status_socket.poll(1000):  # Wait up to 1 second for initial status
+            try:
+                message = status_socket.recv_string()
+                status_data = json.loads(message)
+                shared_status.update(status_data)
+                log_message(BLUE, "STATUS", f"Received initial status: {shared_status['state']}")
+            except:
+                log_message(YELLOW, "STATUS", "No initial status received")
+        
     except zmq.error.ZMQError as e:
         log_message(RED, f"WORKER", f"Could not connect to update daemon: {e}")
+        shared_status = {"state": "offline", "last_db_update": None}
 
 def is_update_process_running():
     """Check if update_live_web.py is running using shared status"""
@@ -231,6 +257,7 @@ def handle_websocket(ws):
     """Handle WebSocket connections and send status updates to clients"""
     try:
         # Send initial status
+        log_message(BLUE, "WEBSOCKET", f"New client connected, sending initial status: {shared_status}")
         ws.send(json.dumps(shared_status))
         
         while True:
@@ -238,16 +265,33 @@ def handle_websocket(ws):
                 # Use poll to avoid blocking forever
                 if status_socket and status_socket.poll(100):  # 100ms timeout
                     message = status_socket.recv_string()
-                    ws.send(message)
-            except zmq.ZMQError:
+                    try:
+                        status_data = json.loads(message)
+                        log_message(BLUE, "WEBSOCKET", f"Forwarding status to client: {status_data}")
+                        ws.send(message)
+                    except json.JSONDecodeError:
+                        log_message(RED, "WEBSOCKET", "Failed to decode status message")
+                        continue
+            except zmq.ZMQError as e:
+                log_message(RED, "WEBSOCKET", f"ZMQ error: {e}")
                 continue
             except Exception as e:
-                print(f"WebSocket error: {e}", file=sys.stderr)
+                log_message(RED, "WEBSOCKET", f"Error: {e}")
                 break
-            time.sleep(0.1)
+            
+            # Send periodic status updates even if no new messages
+            try:
+                ws.send(json.dumps(shared_status))
+            except Exception as e:
+                log_message(RED, "WEBSOCKET", f"Failed to send periodic update: {e}")
+                break
+                
+            time.sleep(1)  # Send update every second
             
     except Exception as e:
-        print(f"WebSocket error: {e}", file=sys.stderr)
+        log_message(RED, "WEBSOCKET", f"Connection error: {e}")
+    finally:
+        log_message(BLUE, "WEBSOCKET", "Client disconnected")
 
 @app.route('/favicon.ico')
 def favicon():
