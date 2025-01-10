@@ -33,29 +33,25 @@ DATABASE_URL = None  # Will be set from args or env in main()
 PID_FILE = os.path.join(tempfile.gettempdir(), 'update_live_web.pid')
 
 # ZMQ setup for status updates
-STATUS_PORT = int(os.getenv('STATUS_PORT', '5557'))
+STATUS_PORT = int(os.getenv('STATUS_PORT', '5558'))  # Changed to daemon's publish port
 zmq_context = None
 status_socket = None
 last_status_time = 0
-updater_pid = None
 shared_status = {"state": "offline", "last_db_update": None}  # Shared across workers
 
 def setup_zmq():
-    """Setup ZMQ connection in the main process"""
+    """Setup ZMQ connection to update daemon"""
     global zmq_context, status_socket
-    if os.getppid() != 1:  # Only setup in main Gunicorn process
-        return
-        
     zmq_context = zmq.Context()
     status_socket = zmq_context.socket(zmq.SUB)
     try:
         status_socket.connect(f"tcp://localhost:{STATUS_PORT}")
         status_socket.setsockopt_string(zmq.SUBSCRIBE, "")
-        log_message(BLUE, f"MAIN", "ZMQ connection established")
+        log_message(BLUE, f"WORKER", f"Connected to update daemon on port {STATUS_PORT}")
         
         # Start status monitoring thread
         def monitor_status():
-            global shared_status, last_status_time, updater_pid
+            global shared_status, last_status_time
             while True:
                 try:
                     if status_socket.poll(100):
@@ -64,9 +60,10 @@ def setup_zmq():
                         try:
                             status_data = json.loads(message)
                             shared_status.update(status_data)
-                            if 'pid' in status_data:
-                                updater_pid = status_data['pid']
-                                log_message(BLUE, "STATUS", f"Update process active (PID: {updater_pid})")
+                            log_message(BLUE, "STATUS", 
+                                f"Received status from daemon (PID: {status_data.get('daemon_pid')}): "
+                                f"state={status_data.get('state')}, "
+                                f"updater_pid={status_data.get('updater_pid')}")
                         except:
                             pass
                 except:
@@ -76,7 +73,7 @@ def setup_zmq():
         status_thread.start()
         
     except zmq.error.ZMQError as e:
-        log_message(RED, f"MAIN", f"Could not connect to status port: {e}")
+        log_message(RED, f"WORKER", f"Could not connect to update daemon: {e}")
 
 def is_update_process_running():
     """Check if update_live_web.py is running using shared status"""
@@ -124,19 +121,8 @@ def create_app(*args, **kwargs):
             print("ERROR: DATABASE_URL environment variable must be set")
             sys.exit(1)
         
-        # Setup ZMQ and monitor in main process only
-        if os.getppid() == 1:  # Running under init (main Gunicorn process)
-            setup_zmq()
-            
-            # Create event loop for the thread
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            
-            def run_monitor():
-                loop.run_until_complete(monitor_update_process())
-            
-            monitor_thread = threading.Thread(target=run_monitor, daemon=True)
-            monitor_thread.start()
+        # Setup ZMQ in each worker to receive status
+        setup_zmq()
     
     return app_wsgi
 
@@ -242,34 +228,26 @@ atexit.register(cleanup)
 
 @sock.route('/ws')
 def handle_websocket(ws):
+    """Handle WebSocket connections and send status updates to clients"""
     try:
-        # Create ZMQ subscriber for status updates
-        subscriber = zmq_context.socket(zmq.SUB)
-        subscriber.connect(f"tcp://localhost:{STATUS_PORT}")
-        subscriber.setsockopt_string(zmq.SUBSCRIBE, "")
-        
         # Send initial status
-        ws.send(json.dumps({"state": eddn_status["state"], "last_db_update": eddn_status.get("last_db_update")}))
+        ws.send(json.dumps(shared_status))
         
         while True:
             try:
                 # Use poll to avoid blocking forever
-                if subscriber.poll(100):  # 100ms timeout
-                    message = subscriber.recv_string()
+                if status_socket and status_socket.poll(100):  # 100ms timeout
+                    message = status_socket.recv_string()
                     ws.send(message)
             except zmq.ZMQError:
                 continue
             except Exception as e:
                 print(f"WebSocket error: {e}", file=sys.stderr)
                 break
+            time.sleep(0.1)
             
     except Exception as e:
         print(f"WebSocket error: {e}", file=sys.stderr)
-    finally:
-        try:
-            subscriber.close()
-        except:
-            pass
 
 @app.route('/favicon.ico')
 def favicon():
