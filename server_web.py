@@ -115,8 +115,8 @@ def setup_zmq():
         status_socket.setsockopt(zmq.TCP_KEEPALIVE_IDLE, 60)  # Probe after 60s
         status_socket.setsockopt(zmq.TCP_KEEPALIVE_INTVL, 1)  # Probe every 1s
         
-        # Connect to daemon's publish port
-        endpoint = f"tcp://localhost:{STATUS_PORT}"
+        # Connect to daemon's publish port using service name
+        endpoint = f"tcp://daemon:5558"  # Changed from localhost to daemon
         status_socket.connect(endpoint)
         log_message(RED, "ZMQ-DEBUG", f"Worker {os.getpid()} connecting to daemon at {endpoint}")
         
