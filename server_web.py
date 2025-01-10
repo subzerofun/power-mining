@@ -463,19 +463,31 @@ def search():
         limit = int(request.args.get('limit', '30'))
         mining_types = request.args.getlist('mining_types[]')
 
+        log_message(BLUE, "SEARCH", f"Search parameters:")
+        log_message(BLUE, "SEARCH", f"- System: {ref_system}")
+        log_message(BLUE, "SEARCH", f"- Distance: {max_dist}")
+        log_message(BLUE, "SEARCH", f"- Power: {controlling_power}")
+        log_message(BLUE, "SEARCH", f"- Power states: {power_states}")
+        log_message(BLUE, "SEARCH", f"- Signal type: {signal_type}")
+        log_message(BLUE, "SEARCH", f"- Ring type filter: {ring_type_filter}")
+        log_message(BLUE, "SEARCH", f"- Mining types: {mining_types}")
+
         if mining_types and 'All' not in mining_types:
             with open('data/mining_data.json', 'r') as f:
                 mat_data = json.load(f)
-                app.logger.info(f"Searching for material: {signal_type}")
+                log_message(BLUE, "SEARCH", f"Checking material {signal_type} in mining_data.json")
                 cd = next((i for i in mat_data['materials'] if i['name'] == signal_type), None)
                 if not cd:
-                    app.logger.info(f"Material {signal_type} not found in mining_data.json")
+                    log_message(RED, "SEARCH", f"Material {signal_type} not found in mining_data.json")
                     return jsonify([])
+                log_message(BLUE, "SEARCH", f"Material data: {cd}")
 
         ring_materials = get_ring_materials()
         is_ring_material = signal_type in ring_materials
-        app.logger.info(f"Material type check - signal_type: {signal_type}, is_ring_material: {is_ring_material}")
-        
+        log_message(BLUE, "SEARCH", f"Is ring material: {is_ring_material}")
+        if is_ring_material:
+            log_message(BLUE, "SEARCH", f"Ring material data: {ring_materials[signal_type]}")
+
         conn = get_db_connection()
         if not conn:
             return jsonify({'error': 'Database connection failed'}), 500
@@ -518,15 +530,18 @@ def search():
             else:
                 ring_cond = ' AND ms.ring_type = %s'
                 ring_params.append(ring_type_filter)
-                app.logger.info(f"Ring type filter: {ring_type_filter}")
+                log_message(BLUE, "SEARCH", f"Adding ring type filter: {ring_type_filter}")
                 try:
                     with open('data/mining_data.json', 'r') as f:
                         mat_data = json.load(f)
                         cd = next((i for i in mat_data['materials'] if i['name'] == signal_type), None)
+                        log_message(BLUE, "SEARCH", f"Material data for ring type check: {cd}")
                         if not cd or ring_type_filter not in cd['ring_types']:
-                            app.logger.info(f"Material data check - cd: {cd}, ring_type_filter: {ring_type_filter}, ring_types: {cd['ring_types'] if cd else None}")
+                            log_message(RED, "SEARCH", f"Material {signal_type} not found in ring type {ring_type_filter}")
                             return jsonify([])
-                except:
+                        log_message(BLUE, "SEARCH", f"Ring type data: {cd['ring_types'][ring_type_filter]}")
+                except Exception as e:
+                    log_message(RED, "ERROR", f"Error checking ring type: {str(e)}")
                     pass
 
         # Define non-hotspot materials
@@ -679,11 +694,20 @@ def search():
                 query += " LIMIT %s"
                 params.append(limit)
 
-        app.logger.info(f"Final query: {query}")
-        app.logger.info(f"Query parameters: {params}")
+        query = base_query + ring_cond + order_by
+        params = ring_params
+        log_message(BLUE, "SEARCH", f"Final SQL query: {query}")
+        log_message(BLUE, "SEARCH", f"Query parameters: {params}")
         
-        cur.execute(query, params)
-        rows = cur.fetchall()
+        try:
+            cursor.execute(query, params)
+        except Exception as e:
+            log_message(RED, "ERROR", f"Error executing query: {e}")
+            return jsonify({'error': f'Error executing query: {e}'}), 500
+
+        rows = cursor.fetchall()
+        app.logger.info(f"Query returned {len(rows)} rows")
+
         pr = []
         cur_sys = None
 
