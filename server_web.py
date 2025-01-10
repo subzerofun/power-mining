@@ -694,8 +694,6 @@ def search():
                 query += " LIMIT %s"
                 params.append(limit)
 
-        query = base_query + ring_cond + order_by
-        params = ring_params
         log_message(BLUE, "SEARCH", f"Final SQL query: {query}")
         log_message(BLUE, "SEARCH", f"Query parameters: {params}")
         
