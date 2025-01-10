@@ -27,7 +27,7 @@ def get_timestamp():
 def log_message(color, tag, message):
     """Log a message with timestamp and color"""
     timestamp = datetime.now().strftime("%Y:%m:%d-%H:%M:%S")
-    print(f"[{timestamp}] [{tag}] {message}", flush=True)  # Always flush
+    print(f"{color}[{timestamp}] [{tag}] {message}{RESET}", flush=True)  # Always flush
 
 # Constants
 DATABASE_URL = None  # Will be set from args or env in main()
@@ -111,6 +111,7 @@ def load_commodity_map():
 def flush_commodities_to_db(conn, commodity_buffer, auto_commit=False):
     """Write buffered commodities to database"""
     if not commodity_buffer:
+        log_message(YELLOW, "DATABASE", "No commodities in buffer to write")
         return 0, 0
 
     cursor = conn.cursor()
@@ -123,52 +124,72 @@ def flush_commodities_to_db(conn, commodity_buffer, auto_commit=False):
         
         # Process each station's commodities
         for station_name, new_map in commodity_buffer.items():
-            stations_processed += 1
-            
-            # Get station info
-            cursor.execute("""
-                SELECT system_id64, station_id
-                FROM stations
-                WHERE station_name = %s
-            """, (station_name,))
-            row = cursor.fetchone()
-            if not row:
-                log_message(RED, "ERROR", f"Station not found: {station_name}")
-                continue
+            try:
+                stations_processed += 1
                 
-            system_id64, station_id = row
-            
-            # Delete existing commodities
-            cursor.execute("""
-                DELETE FROM station_commodities 
-                WHERE system_id64 = %s AND station_name = %s
-            """, (system_id64, station_name))
-            
-            # Insert new commodities
-            cursor.executemany("""
-                INSERT INTO station_commodities 
-                    (system_id64, station_id, station_name, commodity_name, sell_price, demand)
-                VALUES (%s, %s, %s, %s, %s, %s)
-                ON CONFLICT (system_id64, station_name, commodity_name) 
-                DO UPDATE SET 
-                    sell_price = EXCLUDED.sell_price,
-                    demand = EXCLUDED.demand
-            """, [(system_id64, station_id, station_name, commodity_name, data[0], data[1]) 
-                  for commodity_name, data in new_map.items()])
-            
-            # Update station timestamp
-            cursor.execute("""
-                UPDATE stations
-                SET update_time = %s
-                WHERE system_id64 = %s AND station_id = %s
-            """, (datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S+00"), system_id64, station_id))
-            
-            total_commodities += len(new_map)
-            
-            # Log progress every 10 stations
-            if stations_processed % 10 == 0:
-                conn.commit()
-                log_message(BLUE, "DATABASE", f"Progress: {stations_processed}/{total_stations} stations processed")
+                # Get station info
+                cursor.execute("""
+                    SELECT system_id64, station_id
+                    FROM stations
+                    WHERE station_name = %s
+                """, (station_name,))
+                row = cursor.fetchone()
+                if not row:
+                    log_message(RED, "ERROR", f"Station not found in database: {station_name}")
+                    continue
+                    
+                system_id64, station_id = row
+                log_message(BLUE, "DATABASE", f"Processing station {station_name} ({len(new_map)} commodities)")
+                
+                # Delete existing commodities
+                try:
+                    cursor.execute("""
+                        DELETE FROM station_commodities 
+                        WHERE system_id64 = %s AND station_name = %s
+                    """, (system_id64, station_name))
+                    log_message(BLUE, "DATABASE", f"Deleted existing commodities for {station_name}")
+                except Exception as e:
+                    log_message(RED, "ERROR", f"Failed to delete existing commodities for {station_name}: {str(e)}")
+                    continue
+                
+                # Insert new commodities
+                try:
+                    cursor.executemany("""
+                        INSERT INTO station_commodities 
+                            (system_id64, station_id, station_name, commodity_name, sell_price, demand)
+                        VALUES (%s, %s, %s, %s, %s, %s)
+                        ON CONFLICT (system_id64, station_name, commodity_name) 
+                        DO UPDATE SET 
+                            sell_price = EXCLUDED.sell_price,
+                            demand = EXCLUDED.demand
+                    """, [(system_id64, station_id, station_name, commodity_name, data[0], data[1]) 
+                          for commodity_name, data in new_map.items()])
+                    log_message(BLUE, "DATABASE", f"Inserted {len(new_map)} commodities for {station_name}")
+                except Exception as e:
+                    log_message(RED, "ERROR", f"Failed to insert commodities for {station_name}: {str(e)}")
+                    continue
+                
+                # Update station timestamp
+                try:
+                    cursor.execute("""
+                        UPDATE stations
+                        SET update_time = %s
+                        WHERE system_id64 = %s AND station_id = %s
+                    """, (datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S+00"), system_id64, station_id))
+                    log_message(BLUE, "DATABASE", f"Updated timestamp for {station_name}")
+                except Exception as e:
+                    log_message(RED, "ERROR", f"Failed to update timestamp for {station_name}: {str(e)}")
+                
+                total_commodities += len(new_map)
+                
+                # Log progress every 10 stations
+                if stations_processed % 10 == 0:
+                    conn.commit()
+                    log_message(BLUE, "DATABASE", f"Progress: {stations_processed}/{total_stations} stations processed")
+
+            except Exception as e:
+                log_message(RED, "ERROR", f"Failed to process station {station_name}: {str(e)}")
+                continue
 
         # Final commit
         conn.commit()
@@ -274,7 +295,7 @@ def process_message(message, commodity_map):
         # Process commodities
         station_commodities = {}
         commodities = message.get("commodities", [])
-        log_message(BLUE, "COMMODITY", f"Found {len(commodities)} commodities at {station_name} in {system_name}")
+        log_message(BLUE, "DEBUG", f"Processing {len(commodities)} commodities at {station_name} in {system_name}")
         
         for commodity in commodities:
             name = commodity.get("name", "").lower()
@@ -282,10 +303,12 @@ def process_message(message, commodity_map):
                 continue
                 
             if name not in commodity_map:
+                log_message(YELLOW, "DEBUG", f"Skipping unknown commodity: {name}")
                 continue
                 
             sell_price = commodity.get("sellPrice", 0)
             if sell_price <= 0:
+                log_message(YELLOW, "DEBUG", f"Skipping {name} - no sell price")
                 continue
                 
             demand = commodity.get("demand", 0)
@@ -423,6 +446,7 @@ def main():
                 if station_name and commodities:
                     commodity_buffer[station_name] = commodities
                     messages_processed += 1
+                    log_message(BLUE, "DEBUG", f"Buffer now contains {len(commodity_buffer)} stations")
                     
                     # Print status every 100 messages
                     if messages_processed % 100 == 0:
@@ -431,6 +455,7 @@ def main():
                     # Flush to database every DB_UPDATE_INTERVAL seconds
                     current_time = time.time()
                     if current_time - last_flush >= DB_UPDATE_INTERVAL:
+                        log_message(YELLOW, "DEBUG", f"Time since last flush: {current_time - last_flush:.1f}s")
                         if commodity_buffer:
                             log_message(YELLOW, "DATABASE", f"Writing to Database starting... ({len(commodity_buffer)} stations in buffer)")
                             for station, commodities in commodity_buffer.items():

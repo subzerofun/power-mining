@@ -1112,32 +1112,55 @@ def create_app(*args, **kwargs):
             print("ERROR: DATABASE_URL environment variable must be set")
             sys.exit(1)
         
-        # Only start updater in the main process
+        # Start the monitor thread only in the main process
         if os.getenv('ENABLE_LIVE_UPDATE', 'false').lower() == 'true':
-            if not os.environ.get('GUNICORN_WORKER_ID'):  # Only in main process
-                global live_update_requested
-                live_update_requested = True
-                eddn_status["state"] = "starting"
-                
-                # Kill any existing processes
-                for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
-                    try:
-                        if proc.info['cmdline'] and "update_live_web.py" in " ".join(proc.info['cmdline']):
-                            proc.kill()
-                    except (psutil.NoSuchProcess, psutil.AccessDenied):
-                        continue
-                
-                # Clean up PID file
-                if os.path.exists(PID_FILE):
-                    try:
-                        os.remove(PID_FILE)
-                    except:
-                        pass
-                
-                # Start the updater
-                start_updater()
+            if os.getppid() == 1:  # Running under init (main Gunicorn process)
+                monitor_thread = threading.Thread(target=monitor_update_process, daemon=True)
+                monitor_thread.start()
     
     return app_wsgi
+
+def is_update_process_running():
+    """Check if update_live_web.py is running on the server"""
+    try:
+        for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+            try:
+                if proc.info['cmdline'] and "update_live_web.py" in " ".join(proc.info['cmdline']):
+                    return True
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                continue
+        return False
+    except Exception as e:
+        log_message(RED, "ERROR", f"Failed to check for running processes: {e}")
+        return True  # Assume it's running if we can't check
+
+def monitor_update_process():
+    """Monitor update_live_web.py and restart if needed"""
+    global eddn_status
+    
+    # Initial delay to let Appliku worker start
+    time.sleep(30)
+    
+    while True:
+        try:
+            if not is_update_process_running():
+                log_message(YELLOW, "MONITOR", "No update process found, waiting additional 30s to confirm...")
+                # Double check after a delay to avoid race conditions
+                time.sleep(30)
+                
+                if not is_update_process_running():
+                    log_message(YELLOW, "MONITOR", "Update process confirmed dead, starting new instance...")
+                    eddn_status["state"] = "starting"
+                    start_updater()
+                    # Wait to let the new process initialize
+                    time.sleep(10)
+            else:
+                log_message(BLUE, "MONITOR", "Update process is running")
+        except Exception as e:
+            log_message(RED, "ERROR", f"Error in monitor thread: {e}")
+        
+        # Check again in 60 seconds
+        time.sleep(60)
 
 if __name__ == '__main__':
     asyncio.run(main())
