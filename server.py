@@ -9,7 +9,11 @@ from typing import Dict, List, Optional
 import mining_data as mining_data, res_data as res_data
 import tempfile
 import io
-from utils.common import get_db_connection, log_message, BLUE, RED, YELLOW, GREEN, CYAN, ORANGE, RESET
+from utils.common import (
+    get_db_connection, log_message, 
+    BLUE, RED, YELLOW, GREEN, CYAN, ORANGE, RESET,
+    BASE_DIR
+)
 from utils.search import (
     search,
     search_highest,
@@ -17,6 +21,47 @@ from utils.search import (
     search_res_hotspots,
     search_high_yield_platinum
 )
+
+# Custom JSON encoder to handle datetime objects
+class CustomJSONEncoder(JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, datetime):
+            return obj.strftime('%Y-%m-%d')
+        return super().default(obj)
+
+# Create Flask app instance
+app = Flask(__name__, template_folder=BASE_DIR, static_folder=None)
+app.json_encoder = CustomJSONEncoder
+sock = Sock(app)
+live_update_requested = False
+eddn_status = {"state": "offline", "last_db_update": None}
+
+# Gunicorn entry point
+app_wsgi = None
+
+def calculate_distance(x1, y1, z1, x2, y2, z2): 
+    return math.sqrt((x2-x1)**2 + (y2-y1)**2 + (z2-z1)**2)
+
+def create_app(*args, **kwargs):
+    global app_wsgi, DATABASE_URL
+    if app_wsgi is None:
+        app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
+        
+        # Set DATABASE_URL for all workers
+        DATABASE_URL = os.getenv('DATABASE_URL')
+        if not DATABASE_URL:
+            print("ERROR: DATABASE_URL environment variable must be set")
+            sys.exit(1)
+            
+        # Set DATABASE_URL in app config
+        app.config['DATABASE_URL'] = DATABASE_URL
+        
+        app_wsgi = app
+        
+        # Setup ZMQ in each worker to receive status
+        setup_zmq()
+    
+    return app_wsgi
 
 # Global flag for development mode
 DEV_MODE = False  # Will be set from args in main()
@@ -29,15 +74,6 @@ if not DEV_MODE:
         print("WebSocket dependencies not found. Run 'pip install websockets' to enable live updates.")
         print("Or run with --dev flag to disable WebSocket functionality: python server.py --dev")
         sys.exit(1)
-
-# Custom JSON encoder to handle datetime objects
-class CustomJSONEncoder(JSONEncoder):
-    def default(self, obj):
-        if isinstance(obj, datetime):
-            return obj.strftime('%Y-%m-%d')
-        return super().default(obj)
-
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # Environment variables for configuration
 DATABASE_URL = None  # Will be set from args or env in main()
@@ -161,63 +197,6 @@ def log_message(color, tag, message):
     timestamp = datetime.now().strftime("%Y:%m:%d-%H:%M:%S")
     worker_id = os.environ.get('GUNICORN_WORKER_ID', 'MAIN')
     print(f"{color}[{timestamp}] [{tag}-{os.getpid()}] {message}{RESET}", flush=True)
-
-app = Flask(__name__, template_folder=BASE_DIR, static_folder=None)
-app.json_encoder = CustomJSONEncoder
-sock = Sock(app)
-live_update_requested = False
-eddn_status = {"state": "offline", "last_db_update": None}
-
-# Gunicorn entry point
-app_wsgi = None
-
-
-def dict_factory(cursor,row):
-    d = {}
-    for i,col in enumerate(cursor.description):
-        d[col[0]]=row[i]
-    return d
-
-def get_db_connection():
-    """Get a database connection"""
-    try:
-        conn = psycopg2.connect(DATABASE_URL)
-        conn.cursor_factory = DictCursor  # This provides dict-like access similar to sqlite3's dict_factory
-        return conn
-    except Exception as e:
-        app.logger.error(f"Database connection error: {str(e)}")
-        return None
-
-def calculate_distance(x1,y1,z1,x2,y2,z2): return math.sqrt((x2-x1)**2+(y2-y1)**2+(z2-z1)**2)
-
-def get_ring_materials():
-    rm={}
-    try:
-        with open('data/ring_materials.csv','r') as f:
-            next(f)
-            for line in f:
-                mat,ab,rt,cond,val=line.strip().split(',')
-                rm[mat]={'ring_types':[x.strip() for x in rt.split('/')],'abbreviation':ab,'conditions':cond,'value':val}
-    except Exception as e:
-        app.logger.error(f"Error loading ring materials: {str(e)}")
-    return rm
-
-def create_app(*args, **kwargs):
-    global app_wsgi, DATABASE_URL
-    if app_wsgi is None:
-        app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
-        app_wsgi = app
-        
-        # Set DATABASE_URL for all workers
-        DATABASE_URL = os.getenv('DATABASE_URL')
-        if not DATABASE_URL:
-            print("ERROR: DATABASE_URL environment variable must be set")
-            sys.exit(1)
-        
-        # Setup ZMQ in each worker to receive status
-        setup_zmq()
-    
-    return app_wsgi
 
 @sock.route('/ws')
 def handle_websocket(ws):
@@ -395,41 +374,47 @@ async def main():
         print("ERROR: Database URL must be provided via --db argument or DATABASE_URL environment variable")
         return 1
 
+    # Set DATABASE_URL in app config
+    app.config['DATABASE_URL'] = DATABASE_URL
+
     # Bind websocket to all interfaces but web server to specified host
+    ws_server = None
     if not DEV_MODE:
         ws_server = await websockets.serve(
             handle_websocket, 
             '0.0.0.0',  # Always bind to all interfaces
             WEBSOCKET_PORT
         )
+    
     app_obj = run_server(args.host, args.port, args)
-    async def check_quit():
-        while True:
-            try:
-                if await asyncio.get_event_loop().run_in_executor(None,lambda:sys.stdin.readline().strip())=='q':
-                    print("\nQuitting..."); print("Stopping EDDN Update Service...")
-                    if not DEV_MODE:
-                        ws_server.close()
-                    os._exit(0)
-            except: break
-            await asyncio.sleep(0.1)
+    
+    def signal_handler(signum, frame):
+        print("\nShutting down...")
+        print("Stopping EDDN Update Service...")
+        if ws_server:
+            ws_server.close()
+        cleanup_zmq()
+        sys.exit(0)
+
+    # Register signal handlers
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+
     try:
         if DEV_MODE:
-            await asyncio.gather(
-                asyncio.to_thread(lambda: app_obj.run(host=args.host,port=args.port,use_reloader=False,debug=False,processes=1)),
-                check_quit()
-            )
+            app_obj.run(host=args.host, port=args.port, use_reloader=False, debug=False)
         else:
             await asyncio.gather(
                 ws_server.wait_closed(),
-                asyncio.to_thread(lambda: app_obj.run(host=args.host,port=args.port,use_reloader=False,debug=False,processes=1)),
-                check_quit()
+                asyncio.to_thread(lambda: app_obj.run(host=args.host, port=args.port, use_reloader=False, debug=False))
             )
-    except (KeyboardInterrupt,SystemExit):
-        print("\nShutting down..."); print("Stopping EDDN Update Service...")
-        if not DEV_MODE:
+    except (KeyboardInterrupt, SystemExit):
+        print("\nShutting down...")
+        print("Stopping EDDN Update Service...")
+        if ws_server:
             ws_server.close()
-        os._exit(0)
+        cleanup_zmq()
+        sys.exit(0)
 
 # Add cleanup for ZMQ context
 def cleanup_zmq():
@@ -453,4 +438,10 @@ if __name__ == '__main__':
         print("Starting in development mode (WebSocket disabled)")
     else:
         print("Starting in production mode")
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        print("\nShutting down...")
+        print("Stopping EDDN Update Service...")
+        cleanup_zmq()
+        sys.exit(0)

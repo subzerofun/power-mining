@@ -1,6 +1,6 @@
 import json
 from datetime import datetime
-from flask import jsonify, request, current_app
+from flask import jsonify, request
 import mining_data
 from mining_data import (
     get_non_hotspot_materials_list,
@@ -10,7 +10,10 @@ from mining_data import (
     NON_HOTSPOT_MATERIALS
 )
 import res_data
-from utils.common import get_db_connection, log_message, BLUE, RED
+from utils.common import (
+    get_db_connection, log_message, 
+    BLUE, RED, get_ring_materials
+)
 
 def search():
     try:
@@ -305,7 +308,7 @@ def search():
             return jsonify({'error': f'Error executing query: {e}'}), 500
 
         rows = cur.fetchall()
-        app.logger.info(f"Query returned {len(rows)} rows")
+        log_message(BLUE, "SEARCH", f"Query returned {len(rows)} rows")
 
         pr = []
         cur_sys = None
@@ -456,8 +459,8 @@ def search():
         return jsonify(pr)
 
     except Exception as e:
-        app.logger.error(f"Search error: {str(e)}")
-        return jsonify({'error': f'Search error: {str(e)}'}), 500
+        log_message(RED, "ERROR", f"Search error: {str(e)}")
+        return jsonify({'error': str(e)}), 500
 
 def search_highest():
     try:
