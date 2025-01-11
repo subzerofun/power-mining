@@ -439,17 +439,20 @@ def index(): return render_template('index.html')
 @app.route('/autocomplete')
 def autocomplete():
     try:
-        s=request.args.get('q','').strip()
-        if len(s)<2: return jsonify([])
-        conn=get_db_connection()
-        if not conn: return jsonify({'error':'Database not found'}),500
-        c=conn.cursor()
-        c.execute("SELECT name,x,y,z FROM systems WHERE name LIKE ? || '%' LIMIT 10",(s,))
-        res=[{'name':r['name'],'coords':{'x':r['x'],'y':r['y'],'z':r['z']}} for r in c.fetchall()]
-        conn.close(); return jsonify(res)
+        s = request.args.get('q', '').strip()
+        if len(s) < 2:
+            return jsonify([])
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'error': 'Database not found'}), 500
+        c = conn.cursor()
+        c.execute("SELECT name, x, y, z FROM systems WHERE name ILIKE %s || '%%' LIMIT 10", (s,))
+        res = [{'name': r['name'], 'coords': {'x': r['x'], 'y': r['y'], 'z': r['z']}} for r in c.fetchall()]
+        conn.close()
+        return jsonify(res)
     except Exception as e:
         app.logger.error(f"Autocomplete error: {str(e)}")
-        return jsonify({'error':'Error during autocomplete'}),500
+        return jsonify({'error': 'Error during autocomplete'}), 500
 
 @app.route('/search')
 def search():
