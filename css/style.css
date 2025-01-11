@@ -44,7 +44,38 @@ body {
 .container {
     max-width: 1400px;
     margin: 0 auto;
-    padding: 0 20px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+    padding: 0 0;
+}
+
+.header h1 {
+    margin-bottom: 0;
+}
+
+.kofi-button {
+    flex-shrink: 0;
+    margin-left: 20px;
+}
+
+/* Override Ko-fi button styles */
+.kofi-button img.kofiimg {
+    height: 48px !important;
+    width: auto !important;
+    min-width: unset !important;
+}
+
+.kofitext {
+    font-size: 14px !important;
+    line-height: 48px !important;
+    padding: 0 12px !important;
 }
 
 h1 {

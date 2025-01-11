@@ -50,9 +50,6 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 # Environment variables for configuration
 DATABASE_URL = None  # Will be set from args or env in main()
 
-# Process ID file for update_live.py
-PID_FILE = os.path.join(tempfile.gettempdir(), 'update_live.pid')
-
 # ZMQ setup for status updates
 STATUS_PORT = 5558  # Port to receive status from update daemon
 zmq_context = None
@@ -167,25 +164,6 @@ def setup_zmq():
         log_message(RED, f"ZMQ-DEBUG", f"Worker {os.getpid()} setup error: {e}")
         shared_status = {"state": "connecting", "last_db_update": None}  # Keep as "connecting" on error
 
-def is_update_process_running():
-    """Check if update_live.py is running using shared status"""
-    global shared_status, last_status_time, updater_pid
-    
-    # If we have recent status updates, trust those
-    if time.time() - last_status_time < 60:
-        return shared_status.get("state") not in ["offline", "error"]
-        
-    # Fallback to PID check only if no recent status
-    if updater_pid:
-        try:
-            process = psutil.Process(updater_pid)
-            if "update_live.py" in " ".join(process.cmdline()):
-                return True
-        except:
-            pass
-    
-    return False
-
 def log_message(color, tag, message):
     """Log a message with timestamp and PID"""
     timestamp = datetime.now().strftime("%Y:%m:%d-%H:%M:%S")
@@ -195,7 +173,6 @@ def log_message(color, tag, message):
 app = Flask(__name__, template_folder=BASE_DIR, static_folder=None)
 app.json_encoder = CustomJSONEncoder
 sock = Sock(app)
-updater_process = None
 live_update_requested = False
 eddn_status = {"state": "offline", "last_db_update": None}
 
@@ -218,106 +195,6 @@ def create_app(*args, **kwargs):
         setup_zmq()
     
     return app_wsgi
-
-def kill_updater_process():
-    global updater_process
-    if updater_process:
-        try:
-            p = psutil.Process(updater_process.pid)
-            if "update_live.py" in p.cmdline():  # Verify it's our process
-                for c in p.children(recursive=True):
-                    try: c.kill()
-                    except: pass
-                if os.name == 'nt': updater_process.send_signal(signal.CTRL_BREAK_EVENT)
-                else: updater_process.terminate()
-                try: updater_process.wait(timeout=3)
-                except subprocess.TimeoutExpired:
-                    if os.name == 'nt': os.kill(updater_process.pid, signal.SIGTERM)
-                    else: updater_process.kill()
-            updater_process = None
-        except: pass
-
-def stop_updater():
-    global eddn_status
-    eddn_status["state"] = "offline"
-    kill_updater_process()
-    if os.path.exists(PID_FILE):
-        try:
-            os.remove(PID_FILE)
-        except:
-            pass
-
-def cleanup_handler(signum, frame):
-    print("\nReceived signal to shutdown...")
-    print("Stopping EDDN Update Service...")
-    stop_updater()
-    if os.path.exists(PID_FILE):
-        try:
-            os.remove(PID_FILE)
-        except:
-            pass
-    print("Stopping Web Server...")
-    os._exit(0)
-
-atexit.register(kill_updater_process)
-signal.signal(signal.SIGINT, cleanup_handler)
-signal.signal(signal.SIGTERM, cleanup_handler)
-if os.name == 'nt':
-    signal.signal(signal.SIGBREAK, cleanup_handler)
-    signal.signal(signal.SIGABRT, cleanup_handler)
-
-def handle_output(line):
-    """Handle output from the EDDN updater process"""
-    global eddn_status
-    line = line.strip()
-    
-    # Only print output if we started the process (--live-update)
-    if live_update_requested:
-        print(f"{ORANGE if '[INIT]' in line or '[STOPPING]' in line or '[TERMINATED]' in line else BLUE}{line}{RESET}", flush=True)
-    
-    # Always process status updates
-    if "[INIT]" in line:
-        eddn_status["state"] = "starting"
-        eddn_status["last_activity"] = time.time()
-    elif "Loaded" in line and "commodities from CSV" in line:
-        eddn_status["state"] = "starting"
-        eddn_status["last_activity"] = time.time()
-    elif "Listening to EDDN" in line:
-        eddn_status["state"] = "running"
-        eddn_status["last_activity"] = time.time()
-    elif "[STATUS]" in line or "[DEBUG]" in line:  # Also count debug messages as activity
-        eddn_status["last_activity"] = time.time()
-    elif "[DATABASE]" in line:
-        eddn_status["last_activity"] = time.time()
-        if "Writing to Database starting..." in line:
-            eddn_status["state"] = "updating"
-            eddn_status["last_db_update"] = datetime.now().isoformat()
-            eddn_status["update_start_time"] = time.time()
-        elif "Writing to Database finished." in line:
-            if "update_start_time" in eddn_status:
-                elapsed = time.time() - eddn_status["update_start_time"]
-                if elapsed < 1:
-                    time.sleep(1 - elapsed)
-                del eddn_status["update_start_time"]
-            eddn_status["state"] = "running"
-    elif "[STOPPING]" in line or "[TERMINATED]" in line:
-        eddn_status["state"] = "offline"
-        if live_update_requested:
-            print(f"{ORANGE}[STATUS] EDDN updater stopped{RESET}", flush=True)
-    elif "Error:" in line or "[ERROR]" in line:
-        eddn_status["state"] = "error"
-        if live_update_requested:
-            print(f"{ORANGE}[STATUS] EDDN updater encountered an error{RESET}", flush=True)
-
-def cleanup():
-    """Cleanup function to be called on exit"""
-    try:
-        status_socket.close()
-        zmq_context.term()
-    except:
-        pass
-
-atexit.register(cleanup)
 
 @sock.route('/ws')
 def handle_websocket(ws):
@@ -406,14 +283,13 @@ def serve_config():
     try:
         path = os.path.join(BASE_DIR,'Config.ini')
         if not os.path.exists(path):
-            with open(path, 'w') as f: f.write("[Defaults]\nsystem = Harma\ncontrolling_power = Archon Delaine\nmax_distance = 200\nsearch_results = 30\n")
+            with open(path, 'w') as f: f.write("[Defaults]\nsystem = Cubeo\ncontrolling_power = Aisling Duval\nmax_distance = 200\nsearch_results = 30\n")
         r = send_from_directory(BASE_DIR, 'Config.ini', mimetype='text/plain')
         r.headers['Cache-Control']='no-cache, no-store, must-revalidate'; r.headers['Pragma']='no-cache'; r.headers['Expires']='0'
         return r
     except Exception as e:
         app.logger.error(f"Error serving Config.ini: {str(e)}")
         return jsonify({'Defaults':{'system':'Harma','controlling_power':'Archon Delaine','max_distance':'200','search_results':'30'}})
-
 
 def dict_factory(cursor,row):
     d = {}
@@ -450,22 +326,31 @@ def index(): return render_template('index.html')
 
 @app.route('/autocomplete')
 def autocomplete():
+    """Handle system name autocomplete."""
     try:
-        s = request.args.get('q', '').strip()
-        if len(s) < 2:
+        search = request.args.get('q', '').strip()
+        if len(search) < 2:
             return jsonify([])
+        
         conn = get_db_connection()
-        if not conn:
-            app.logger.error("Database connection failed in autocomplete")
-            return jsonify([])
-        c = conn.cursor()
-        c.execute("SELECT name, x, y, z FROM systems WHERE name ILIKE %s", (f"{s}%",))
-        res = [{'name': r['name'], 'coords': {'x': r['x'], 'y': r['y'], 'z': r['z']}} for r in c.fetchall()]
+        cursor = conn.cursor()
+        
+        # Search for system names that start with the input
+        cursor.execute('''
+            SELECT name, x, y, z 
+            FROM systems 
+            WHERE name ILIKE %s || '%%'
+            LIMIT 10
+        ''', (search,))
+        
+        results = [{'name': row['name'], 'coords': {'x': row['x'], 'y': row['y'], 'z': row['z']}} 
+                  for row in cursor.fetchall()]
+        
         conn.close()
-        return jsonify(res)
+        return jsonify(results)
     except Exception as e:
         app.logger.error(f"Autocomplete error: {str(e)}")
-        return jsonify([])
+        return jsonify({'error': 'Error during autocomplete'}), 500
 
 @app.route('/search')
 def search():
@@ -1170,7 +1055,7 @@ def run_server(host,port,args):
     if args.live_update:
         live_update_requested=True
         eddn_status["state"]="starting"
-        start_updater()
+        #start_updater()
         time.sleep(0.5)
     else:
         eddn_status["state"]="offline"
@@ -1206,7 +1091,6 @@ async def main():
             try:
                 if await asyncio.get_event_loop().run_in_executor(None,lambda:sys.stdin.readline().strip())=='q':
                     print("\nQuitting..."); print("Stopping EDDN Update Service...")
-                    kill_updater_process(); print("Stopping Web Server...")
                     if not DEV_MODE:
                         ws_server.close()
                     os._exit(0)
@@ -1226,164 +1110,9 @@ async def main():
             )
     except (KeyboardInterrupt,SystemExit):
         print("\nShutting down..."); print("Stopping EDDN Update Service...")
-        kill_updater_process(); print("Stopping Web Server...")
         if not DEV_MODE:
             ws_server.close()
         os._exit(0)
-
-def check_existing_process():
-    """Check if update_live.py is already running"""
-    try:
-        # First check if we have a PID file
-        if os.path.exists(PID_FILE):
-            with open(PID_FILE, 'r') as f:
-                try:
-                    pid = int(f.read().strip())
-                    process = psutil.Process(pid)
-                    if "update_live.py" in process.cmdline():
-                        print(f"{ORANGE}[UPDATE-CHECK] Found existing update process with PID: {pid}{RESET}", flush=True)
-                        return True
-                except (ValueError, psutil.NoSuchProcess):
-                    os.remove(PID_FILE)
-        
-        # Check for any running instances
-        for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
-            try:
-                if proc.info['cmdline'] and "update_live.py" in " ".join(proc.info['cmdline']):
-                    print(f"{ORANGE}[UPDATE-CHECK] Found running update process with PID: {proc.pid}{RESET}", flush=True)
-                    # Update PID file
-                    with open(PID_FILE, 'w') as f:
-                        f.write(str(proc.pid))
-                    return True
-            except (psutil.NoSuchProcess, psutil.AccessDenied):
-                continue
-                
-        print(f"{ORANGE}[UPDATE-CHECK] No running update service found{RESET}", flush=True)
-        return False
-    except Exception as e:
-        print(f"{ORANGE}[UPDATE-CHECK] Error checking for existing process: {e}{RESET}", flush=True)
-        return False
-
-def handle_output_stream(pipe):
-    """Handle output from the EDDN updater process"""
-    try:
-        # Use binary mode and decode manually to avoid buffering issues
-        while True:
-            line = pipe.readline()
-            if not line:
-                break
-            try:
-                decoded_line = line.decode('utf-8', errors='replace')
-                if decoded_line.strip():
-                    handle_output(decoded_line)
-            except Exception as e:
-                print(f"Error decoding output: {e}", file=sys.stderr)
-    except Exception as e:
-        print(f"Error in output stream: {e}", file=sys.stderr)
-
-def start_updater():
-    """Start the EDDN updater process"""
-    global updater_process, eddn_status
-    
-    try:
-        # Only allow starting from main process
-        if os.environ.get('GUNICORN_WORKER_ID'):
-            log_message(YELLOW, "MONITOR", f"Worker {os.environ.get('GUNICORN_WORKER_ID')} skipping updater start")
-            return
-            
-        # Check PID file first
-        if os.path.exists(PID_FILE):
-            try:
-                with open(PID_FILE, 'r') as f:
-                    pid = int(f.read().strip())
-                    process = psutil.Process(pid)
-                    if "update_live.py" in " ".join(process.cmdline()):
-                        log_message(BLUE, "MONITOR", f"Found existing update process from PID file: {pid}")
-                        return
-            except (ValueError, psutil.NoSuchProcess, psutil.AccessDenied):
-                os.remove(PID_FILE)
-        
-        # Check for any running instances
-        for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
-            try:
-                if proc.info['cmdline'] and "update_live.py" in " ".join(proc.info['cmdline']):
-                    log_message(BLUE, "MONITOR", f"Found running update process: {proc.pid}")
-                    with open(PID_FILE, 'w') as f:
-                        f.write(str(proc.pid))
-                    return
-            except (psutil.NoSuchProcess, psutil.AccessDenied):
-                continue
-        
-        # No running instance found, clean up and start new one
-        kill_updater_process()
-        
-        # Start new process
-        updater_process = subprocess.Popen(
-            [sys.executable, "update_live.py", "--auto"],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            universal_newlines=False,
-            creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if os.name == 'nt' else 0
-        )
-        
-        # Write PID to file
-        with open(PID_FILE, 'w') as f:
-            f.write(str(updater_process.pid))
-        
-        log_message(GREEN, "MONITOR", f"Started new update process with PID: {updater_process.pid}")
-        
-        # Start output handling threads
-        threading.Thread(target=handle_output_stream, args=(updater_process.stdout,), daemon=True).start()
-        threading.Thread(target=handle_output_stream, args=(updater_process.stderr,), daemon=True).start()
-        
-        time.sleep(0.5)
-        if updater_process.poll() is None:
-            eddn_status["state"] = "starting"
-        else:
-            eddn_status["state"] = "error"
-            log_message(RED, "ERROR", "EDDN updater failed to start")
-            if os.path.exists(PID_FILE):
-                os.remove(PID_FILE)
-            
-    except Exception as e:
-        log_message(RED, "ERROR", f"Error starting updater: {e}")
-        eddn_status["state"] = "error"
-        if os.path.exists(PID_FILE):
-            os.remove(PID_FILE)
-
-async def monitor_update_process():
-    """Monitor update_live.py and restart if needed"""
-    global eddn_status
-    
-    # Initial delay to let Appliku worker start
-    await asyncio.sleep(30)
-    
-    while True:
-        try:
-            if not is_update_process_running():
-                log_message(YELLOW, "MONITOR", "No update process found, waiting additional 30s to confirm...")
-                # Double check after a delay to avoid race conditions
-                await asyncio.sleep(30)
-                
-                if not is_update_process_running():
-                    log_message(YELLOW, "MONITOR", "Update process confirmed dead, starting new instance...")
-                    eddn_status["state"] = "starting"
-                    start_updater()
-                    # Wait to let the new process initialize
-                    await asyncio.sleep(10)
-            else:
-                log_message(BLUE, "MONITOR", "Update process is running")
-        except Exception as e:
-            log_message(RED, "ERROR", f"Error in monitor thread: {e}")
-        
-        # Check again in 60 seconds
-        await asyncio.sleep(60)
-
-def log_message(color, tag, message):
-    """Log a message with timestamp and PID"""
-    timestamp = datetime.now().strftime("%Y:%m:%d-%H:%M:%S")
-    worker_id = os.environ.get('GUNICORN_WORKER_ID', 'MAIN')
-    print(f"{color}[{timestamp}] [{tag}-{os.getpid()}] {message}{RESET}", flush=True)
 
 # Add cleanup for ZMQ context
 def cleanup_zmq():
