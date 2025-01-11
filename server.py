@@ -17,6 +17,18 @@ from mining_data import (
 import tempfile
 import io
 
+# Global flag for development mode
+DEV_MODE = False  # Will be set from args in main()
+
+if not DEV_MODE:
+    try:
+        import websockets
+        from websockets.exceptions import ConnectionClosed
+    except ImportError:
+        print("WebSocket dependencies not found. Run 'pip install websockets' to enable live updates.")
+        print("Or run with --dev flag to disable WebSocket functionality: python server.py --dev")
+        sys.exit(1)
+
 # Custom JSON encoder to handle datetime objects
 class CustomJSONEncoder(JSONEncoder):
     def default(self, obj):
@@ -444,15 +456,16 @@ def autocomplete():
             return jsonify([])
         conn = get_db_connection()
         if not conn:
-            return jsonify({'error': 'Database not found'}), 500
+            app.logger.error("Database connection failed in autocomplete")
+            return jsonify([])
         c = conn.cursor()
-        c.execute("SELECT name, x, y, z FROM systems WHERE name ILIKE %s || '%%' LIMIT 10", (s,))
+        c.execute("SELECT name, x, y, z FROM systems WHERE name ILIKE %s", (f"{s}%",))
         res = [{'name': r['name'], 'coords': {'x': r['x'], 'y': r['y'], 'z': r['z']}} for r in c.fetchall()]
         conn.close()
         return jsonify(res)
     except Exception as e:
         app.logger.error(f"Autocomplete error: {str(e)}")
-        return jsonify({'error': 'Error during autocomplete'}), 500
+        return jsonify([])
 
 @app.route('/search')
 def search():
@@ -1169,21 +1182,24 @@ async def main():
     parser.add_argument('--port', type=int, default=5000, help='Port to bind to')
     parser.add_argument('--live-update', action='store_true', help='Enable live EDDN updates')
     parser.add_argument('--db', help='Database URL (e.g. postgresql://user:pass@host:port/dbname)')
+    parser.add_argument('--dev', action='store_true', help='Run in development mode without WebSocket functionality')
     args = parser.parse_args()
 
     # Set DATABASE_URL from argument or environment variable
-    global DATABASE_URL
+    global DATABASE_URL, DEV_MODE
     DATABASE_URL = args.db or os.getenv('DATABASE_URL')
+    DEV_MODE = args.dev  # Update the global DEV_MODE based on args
     if not DATABASE_URL:
         print("ERROR: Database URL must be provided via --db argument or DATABASE_URL environment variable")
         return 1
 
     # Bind websocket to all interfaces but web server to specified host
-    ws_server = await websockets.serve(
-        handle_websocket, 
-        '0.0.0.0',  # Always bind to all interfaces
-        WEBSOCKET_PORT
-    )
+    if not DEV_MODE:
+        ws_server = await websockets.serve(
+            handle_websocket, 
+            '0.0.0.0',  # Always bind to all interfaces
+            WEBSOCKET_PORT
+        )
     app_obj = run_server(args.host, args.port, args)
     async def check_quit():
         while True:
@@ -1191,19 +1207,29 @@ async def main():
                 if await asyncio.get_event_loop().run_in_executor(None,lambda:sys.stdin.readline().strip())=='q':
                     print("\nQuitting..."); print("Stopping EDDN Update Service...")
                     kill_updater_process(); print("Stopping Web Server...")
-                    ws_server.close(); os._exit(0)
+                    if not DEV_MODE:
+                        ws_server.close()
+                    os._exit(0)
             except: break
             await asyncio.sleep(0.1)
     try:
-        await asyncio.gather(
-            ws_server.wait_closed(),
-            asyncio.to_thread(lambda: app_obj.run(host=args.host,port=args.port,use_reloader=False,debug=False,processes=1)),
-            check_quit()
-        )
+        if DEV_MODE:
+            await asyncio.gather(
+                asyncio.to_thread(lambda: app_obj.run(host=args.host,port=args.port,use_reloader=False,debug=False,processes=1)),
+                check_quit()
+            )
+        else:
+            await asyncio.gather(
+                ws_server.wait_closed(),
+                asyncio.to_thread(lambda: app_obj.run(host=args.host,port=args.port,use_reloader=False,debug=False,processes=1)),
+                check_quit()
+            )
     except (KeyboardInterrupt,SystemExit):
         print("\nShutting down..."); print("Stopping EDDN Update Service...")
         kill_updater_process(); print("Stopping Web Server...")
-        ws_server.close(); os._exit(0)
+        if not DEV_MODE:
+            ws_server.close()
+        os._exit(0)
 
 def check_existing_process():
     """Check if update_live.py is already running"""
@@ -1370,4 +1396,8 @@ def cleanup_zmq():
 atexit.register(cleanup_zmq)
 
 if __name__ == '__main__':
+    if DEV_MODE:
+        print("Starting in development mode (WebSocket disabled)")
+    else:
+        print("Starting in production mode")
     asyncio.run(main())
