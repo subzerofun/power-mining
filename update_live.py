@@ -139,7 +139,7 @@ def flush_commodities_to_db(conn, commodity_buffer, auto_commit=False):
         log_message("DATABASE", f"Writing to Database starting... ({total_stations} stations to process)")
         
         # Process each station's commodities
-        for station_name, new_map in commodity_buffer.items():
+        for station_name, (new_map, eddn_timestamp) in commodity_buffer.items():
             try:
                 stations_processed += 1
                 
@@ -163,7 +163,8 @@ def flush_commodities_to_db(conn, commodity_buffer, auto_commit=False):
                         DELETE FROM station_commodities 
                         WHERE system_id64 = %s AND station_name = %s
                     """, (system_id64, station_name))
-                    log_message("DATABASE", f"Deleted existing commodities for {station_name}")
+                    rows_deleted = cursor.rowcount
+                    log_message("DATABASE", f"Deleted {rows_deleted} existing commodities for {station_name}")
                 except Exception as e:
                     log_message("ERROR", f"Failed to delete existing commodities for {station_name}: {str(e)}")
                     continue
@@ -180,21 +181,40 @@ def flush_commodities_to_db(conn, commodity_buffer, auto_commit=False):
                             demand = EXCLUDED.demand
                     """, [(system_id64, station_id, station_name, commodity_name, data[0], data[1]) 
                           for commodity_name, data in new_map.items()])
-                    log_message("DATABASE", f"Inserted {len(new_map)} commodities for {station_name}")
+                    rows_affected = cursor.rowcount
+                    log_message("DATABASE", f"Inserted/Updated {rows_affected} commodities for {station_name} (expected {len(new_map)})")
                 except Exception as e:
                     log_message("ERROR", f"Failed to insert commodities for {station_name}: {str(e)}")
                     continue
                 
-                # Update station timestamp
+                # Update station timestamp using EDDN timestamp
                 try:
+                    # Parse EDDN timestamp (format: "2025-01-11T01:19:39Z")
+                    # Convert to database format (timestamp without time zone)
+                    try:
+                        dt = datetime.strptime(eddn_timestamp, "%Y-%m-%dT%H:%M:%SZ")
+                        db_timestamp = dt.strftime("%Y-%m-%d %H:%M:%S")
+                        log_message("DEBUG", f"Converting EDDN timestamp '{eddn_timestamp}' to DB format '{db_timestamp}'")
+                    except ValueError as e:
+                        log_message("ERROR", f"Failed to parse EDDN timestamp '{eddn_timestamp}': {str(e)}")
+                        continue
+
                     cursor.execute("""
                         UPDATE stations
                         SET update_time = %s
                         WHERE system_id64 = %s AND station_id = %s
-                    """, (datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"), system_id64, station_id))
-                    log_message("DATABASE", f"Updated timestamp for {station_name}")
+                        RETURNING update_time
+                    """, (db_timestamp, system_id64, station_id))
+                    
+                    rows_updated = cursor.rowcount
+                    if rows_updated == 0:
+                        log_message("ERROR", f"Failed to update timestamp for {station_name} - no rows affected (timestamp: {db_timestamp})")
+                    else:
+                        updated_time = cursor.fetchone()[0]
+                        log_message("DATABASE", f"Updated timestamp for {station_name} from EDDN time '{eddn_timestamp}' to DB time '{updated_time}' (rows affected: {rows_updated})")
                 except Exception as e:
                     log_message("ERROR", f"Failed to update timestamp for {station_name}: {str(e)}")
+                    continue
                 
                 total_commodities += len(new_map)
                 
@@ -290,9 +310,14 @@ def process_message(message, commodity_map):
         station_name = message.get("stationName")
         system_name = message.get("systemName", "Unknown")
         market_id = message.get("marketId")
+        timestamp = message.get("timestamp")
         
-        log_message("DEBUG", f"Processing station {station_name} in {system_name}")
+        log_message("DEBUG", f"Processing station {station_name} in {system_name} (timestamp: {timestamp})")
         
+        if not timestamp:
+            log_message("ERROR", "Message missing timestamp")
+            return None, None
+            
         if market_id is None:
             log_message("DEBUG", f"Live update without marketId: {station_name} in system {system_name}")
         
@@ -326,7 +351,8 @@ def process_message(message, commodity_map):
             log_message("COMMODITY", f"Added {len(station_commodities)} mining commodities to buffer for {station_name}")
             # Publish status update to indicate activity
             publish_status("running", datetime.now(timezone.utc))
-            return station_name, station_commodities
+            # Store timestamp with commodities
+            return station_name, (station_commodities, timestamp)
         else:
             log_message("DEBUG", f"No relevant commodities found at {station_name}")
             
