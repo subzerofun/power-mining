@@ -219,12 +219,16 @@ def get_mining_type_conditions(commodity: str, mining_types: list) -> tuple[str,
         non_core_types = [mt for mt in mining_types if mt != 'Core']
         
         for ring_type, ring_data in commodity_data['ring_types'].items():
-            # Handle core mining - requires hotspots
+            # Handle core mining - requires hotspots if the material has hotspots for core mining
             if has_core and ring_data['core']:
-                conditions.append('(ms.ring_type = %s AND ms.mineral_type = %s)')
-                params.extend([ring_type, commodity])
+                if ring_data['hotspot']:
+                    conditions.append('(ms.ring_type = %s AND ms.mineral_type = %s)')
+                    params.extend([ring_type, commodity])
+                else:
+                    conditions.append('(ms.ring_type = %s AND ms.mineral_type IS NULL)')
+                    params.append(ring_type)
             
-            # Handle non-core mining methods - must not have hotspots
+            # Handle non-core mining methods
             if non_core_types:
                 non_core_matches = []
                 for mining_type in non_core_types:
@@ -236,11 +240,16 @@ def get_mining_type_conditions(commodity: str, mining_types: list) -> tuple[str,
                         non_core_matches.append(True)
                 
                 if non_core_matches:
-                    conditions.append('(ms.ring_type = %s AND ms.mineral_type IS NULL)')
-                    params.append(ring_type)
+                    # For rings where the material has hotspots, include both hotspot and non-hotspot rings
+                    if ring_data['hotspot']:
+                        conditions.append('(ms.ring_type = %s AND (ms.mineral_type IS NULL OR ms.mineral_type = %s))')
+                        params.extend([ring_type, commodity])
+                    else:
+                        conditions.append('(ms.ring_type = %s AND ms.mineral_type IS NULL)')
+                        params.append(ring_type)
     
     except Exception as e:
-        app.logger.error(f"Error loading mining_data.json: {str(e)}")
+        log_message(RED, "ERROR", f"Error loading mining_data.json: {str(e)}")
         return '', []
         
     if not conditions:

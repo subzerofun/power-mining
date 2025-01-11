@@ -220,7 +220,8 @@ def handle_websocket(ws):
                         log_message(RED, "WS-DEBUG", "Failed to decode status message")
                         continue
                 else:
-                    log_message(RED, "WS-DEBUG", f"Worker {os.getpid()} - No ZMQ message to forward to WebSocket")
+                    if DEV_MODE==False:
+                        log_message(RED, "WS-DEBUG", f"Worker {os.getpid()} - No ZMQ message to forward to WebSocket")
             except zmq.ZMQError as e:
                 log_message(RED, "WS-DEBUG", f"ZMQ error in WebSocket handler: {e}")
                 continue
@@ -231,7 +232,8 @@ def handle_websocket(ws):
             # Send periodic status updates even if no new messages
             try:
                 ws.send(json.dumps(shared_status))
-                log_message(RED, "WS-DEBUG", f"Worker {os.getpid()} sent periodic status: {shared_status}")
+                if DEV_MODE==False:
+                    log_message(RED, "WS-DEBUG", f"Worker {os.getpid()} sent periodic status: {shared_status}")
             except Exception as e:
                 log_message(RED, "WS-DEBUG", f"Failed to send periodic update: {e}")
                 break

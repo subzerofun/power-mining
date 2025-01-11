@@ -24,61 +24,13 @@ Adds special search option for res hotspots and high yield platinum hotspots (ba
 
 ---
 
-## Installation
+## ## Usage
 
-### Prerequisites
+1. Go to the website: https://powermining.applikuapp.com
 
-- Python 3.x
-- Required Python packages:
-
-```bash
-pip install -r requirements.txt
-```
-
-### Database Setup
-
-1. Download the required data:
+2. Start searching and **make profit**! 
    
-   - Get `galaxy_stations.json.gz` from [Spansh Dumps](https://spansh.co.uk/dumps)
-   - Place the **extracted json file** in the `json` directory
-
-2. Convert the data:
-   
-   ```bash
-   python converter.py json/galaxy_stations.json systems.db --max-distance 500 --exclude-carriers --trim-entries --compression zstandard 
-   ```
-   
-   Wait for the conversion to complete. This will create your systems database.
-
-3. Configure settings:
-   Edit `Config.ini` with your preferences:
-   
-   ```ini
-   [Defaults]
-   system = Your reference system name
-   controlling_power = Your power faction (check list of website for spelling!)
-   max_distance = Search distance in Ly
-   search_results = Number of results to display
-   system_database = systems.db
-   ```
-
----
-
-## Usage
-
-1. Start the server:
-   
-   ```bash
-   python server.py
-   ```
-
-2. Open your browser and navigate to:
-   
-   ```
-   http://127.0.0.1:5000
-   ```
-
-3. Start searching and **make profit**! 
+3. Think about supporting me with server costs: [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/H2H618T1H5)
 
 ---- 
 

@@ -182,7 +182,7 @@ def flush_commodities_to_db(conn, commodity_buffer, auto_commit=False):
                         INSERT INTO station_commodities 
                             (system_id64, station_id, station_name, commodity_name, sell_price, demand)
                         VALUES (%s, %s, %s, %s, %s, %s)
-                        ON CONFLICT (system_id64, station_name, commodity_name) 
+                        ON CONFLICT (system_id64, station_id, commodity_name) 
                         DO UPDATE SET 
                             sell_price = EXCLUDED.sell_price,
                             demand = EXCLUDED.demand
