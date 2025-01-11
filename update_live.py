@@ -146,22 +146,22 @@ def flush_commodities_to_db(conn, commodity_buffer, auto_commit=False):
         log_message("DATABASE", f"Writing to Database starting... ({total_stations} stations to process)", level=1)
         
         # Process each station's commodities
-        for station_name, (new_map, eddn_timestamp) in commodity_buffer.items():
+        for (system_id64, station_name), (new_map, eddn_timestamp) in commodity_buffer.items():
             try:
                 stations_processed += 1
                 
-                # Get station info
+                # Get station info using both system_id64 and station_name
                 cursor.execute("""
-                    SELECT system_id64, station_id
+                    SELECT station_id
                     FROM stations
-                    WHERE station_name = %s
-                """, (station_name,))
+                    WHERE system_id64 = %s AND station_name = %s
+                """, (system_id64, station_name))
                 row = cursor.fetchone()
                 if not row:
-                    log_message("ERROR", f"Station not found in database: {station_name}", level=1)
+                    log_message("ERROR", f"Station not found in database: {station_name} in system {system_id64}", level=1)
                     continue
                     
-                system_id64, station_id = row
+                station_id = row[0]
                 log_message("DATABASE", f"Processing station {station_name} ({len(new_map)} commodities)", level=2)
                 
                 # Delete existing commodities
@@ -209,9 +209,9 @@ def flush_commodities_to_db(conn, commodity_buffer, auto_commit=False):
                     cursor.execute("""
                         UPDATE stations
                         SET update_time = %s
-                        WHERE system_id64 = %s AND station_id = %s
+                        WHERE system_id64 = %s AND station_name = %s
                         RETURNING update_time
-                    """, (db_timestamp, system_id64, station_id))
+                    """, (db_timestamp, system_id64, station_name))
                     
                     rows_updated = cursor.rowcount
                     if rows_updated == 0:
@@ -328,8 +328,26 @@ def process_message(message, commodity_map):
         if market_id is None:
             log_message("DEBUG", f"Live update without marketId: {station_name} in system {system_name}", level=2)
         
-        if not station_name:
-            log_message("DEBUG", "Message missing station name", level=2)
+        if not station_name or not system_name:
+            log_message("DEBUG", "Message missing station name or system name", level=2)
+            return None, None
+            
+        # Get system_id64 from systems table
+        try:
+            with psycopg2.connect(DATABASE_URL) as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    SELECT id64
+                    FROM systems
+                    WHERE name = %s
+                """, (system_name,))
+                row = cursor.fetchone()
+                if not row:
+                    log_message("ERROR", f"System not found in database: {system_name}", level=1)
+                    return None, None
+                system_id64 = row[0]
+        except Exception as e:
+            log_message("ERROR", f"Failed to get system_id64 for {system_name}: {str(e)}", level=1)
             return None, None
             
         # Process commodities
@@ -358,8 +376,8 @@ def process_message(message, commodity_map):
             log_message("COMMODITY", f"Added {len(station_commodities)} mining commodities to buffer for {station_name}", level=2)
             # Publish status update to indicate activity
             publish_status("running", datetime.now(timezone.utc))
-            # Store timestamp with commodities
-            return station_name, (station_commodities, timestamp)
+            # Store timestamp and system_id64 with commodities
+            return (system_id64, station_name), (station_commodities, timestamp)
         else:
             log_message("DEBUG", f"No relevant commodities found at {station_name}", level=2)
             
