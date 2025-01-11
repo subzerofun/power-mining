@@ -191,7 +191,7 @@ def flush_commodities_to_db(conn, commodity_buffer, auto_commit=False):
                         UPDATE stations
                         SET update_time = %s
                         WHERE system_id64 = %s AND station_id = %s
-                    """, (datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S+00"), system_id64, station_id))
+                    """, (datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"), system_id64, station_id))
                     log_message("DATABASE", f"Updated timestamp for {station_name}")
                 except Exception as e:
                     log_message("ERROR", f"Failed to update timestamp for {station_name}: {str(e)}")
