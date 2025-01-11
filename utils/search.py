@@ -1,6 +1,6 @@
 import json
 from datetime import datetime
-from flask import jsonify, request
+from flask import jsonify, request, current_app
 import mining_data
 from mining_data import (
     get_non_hotspot_materials_list,
@@ -10,12 +10,8 @@ from mining_data import (
     NON_HOTSPOT_MATERIALS
 )
 import res_data
+from utils.common import get_db_connection, log_message, BLUE, RED
 
-
-# Import these from server.py
-from server import get_db_connection, log_message, BLUE, RED, app
-
-@app.route('/search')
 def search():
     try:
         ref_system = request.args.get('system', 'Sol')
@@ -463,7 +459,6 @@ def search():
         app.logger.error(f"Search error: {str(e)}")
         return jsonify({'error': f'Search error: {str(e)}'}), 500
 
-@app.route('/search_highest')
 def search_highest():
     try:
         # Get power filters
@@ -589,7 +584,6 @@ def search_highest():
         app.logger.error(f"Search highest error: {str(e)}")
         return jsonify({'error': f'Search highest error: {str(e)}'}), 500
 
-@app.route('/get_price_comparison', methods=['POST'])
 def get_price_comparison_endpoint():
     try:
         data=request.json; items=data.get('items',[]); use_max=data.get('use_max',False)
@@ -612,7 +606,6 @@ def get_price_comparison_endpoint():
     except Exception as e:
         return jsonify({'error':str(e)}),500
 
-@app.route('/search_res_hotspots', methods=['POST'])
 def search_res_hotspots():
     try:
         # Get reference system from query parameters
@@ -662,7 +655,6 @@ def search_res_hotspots():
         app.logger.error(f"RES hotspot search error: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
-@app.route('/search_high_yield_platinum', methods=['POST'])
 def search_high_yield_platinum():
     try:
         # Get reference system from query parameters

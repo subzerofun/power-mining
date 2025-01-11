@@ -1,5 +1,4 @@
 import os, sys, math, json, zlib, time, signal, atexit, argparse, asyncio, subprocess, threading, psycopg2
-from psycopg2.extras import DictCursor
 from datetime import datetime
 from flask import Flask, render_template, request, jsonify, send_from_directory
 from flask_sock import Sock
@@ -10,6 +9,7 @@ from typing import Dict, List, Optional
 import mining_data as mining_data, res_data as res_data
 import tempfile
 import io
+from utils.common import get_db_connection, log_message, BLUE, RED, YELLOW, GREEN, CYAN, ORANGE, RESET
 from utils.search import (
     search,
     search_highest,
@@ -36,15 +36,6 @@ class CustomJSONEncoder(JSONEncoder):
         if isinstance(obj, datetime):
             return obj.strftime('%Y-%m-%d')
         return super().default(obj)
-
-# ANSI color codes
-YELLOW = '\033[93m'
-BLUE = '\033[94m'
-GREEN = '\033[92m'
-RED = '\033[91m'
-CYAN = '\033[96m'  # Add cyan color code
-ORANGE = '\033[38;5;208m'
-RESET = '\033[0m'
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -449,6 +440,13 @@ def cleanup_zmq():
         pass
 
 atexit.register(cleanup_zmq)
+
+# Register routes from search.py
+app.add_url_rule('/search', 'search', search)
+app.add_url_rule('/search_highest', 'search_highest', search_highest)
+app.add_url_rule('/get_price_comparison', 'get_price_comparison', get_price_comparison_endpoint, methods=['POST'])
+app.add_url_rule('/search_res_hotspots', 'search_res_hotspots', search_res_hotspots, methods=['POST'])
+app.add_url_rule('/search_high_yield_platinum', 'search_high_yield_platinum', search_high_yield_platinum, methods=['POST'])
 
 if __name__ == '__main__':
     if DEV_MODE:
