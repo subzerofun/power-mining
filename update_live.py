@@ -23,12 +23,19 @@ CYAN = '\033[96m'  # For database operations
 ORANGE = '\033[38;5;208m'
 RESET = '\033[0m'
 
+# Debug levels
+DEBUG_LEVEL = 2  # 1 = critical/important, 2 = normal, 3 = verbose/detailed
+
 def get_timestamp():
     """Get current timestamp in YYYY:MM:DD-HH:MM:SS format"""
     return datetime.now().strftime("%Y:%m:%d-%H:%M:%S")
 
-def log_message(tag, message):
+def log_message(tag, message, level=2):
     """Log a message with timestamp and PID"""
+    # Skip messages with level higher than DEBUG_LEVEL
+    if level > DEBUG_LEVEL:
+        return
+        
     timestamp = datetime.now().strftime("%Y:%m:%d-%H:%M:%S")
     color = YELLOW  # Default color
     
@@ -108,7 +115,7 @@ signal.signal(signal.SIGTERM, signal_handler)
 
 def load_commodity_map():
     """Load commodity mapping from CSV"""
-    log_message("INIT", f"Loading commodity mapping from {COMMODITIES_CSV}")
+    log_message("INIT", f"Loading commodity mapping from {COMMODITIES_CSV}", level=1)
     commodity_map = {}
     reverse_map = {}
     with open(COMMODITIES_CSV, "r", encoding="utf-8") as f:
@@ -121,13 +128,13 @@ def load_commodity_map():
                 local_name = "Void Opal"
             commodity_map[eddn_id] = local_name
             reverse_map[local_name] = eddn_id
-    log_message("INIT", f"Loaded {len(commodity_map)} commodities from CSV (mapping EDDN ID -> local name)")
+    log_message("INIT", f"Loaded {len(commodity_map)} commodities from CSV (mapping EDDN ID -> local name)", level=2)
     return commodity_map, reverse_map
 
 def flush_commodities_to_db(conn, commodity_buffer, auto_commit=False):
     """Write buffered commodities to database"""
     if not commodity_buffer:
-        log_message("DATABASE", "No commodities in buffer to write")
+        log_message("DATABASE", "No commodities in buffer to write", level=2)
         return 0, 0
 
     cursor = conn.cursor()
@@ -136,7 +143,7 @@ def flush_commodities_to_db(conn, commodity_buffer, auto_commit=False):
     total_stations = len(commodity_buffer)
 
     try:
-        log_message("DATABASE", f"Writing to Database starting... ({total_stations} stations to process)")
+        log_message("DATABASE", f"Writing to Database starting... ({total_stations} stations to process)", level=1)
         
         # Process each station's commodities
         for station_name, (new_map, eddn_timestamp) in commodity_buffer.items():
@@ -151,11 +158,11 @@ def flush_commodities_to_db(conn, commodity_buffer, auto_commit=False):
                 """, (station_name,))
                 row = cursor.fetchone()
                 if not row:
-                    log_message("ERROR", f"Station not found in database: {station_name}")
+                    log_message("ERROR", f"Station not found in database: {station_name}", level=1)
                     continue
                     
                 system_id64, station_id = row
-                log_message("DATABASE", f"Processing station {station_name} ({len(new_map)} commodities)")
+                log_message("DATABASE", f"Processing station {station_name} ({len(new_map)} commodities)", level=2)
                 
                 # Delete existing commodities
                 try:
@@ -164,9 +171,9 @@ def flush_commodities_to_db(conn, commodity_buffer, auto_commit=False):
                         WHERE system_id64 = %s AND station_name = %s
                     """, (system_id64, station_name))
                     rows_deleted = cursor.rowcount
-                    log_message("DATABASE", f"Deleted {rows_deleted} existing commodities for {station_name}")
+                    log_message("DATABASE", f"Deleted {rows_deleted} existing commodities for {station_name}", level=2)
                 except Exception as e:
-                    log_message("ERROR", f"Failed to delete existing commodities for {station_name}: {str(e)}")
+                    log_message("ERROR", f"Failed to delete existing commodities for {station_name}: {str(e)}", level=1)
                     continue
                 
                 # Insert new commodities
@@ -182,9 +189,9 @@ def flush_commodities_to_db(conn, commodity_buffer, auto_commit=False):
                     """, [(system_id64, station_id, station_name, commodity_name, data[0], data[1]) 
                           for commodity_name, data in new_map.items()])
                     rows_affected = cursor.rowcount
-                    log_message("DATABASE", f"Inserted/Updated {rows_affected} commodities for {station_name} (expected {len(new_map)})")
+                    log_message("DATABASE", f"Inserted/Updated {rows_affected} commodities for {station_name} (expected {len(new_map)})", level=2)
                 except Exception as e:
-                    log_message("ERROR", f"Failed to insert commodities for {station_name}: {str(e)}")
+                    log_message("ERROR", f"Failed to insert commodities for {station_name}: {str(e)}", level=1)
                     continue
                 
                 # Update station timestamp using EDDN timestamp
@@ -194,9 +201,9 @@ def flush_commodities_to_db(conn, commodity_buffer, auto_commit=False):
                     try:
                         dt = datetime.strptime(eddn_timestamp, "%Y-%m-%dT%H:%M:%SZ")
                         db_timestamp = dt.strftime("%Y-%m-%d %H:%M:%S")
-                        log_message("DEBUG", f"Converting EDDN timestamp '{eddn_timestamp}' to DB format '{db_timestamp}'")
+                        log_message("DEBUG", f"Converting EDDN timestamp '{eddn_timestamp}' to DB format '{db_timestamp}'", level=3)
                     except ValueError as e:
-                        log_message("ERROR", f"Failed to parse EDDN timestamp '{eddn_timestamp}': {str(e)}")
+                        log_message("ERROR", f"Failed to parse EDDN timestamp '{eddn_timestamp}': {str(e)}", level=1)
                         continue
 
                     cursor.execute("""
@@ -208,12 +215,12 @@ def flush_commodities_to_db(conn, commodity_buffer, auto_commit=False):
                     
                     rows_updated = cursor.rowcount
                     if rows_updated == 0:
-                        log_message("ERROR", f"Failed to update timestamp for {station_name} - no rows affected (timestamp: {db_timestamp})")
+                        log_message("ERROR", f"Failed to update timestamp for {station_name} - no rows affected (timestamp: {db_timestamp})", level=1)
                     else:
                         updated_time = cursor.fetchone()[0]
-                        log_message("DATABASE", f"Updated timestamp for {station_name} from EDDN time '{eddn_timestamp}' to DB time '{updated_time}' (rows affected: {rows_updated})")
+                        log_message("DATABASE", f"Updated timestamp for {station_name} from EDDN time '{eddn_timestamp}' to DB time '{updated_time}' (rows affected: {rows_updated})", level=2)
                 except Exception as e:
-                    log_message("ERROR", f"Failed to update timestamp for {station_name}: {str(e)}")
+                    log_message("ERROR", f"Failed to update timestamp for {station_name}: {str(e)}", level=1)
                     continue
                 
                 total_commodities += len(new_map)
@@ -221,18 +228,18 @@ def flush_commodities_to_db(conn, commodity_buffer, auto_commit=False):
                 # Log progress every 10 stations
                 if stations_processed % 10 == 0:
                     conn.commit()
-                    log_message("DATABASE", f"Progress: {stations_processed}/{total_stations} stations processed")
+                    log_message("DATABASE", f"Progress: {stations_processed}/{total_stations} stations processed", level=2)
 
             except Exception as e:
-                log_message("ERROR", f"Failed to process station {station_name}: {str(e)}")
+                log_message("ERROR", f"Failed to process station {station_name}: {str(e)}", level=1)
                 continue
 
         # Final commit
         conn.commit()
-        log_message("DATABASE", f"✓ Successfully updated {stations_processed} stations with {total_commodities} commodities")
+        log_message("DATABASE", f"✓ Successfully updated {stations_processed} stations with {total_commodities} commodities", level=1)
         
     except Exception as e:
-        log_message("ERROR", f"Database error: {str(e)}")
+        log_message("ERROR", f"Database error: {str(e)}", level=1)
         conn.rollback()
         return 0, 0
         
@@ -304,7 +311,7 @@ def process_message(message, commodity_map):
         # Skip fleet carriers
         if message.get("stationType") == "FleetCarrier" or \
            (message.get("economies") and message["economies"][0].get("name") == "Carrier"):
-            log_message("DEBUG", f"Skipped Fleet Carrier Data: {message.get('stationName')}")
+            log_message("DEBUG", f"Skipped Fleet Carrier Data: {message.get('stationName')}", level=3)
             return None, None
             
         station_name = message.get("stationName")
@@ -312,23 +319,23 @@ def process_message(message, commodity_map):
         market_id = message.get("marketId")
         timestamp = message.get("timestamp")
         
-        log_message("DEBUG", f"Processing station {station_name} in {system_name} (timestamp: {timestamp})")
+        log_message("DEBUG", f"Processing station {station_name} in {system_name} (timestamp: {timestamp})", level=2)
         
         if not timestamp:
-            log_message("ERROR", "Message missing timestamp")
+            log_message("ERROR", "Message missing timestamp", level=1)
             return None, None
             
         if market_id is None:
-            log_message("DEBUG", f"Live update without marketId: {station_name} in system {system_name}")
+            log_message("DEBUG", f"Live update without marketId: {station_name} in system {system_name}", level=2)
         
         if not station_name:
-            log_message("DEBUG", "Message missing station name")
+            log_message("DEBUG", "Message missing station name", level=2)
             return None, None
             
         # Process commodities
         station_commodities = {}
         commodities = message.get("commodities", [])
-        log_message("DEBUG", f"Found {len(commodities)} commodities")
+        log_message("DEBUG", f"Found {len(commodities)} commodities", level=3)
         
         for commodity in commodities:
             name = commodity.get("name", "").lower()
@@ -343,23 +350,23 @@ def process_message(message, commodity_map):
                 continue
                 
             demand = commodity.get("demand", 0)
-            log_message("DEBUG", f"Processing commodity: {name} (price: {sell_price}, demand: {demand})")
+            log_message("DEBUG", f"Processing commodity: {name} (price: {sell_price}, demand: {demand})", level=3)
             station_commodities[commodity_map[name]] = (sell_price, demand, market_id)
-            log_message("COMMODITY", f"✓ {commodity_map[name]} at {station_name}: {sell_price:,} cr (demand: {demand:,})")
+            log_message("COMMODITY", f"✓ {commodity_map[name]} at {station_name}: {sell_price:,} cr (demand: {demand:,})", level=3)
             
         if station_commodities:
-            log_message("COMMODITY", f"Added {len(station_commodities)} mining commodities to buffer for {station_name}")
+            log_message("COMMODITY", f"Added {len(station_commodities)} mining commodities to buffer for {station_name}", level=2)
             # Publish status update to indicate activity
             publish_status("running", datetime.now(timezone.utc))
             # Store timestamp with commodities
             return station_name, (station_commodities, timestamp)
         else:
-            log_message("DEBUG", f"No relevant commodities found at {station_name}")
+            log_message("DEBUG", f"No relevant commodities found at {station_name}", level=2)
             
     except Exception as e:
-        log_message("ERROR", f"Error processing message: {str(e)}")
+        log_message("ERROR", f"Error processing message: {str(e)}", level=1)
         import traceback
-        log_message("ERROR", f"Traceback: {traceback.format_exc()}")
+        log_message("ERROR", f"Traceback: {traceback.format_exc()}", level=1)
         
     return None, None
 
@@ -370,16 +377,21 @@ def main():
     parser = argparse.ArgumentParser(description='EDDN Live Update Service')
     parser.add_argument('--auto', action='store_true', help='Automatically commit changes')
     parser.add_argument('--db', help='Database URL (e.g. postgresql://user:pass@host:port/dbname)')
+    parser.add_argument('--debug-level', type=int, choices=[1, 2, 3], default=1, help='Debug level (1=critical, 2=normal, 3=verbose)')
     args = parser.parse_args()
+    
+    # Set DEBUG_LEVEL from argument
+    global DEBUG_LEVEL
+    DEBUG_LEVEL = args.debug_level
     
     # Set DATABASE_URL from argument or environment variable
     DATABASE_URL = args.db or os.getenv('DATABASE_URL')
     if not DATABASE_URL:
-        log_message("ERROR", "Database URL must be provided via --db argument or DATABASE_URL environment variable")
+        log_message("ERROR", "Database URL must be provided via --db argument or DATABASE_URL environment variable", level=1)
         return 1
     
     try:
-        log_message("INIT", f"Starting Live EDDN Update every {DB_UPDATE_INTERVAL} seconds")
+        log_message("INIT", f"Starting Live EDDN Update every {DB_UPDATE_INTERVAL} seconds", level=1)
         
         publish_status("starting")
         
@@ -389,7 +401,7 @@ def main():
         # Parse database URL for logging
         from urllib.parse import urlparse
         db_url = urlparse(DATABASE_URL)
-        log_message("DATABASE", f"Connecting to database: {db_url.hostname}:{db_url.port}/{db_url.path[1:]}")
+        log_message("DATABASE", f"Connecting to database: {db_url.hostname}:{db_url.port}/{db_url.path[1:]}", level=1)
         
         # Connect to database with simple configuration
         conn_start = time.time()
@@ -398,7 +410,7 @@ def main():
             conn.autocommit = False
             
             conn_time = time.time() - conn_start
-            log_message("DATABASE", f"Connected to database in {conn_time:.2f}s")
+            log_message("DATABASE", f"Connected to database in {conn_time:.2f}s", level=1)
             
             # Log connection info
             cursor = conn.cursor()
@@ -411,9 +423,9 @@ def main():
             cursor.execute("SELECT count(*) FROM pg_stat_activity")
             current_connections = cursor.fetchone()[0]
             
-            log_message("DATABASE", f"PostgreSQL version: {version}")
-            log_message("DATABASE", f"Server version: {server_version}")
-            log_message("DATABASE", f"Connections: {current_connections}/{max_connections}")
+            log_message("DATABASE", f"PostgreSQL version: {version}", level=2)
+            log_message("DATABASE", f"Server version: {server_version}", level=2)
+            log_message("DATABASE", f"Connections: {current_connections}/{max_connections}", level=2)
             
             # Test tables
             cursor.execute("SELECT COUNT(*) FROM systems")
@@ -423,11 +435,11 @@ def main():
             cursor.execute("SELECT COUNT(*) FROM station_commodities")
             commodities_count = cursor.fetchone()[0]
             
-            log_message("DATABASE", f"Database contains: {systems_count} systems, {stations_count} stations, {commodities_count} commodity records")
+            log_message("DATABASE", f"Database contains: {systems_count} systems, {stations_count} stations, {commodities_count} commodity records", level=2)
             
             cursor.close()
         except Exception as e:
-            log_message("ERROR", f"Database connection failed: {str(e)}")
+            log_message("ERROR", f"Database connection failed: {str(e)}", level=1)
             raise
         
         publish_status("running")
@@ -442,8 +454,8 @@ def main():
         subscriber.connect(EDDN_RELAY)
         subscriber.setsockopt_string(zmq.SUBSCRIBE, "")  # subscribe to all messages
         
-        log_message("CONNECTED", f"Listening to EDDN. Flush changes every {DB_UPDATE_INTERVAL}s. (Press Ctrl+C to stop)")
-        log_message("MODE", "automatic" if args.auto else "manual")
+        log_message("CONNECTED", f"Listening to EDDN. Flush changes every {DB_UPDATE_INTERVAL}s. (Press Ctrl+C to stop)", level=1)
+        log_message("MODE", "automatic" if args.auto else "manual", level=1)
         
         last_flush = time.time()
         last_message = time.time()
@@ -461,7 +473,7 @@ def main():
                     last_message = time.time()
                     total_messages += 1
                     if total_messages % 100 == 0:
-                        log_message("STATUS", f"Received {total_messages} total messages ({commodity_messages} commodity messages)")
+                        log_message("STATUS", f"Received {total_messages} total messages ({commodity_messages} commodity messages)", level=2)
                 except zmq.error.Again:
                     continue  # Timeout, continue loop
                 
@@ -472,8 +484,8 @@ def main():
                 schema = data.get("$schemaRef", "").lower()
                 if "commodity" in schema.lower():
                     commodity_messages += 1
-                    log_message("DEBUG", f"Processing commodity message {commodity_messages}")
-                    log_message("DEBUG", f"Message schema: {schema}")
+                    log_message("DEBUG", f"Processing commodity message {commodity_messages}", level=3)
+                    log_message("DEBUG", f"Message schema: {schema}", level=3)
                 else:
                     continue
                     
@@ -482,49 +494,49 @@ def main():
                 if station_name and commodities:
                     commodity_buffer[station_name] = commodities
                     messages_processed += 1
-                    log_message("DEBUG", f"Buffer now contains {len(commodity_buffer)} stations")
+                    log_message("DEBUG", f"Buffer now contains {len(commodity_buffer)} stations", level=2)
                     
                     # Print status every 100 messages
                     if messages_processed % 100 == 0:
-                        log_message("STATUS", f"Processed {messages_processed} commodity messages")
+                        log_message("STATUS", f"Processed {messages_processed} commodity messages", level=2)
                     
                     # Flush to database every DB_UPDATE_INTERVAL seconds
                     current_time = time.time()
                     if current_time - last_flush >= DB_UPDATE_INTERVAL:
-                        log_message("DEBUG", f"Time since last flush: {current_time - last_flush:.1f}s")
+                        log_message("DEBUG", f"Time since last flush: {current_time - last_flush:.1f}s", level=2)
                         if commodity_buffer:
-                            log_message("DATABASE", f"Writing to Database starting... ({len(commodity_buffer)} stations in buffer)")
+                            log_message("DATABASE", f"Writing to Database starting... ({len(commodity_buffer)} stations in buffer)", level=1)
                             for station, commodities in commodity_buffer.items():
-                                log_message("DATABASE", f"Station {station}: {len(commodities)} commodities buffered")
+                                log_message("DATABASE", f"Station {station}: {len(commodities)} commodities buffered", level=2)
                             publish_status("updating", datetime.now(timezone.utc))
                             stations, commodities = flush_commodities_to_db(conn, commodity_buffer)
                             if stations > 0:
                                 db_operations += 1
-                                log_message("DATABASE", f"✓ Successfully updated {stations} stations with {commodities} commodities")
+                                log_message("DATABASE", f"✓ Successfully updated {stations} stations with {commodities} commodities", level=1)
                             else:
                                 db_errors += 1
-                                log_message("ERROR", "No stations were updated")
+                                log_message("ERROR", "No stations were updated", level=1)
                             publish_status("running", datetime.now(timezone.utc))
                         else:
-                            log_message("DATABASE", "No commodities in buffer to write")
+                            log_message("DATABASE", "No commodities in buffer to write", level=2)
                         last_flush = current_time
                 
             except Exception as e:
-                log_message("ERROR", f"Error processing message: {str(e)}")
+                log_message("ERROR", f"Error processing message: {str(e)}", level=1)
                 publish_status("error")
                 continue
                     
         # Final flush on exit
         if commodity_buffer:
-            log_message("DATABASE", "Writing to Database starting...")
+            log_message("DATABASE", "Writing to Database starting...", level=1)
             publish_status("updating", datetime.now(timezone.utc))
             stations, commodities = flush_commodities_to_db(conn, commodity_buffer)
             if stations > 0:
-                log_message("DATABASE", f"[DATABASE] Writing to Database finished. Updated {stations} stations, {commodities} commodities")
+                log_message("DATABASE", f"[DATABASE] Writing to Database finished. Updated {stations} stations, {commodities} commodities", level=1)
             publish_status("running", datetime.now(timezone.utc))
                 
     except Exception as e:
-        log_message("ERROR", f"Fatal error: {str(e)}")
+        log_message("ERROR", f"Fatal error: {str(e)}", level=1)
         publish_status("error")
         return 1
         
@@ -532,7 +544,7 @@ def main():
         if 'conn' in locals():
             conn.close()
         publish_status("offline")
-        log_message("TERMINATED", "EDDN Update Service")
+        log_message("TERMINATED", "EDDN Update Service", level=1)
         
     return 0
 
