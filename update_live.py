@@ -256,85 +256,86 @@ def handle_journal_message(message):
         return
 
     # Log that we found a relevant event
-    log_message('\033[92m', "POWER-DEBUG", f"Processing {event} event")
+    log_message("POWER-DEBUG", f"\033[92mProcessing {event} event", level=1)
 
     system_name = message.get("StarSystem", "")
     system_id64 = message.get("SystemAddress")
     if not system_name or not system_id64:
-        log_message('\033[92m', "POWER-DEBUG", f"Missing system info - Name: {system_name}, ID64: {system_id64}")
+        log_message("POWER-DEBUG", f"\033[92mMissing system info - Name: {system_name}, ID64: {system_id64}", level=1)
         return
 
     # Check for Powers array
     powers = message.get("Powers")
     if powers is not None:
         if isinstance(powers, list):
-            log_message('\033[92m', "POWER-DEBUG", f"Found Powers array: {powers}")
+            log_message("POWER-DEBUG", f"\033[92mFound Powers array: {powers}", level=1)
         elif isinstance(powers, str):
             powers = [powers]  # Convert single string to list
-            log_message('\033[92m', "POWER-DEBUG", f"Found Powers as string, converted to array: {powers}")
+            log_message("POWER-DEBUG", f"\033[92mFound Powers as string, converted to array: {powers}", level=1)
         else:
-            log_message('\033[92m', "POWER-DEBUG", f"Powers field has unexpected type: {type(powers)}")
+            log_message("POWER-DEBUG", f"\033[92mPowers field has unexpected type: {type(powers)}", level=1)
             return
     else:
-        log_message('\033[92m', "POWER-DEBUG", "No Powers field found in message")
+        log_message("POWER-DEBUG", "\033[92mNo Powers field found in message", level=1)
         return
 
     # Check for PowerplayState
     power_state = message.get("PowerplayState")
     if power_state is not None:
         if isinstance(power_state, str):
-            log_message('\033[92m', "POWER-DEBUG", f"Found PowerplayState: {power_state}")
+            log_message("POWER-DEBUG", f"\033[92mFound PowerplayState: {power_state}", level=1)
         else:
-            log_message('\033[92m', "POWER-DEBUG", f"PowerplayState has unexpected type: {type(power_state)}")
+            log_message("POWER-DEBUG", f"\033[92mPowerplayState has unexpected type: {type(power_state)}", level=1)
             return
     else:
-        log_message('\033[92m', "POWER-DEBUG", "No PowerplayState field found in message")
+        log_message("POWER-DEBUG", "\033[92mNo PowerplayState field found in message", level=1)
         power_state = ""  # Default to empty string if not present
 
     # Determine controlling power from Powers array
     controlling_power = None
     if len(powers) == 1:
         controlling_power = powers[0]
-        log_message('\033[92m', "POWER-DEBUG", f"Single power in array, using as controlling power: {controlling_power}")
+        log_message("POWER-DEBUG", f"\033[92mSingle power in array, using as controlling power: {controlling_power}", level=1)
     else:
-        log_message('\033[92m', "POWER-DEBUG", f"Multiple powers found ({len(powers)}), cannot determine controlling power")
+        log_message("POWER-DEBUG", f"\033[92mMultiple powers found ({len(powers)}), cannot determine controlling power", level=1)
 
     # Log the final data we'll use for the database
-    log_message('\033[92m', "POWER-DEBUG", f"Database update data:")
-    log_message('\033[92m', "POWER-DEBUG", f"  System: {system_name} (ID64: {system_id64})")
-    log_message('\033[92m', "POWER-DEBUG", f"  Controlling Power: {controlling_power}")
-    log_message('\033[92m', "POWER-DEBUG", f"  Power State: {power_state}")
-    log_message('\033[92m', "POWER-DEBUG", f"  All Powers: {powers}")
+    log_message("POWER-DEBUG", "\033[92mDatabase update data:", level=1)
+    log_message("POWER-DEBUG", f"\033[92m  System: {system_name} (ID64: {system_id64})", level=1)
+    log_message("POWER-DEBUG", f"\033[92m  Controlling Power: {controlling_power}", level=1)
+    log_message("POWER-DEBUG", f"\033[92m  Power State: {power_state}", level=1)
+    log_message("POWER-DEBUG", f"\033[92m  All Powers: {powers}", level=1)
 
-    try:
-        with psycopg2.connect(DATABASE_URL) as conn:
-            cur = conn.cursor()
-            # First check if power or state has changed
-            cur.execute("""
-                SELECT controlling_power, power_state
-                FROM systems
-                WHERE id64 = %s AND name = %s
-            """, (system_id64, system_name))
-            row = cur.fetchone()
-            if row:
-                old_power, old_state = row
-                if old_power == controlling_power and old_state == power_state:
-                    log_message('\033[92m', "POWER-DEBUG", f"No change needed for {system_name}")
-                    return  # No change needed
+    # Database update commented out until we validate the data format
+    # try:
+    #     with psycopg2.connect(DATABASE_URL) as conn:
+    #         cur = conn.cursor()
+    #         # First check if power or state has changed
+    #         cur.execute("""
+    #             SELECT controlling_power, power_state
+    #             FROM systems
+    #             WHERE id64 = %s AND name = %s
+    #         """, (system_id64, system_name))
+    #         row = cur.fetchone()
+    #         if row:
+    #             old_power, old_state = row
+    #             if old_power == controlling_power and old_state == power_state:
+    #                 log_message("POWER-DEBUG", f"\033[92mNo change needed for {system_name}", level=1)
+    #                 return  # No change needed
                 
-            # Only update if different
-            cur.execute("""
-                UPDATE systems 
-                SET controlling_power = %s,
-                    power_state = %s
-                WHERE id64 = %s AND name = %s
-            """, (controlling_power, power_state, system_id64, system_name))
+    #         # Only update if different
+    #         cur.execute("""
+    #             UPDATE systems 
+    #             SET controlling_power = %s,
+    #                 power_state = %s
+    #             WHERE id64 = %s AND name = %s
+    #         """, (controlling_power, power_state, system_id64, system_name))
             
-            if cur.rowcount > 0:
-                log_message('\033[92m', "POWER-DEBUG", f"✓ Updated power status for {system_name}")
-            conn.commit()
-    except Exception as e:
-        log_message('\033[92m', "POWER-DEBUG", f"Failed to update power status: {e}")
+    #         if cur.rowcount > 0:
+    #             log_message("POWER-DEBUG", f"\033[92m✓ Updated power status for {system_name}", level=1)
+    #         conn.commit()
+    # except Exception as e:
+    #     log_message("POWER-DEBUG", f"\033[92mFailed to update power status: {e}", level=1)
 
 def handle_powers_data(message):
     """Handle powers data from EDDN message and log it for analysis"""
@@ -344,29 +345,29 @@ def handle_powers_data(message):
         powers = message.get('Powers')
         
         # Log initial data received
-        log_message('\033[92m', "POWER-DEBUG", f"Processing powers_acquiring data:")
-        log_message('\033[92m', "POWER-DEBUG", f"  System ID64: {system_id64}")
-        log_message('\033[92m', "POWER-DEBUG", f"  Raw Powers data: {powers}")
+        log_message("POWER-DEBUG", "\033[92mProcessing powers_acquiring data:", level=1)
+        log_message("POWER-DEBUG", f"\033[92m  System ID64: {system_id64}", level=1)
+        log_message("POWER-DEBUG", f"\033[92m  Raw Powers data: {powers}", level=1)
         
         # Validate data
         if not system_id64:
-            log_message('\033[92m', "POWER-DEBUG", "Missing SystemAddress, skipping")
+            log_message("POWER-DEBUG", "\033[92mMissing SystemAddress, skipping", level=1)
             return
             
         if powers is None:
-            log_message('\033[92m', "POWER-DEBUG", "No Powers field found, skipping")
+            log_message("POWER-DEBUG", "\033[92mNo Powers field found, skipping", level=1)
             return
             
         # Validate powers is an array
         if isinstance(powers, str):
             powers = [powers]  # Convert single string to array
-            log_message('\033[92m', "POWER-DEBUG", f"Converted single power string to array: {powers}")
+            log_message("POWER-DEBUG", f"\033[92mConverted single power string to array: {powers}", level=1)
         elif not isinstance(powers, list):
-            log_message('\033[92m', "POWER-DEBUG", f"Powers has unexpected type {type(powers)}, skipping")
+            log_message("POWER-DEBUG", f"\033[92mPowers has unexpected type {type(powers)}, skipping", level=1)
             return
             
         # Log what we would update in the database
-        log_message('\033[92m', "POWER-DEBUG", f"Would update system {system_id64} with powers_acquiring: {json.dumps(powers)}")
+        log_message("POWER-DEBUG", f"\033[92mWould update system {system_id64} with powers_acquiring: {json.dumps(powers)}", level=1)
         
         # This would be the actual database update (commented out for now)
         # sql = """
@@ -379,38 +380,38 @@ def handle_powers_data(message):
         # conn.commit()
             
     except Exception as e:
-        log_message('\033[92m', "POWER-DEBUG", f"Error processing powers_acquiring: {str(e)}")
+        log_message("POWER-DEBUG", f"\033[92mError processing powers_acquiring: {str(e)}", level=1)
 
 def process_journal_message(message):
     """Process journal messages for power data"""
     try:
         # Log the schema ref to see what kind of message we received
         schema_ref = message.get("$schemaRef", "unknown")
-        log_message('\033[92m', "POWER-DEBUG", f"Checking message with schema: {schema_ref}")
+        log_message("POWER-DEBUG", f"\033[92mChecking message with schema: {schema_ref}", level=1)
         
         # Get the inner message object
         msg_data = message.get("message", {})
         if not msg_data:
-            log_message('\033[92m', "POWER-DEBUG", "No inner message object found")
+            log_message("POWER-DEBUG", "\033[92mNo inner message object found", level=1)
             return False
             
         # Check for journal events
         message_type = msg_data.get("event")
-        log_message('\033[92m', "POWER-DEBUG", f"Message type: {message_type}")
+        log_message("POWER-DEBUG", f"\033[92mMessage type: {message_type}", level=1)
         
         if message_type in ['Location', 'FSDJump']:
-            log_message('\033[92m', "POWER-DEBUG", f"Found journal event: {message_type}")
-            log_message('\033[92m', "POWER-DEBUG", f"Message data: {json.dumps(msg_data, indent=2)}")
+            log_message("POWER-DEBUG", f"\033[92mFound journal event: {message_type}", level=1)
+            log_message("POWER-DEBUG", f"\033[92mMessage data: {json.dumps(msg_data, indent=2)}", level=1)
             handle_journal_message(msg_data)
             handle_powers_data(msg_data)
             return True
             
-        log_message('\033[92m', "POWER-DEBUG", "Not a journal event we're interested in")
+        log_message("POWER-DEBUG", "\033[92mNot a journal event we're interested in", level=1)
         return False
     except Exception as e:
-        log_message('\033[92m', "POWER-DEBUG", f"Error processing journal message: {str(e)}")
+        log_message("POWER-DEBUG", f"\033[92mError processing journal message: {str(e)}", level=1)
         import traceback
-        log_message('\033[92m', "POWER-DEBUG", f"Traceback: {traceback.format_exc()}")
+        log_message("POWER-DEBUG", f"\033[92mTraceback: {traceback.format_exc()}", level=1)
         return False
 
 def process_message(message, commodity_map):
