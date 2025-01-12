@@ -312,56 +312,43 @@ def handle_powers_data(message):
         system_id64 = message.get('SystemID64')
         powers = message.get('Powers', [])  # This should be the array of powers
         
-        # Log with green color for visibility
-        log_message(GREEN, "POWERS-DEBUG", f"System ID64: {system_id64}")
-        log_message(GREEN, "POWERS-DEBUG", f"Powers Array: {powers}")
+        # Log with bright cyan color for visibility
+        log_message('\033[96m', "POWERS-DEBUG", f"System ID64: {system_id64}")
+        log_message('\033[96m', "POWERS-DEBUG", f"Powers Array: {powers}")
         
         if system_id64 and powers:
             # This would be the actual database update (commented out for now)
             # sql = """
-            #     UPDATE systems
+            #     UPDATE systems 
             #     SET powers_acquiring = %s::jsonb
             #     WHERE id64 = %s
             # """
             # params = (json.dumps(powers), system_id64)
             # cursor.execute(sql, params)
             # conn.commit()
-            log_message(GREEN, "POWERS-DEBUG", f"Would update system {system_id64} with powers: {json.dumps(powers)}")
+            
+            log_message('\033[96m', "POWERS-DEBUG", f"Would update system {system_id64} with powers: {json.dumps(powers)}")
     except Exception as e:
-        log_message(GREEN, "POWERS-DEBUG", f"Error processing powers: {str(e)}")
+        log_message('\033[96m', "POWERS-DEBUG", f"Error processing powers: {str(e)}")
 
 def process_message(message, commodity_map):
     """Process a single EDDN message"""
     try:
-        # Check schema first
-        schema = message.get("$schemaRef", "").lower()
-        
-        # Get the actual message content
-        msg_data = message.get("message", {})
-        
-        # Handle different schemas
-        if "journal" in schema:
-            # Only process journal events for powers data
-            event = msg_data.get("event")
-            if event in ['Location', 'FSDJump']:
-                handle_powers_data(msg_data)
-            return None, None
-            
-        elif "commodity" not in schema:
-            return None, None  # Skip non-commodity schemas
-            
-        # From here on, we're processing commodity data
-        
         # Skip fleet carriers
-        if msg_data.get("stationType") == "FleetCarrier" or \
-           (msg_data.get("economies") and msg_data["economies"][0].get("name") == "Carrier"):
-            log_message("DEBUG", f"Skipped Fleet Carrier Data: {msg_data.get('stationName')}", level=3)
+        if message.get("stationType") == "FleetCarrier" or \
+           (message.get("economies") and message["economies"][0].get("name") == "Carrier"):
+            log_message("DEBUG", f"Skipped Fleet Carrier Data: {message.get('stationName')}", level=3)
             return None, None
             
-        station_name = msg_data.get("stationName")
-        system_name = msg_data.get("systemName", "Unknown")
-        market_id = msg_data.get("marketId")
-        timestamp = msg_data.get("timestamp")
+        # Get message type
+        message_type = message.get("event")
+        if message_type in ['Location', 'FSDJump']:
+            handle_powers_data(message)
+            
+        station_name = message.get("stationName")
+        system_name = message.get("systemName", "Unknown")
+        market_id = message.get("marketId")
+        timestamp = message.get("timestamp")
         
         log_message("DEBUG", f"Processing station {station_name} in {system_name} (timestamp: {timestamp})", level=2)
         
@@ -396,7 +383,7 @@ def process_message(message, commodity_map):
             
         # Process commodities
         station_commodities = {}
-        commodities = msg_data.get("commodities", [])
+        commodities = message.get("commodities", [])
         log_message("DEBUG", f"Found {len(commodities)} commodities", level=3)
         
         for commodity in commodities:
