@@ -384,19 +384,33 @@ def handle_powers_data(message):
 def process_journal_message(message):
     """Process journal messages for power data"""
     try:
+        # Log the schema ref to see what kind of message we received
+        schema_ref = message.get("$schemaRef", "unknown")
+        log_message('\033[92m', "POWER-DEBUG", f"Checking message with schema: {schema_ref}")
+        
         # Get the inner message object
         msg_data = message.get("message", {})
-        
+        if not msg_data:
+            log_message('\033[92m', "POWER-DEBUG", "No inner message object found")
+            return False
+            
         # Check for journal events
         message_type = msg_data.get("event")
+        log_message('\033[92m', "POWER-DEBUG", f"Message type: {message_type}")
+        
         if message_type in ['Location', 'FSDJump']:
             log_message('\033[92m', "POWER-DEBUG", f"Found journal event: {message_type}")
+            log_message('\033[92m', "POWER-DEBUG", f"Message data: {json.dumps(msg_data, indent=2)}")
             handle_journal_message(msg_data)
             handle_powers_data(msg_data)
             return True
+            
+        log_message('\033[92m', "POWER-DEBUG", "Not a journal event we're interested in")
         return False
     except Exception as e:
         log_message('\033[92m', "POWER-DEBUG", f"Error processing journal message: {str(e)}")
+        import traceback
+        log_message('\033[92m', "POWER-DEBUG", f"Traceback: {traceback.format_exc()}")
         return False
 
 def process_message(message, commodity_map):
