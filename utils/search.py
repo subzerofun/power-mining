@@ -83,21 +83,26 @@ def search():
         # Handle mining types filter
         if mining_types and 'All' not in mining_types:
             valid_ring_types = []
+            log_message(BLUE, "MINING", f"Processing mining types: {mining_types}")
             for ring_type, data in material['ring_types'].items():
+                log_message(BLUE, "MINING", f"Checking ring type {ring_type} with data: {data}")
                 for mining_type in mining_types:
-                    if (mining_type == 'Laser surface' and data.get('surfaceLaserMining', False)) or \
-                       (mining_type == 'Surface' and data.get('surfaceDeposit', False)) or \
-                       (mining_type == 'Subsurface' and data.get('subSurfaceDeposit', False)) or \
-                       (mining_type == 'Core' and data.get('core', False)):
+                    if (mining_type.lower() == 'laser surface' and data.get('surfaceLaserMining', False)) or \
+                       (mining_type.lower() == 'surface' and data.get('surfaceDeposit', False)) or \
+                       (mining_type.lower() == 'subsurface' and data.get('subSurfaceDeposit', False)) or \
+                       (mining_type.lower() == 'core' and data.get('core', False)):
                         valid_ring_types.append(ring_type)
+                        log_message(BLUE, "MINING", f"Added valid ring type: {ring_type} for mining type: {mining_type}")
                         break
             
+            log_message(BLUE, "MINING", f"Final valid ring types: {valid_ring_types}")
             if valid_ring_types:
                 # For Core mining, we only want to filter by ring type if not looking for hotspots
                 if not (mining_types == ['Core'] and ring_type_filter == 'Hotspots'):
                     where_conditions.append("ms.ring_type = ANY(%s::text[])")
                     where_params.append(valid_ring_types)
             else:
+                log_message(RED, "MINING", "No valid ring types found for the selected mining types")
                 return jsonify([])
 
         # Build the JOIN condition based on material type and ring type filter
