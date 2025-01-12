@@ -414,10 +414,7 @@ def process_message(message, commodity_map):
     """Process a single EDDN message"""
     try:
         # First try to process as journal message
-        schema_ref = message.get("$schemaRef", "")
-        if schema_ref == "https://eddn.edcd.io/schemas/journal/1":
-            log_message("POWER-DEBUG", GREEN + f"Found journal message with schema: {schema_ref}", level=1)
-            process_journal_message(message)
+        if process_journal_message(message):
             return None, None  # Journal messages don't have commodity data
             
         # Skip fleet carriers
