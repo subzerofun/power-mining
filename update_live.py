@@ -339,23 +339,24 @@ def process_message(message, commodity_map):
         # Get the actual message content
         msg_data = message.get("message", {})
         
-        # Handle journal events (Location, FSDJump)
+        # Handle different schemas
         if "journal" in schema:
+            # Only process journal events for powers data
             event = msg_data.get("event")
             if event in ['Location', 'FSDJump']:
-                handle_journal_message(msg_data)
                 handle_powers_data(msg_data)
+            return None, None
+            
+        elif "commodity" not in schema:
+            return None, None  # Skip non-commodity schemas
+            
+        # From here on, we're processing commodity data
         
         # Skip fleet carriers
         if msg_data.get("stationType") == "FleetCarrier" or \
            (msg_data.get("economies") and msg_data["economies"][0].get("name") == "Carrier"):
             log_message("DEBUG", f"Skipped Fleet Carrier Data: {msg_data.get('stationName')}", level=3)
             return None, None
-            
-        # Get message type
-        message_type = msg_data.get("event")
-        if message_type in ['Location', 'FSDJump']:
-            handle_powers_data(msg_data)
             
         station_name = msg_data.get("stationName")
         system_name = msg_data.get("systemName", "Unknown")
