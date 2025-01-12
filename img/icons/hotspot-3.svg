@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 39.5 39.5">
+  <defs>
+    <style>
+      .cls-1 {
+        fill: none;
+        stroke: #fff;
+        stroke-miterlimit: 10;
+      }
+
+      .cls-2 {
+        fill: url(#Unbenannter_Verlauf_918);
+        stroke-width: 0px;
+      }
+    </style>
+    <radialGradient id="Unbenannter_Verlauf_918" data-name="Unbenannter Verlauf 918" cx="10.91" cy="10.99" fx="10.91" fy="10.99" r="7" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#f9eda9"/>
+      <stop offset=".09" stop-color="#f7e7a0"/>
+      <stop offset=".23" stop-color="#f3da87"/>
+      <stop offset=".41" stop-color="#edc460"/>
+      <stop offset=".49" stop-color="#ebba4e"/>
+      <stop offset=".63" stop-color="#e29c46"/>
+      <stop offset=".81" stop-color="#d66f3c"/>
+      <stop offset="1" stop-color="#d54646"/>
+    </radialGradient>
+  </defs>
+  <g id="Ebene_1" data-name="Ebene 1">
+    <circle class="cls-2" cx="10.91" cy="10.99" r="7"/>
+  </g>
+  <g id="Ebene_2" data-name="Ebene 2">
+    <line class="cls-1" x1="5.41" y1="10.99" x2="8.41" y2="10.99"/>
+    <line class="cls-1" x1="13.16" y1="10.99" x2="16.16" y2="10.99"/>
+    <line class="cls-1" x1="10.91" y1="5.99" x2="10.91" y2="8.99"/>
+    <line class="cls-1" x1="10.91" y1="12.99" x2="10.91" y2="15.99"/>
+  </g>
+</svg>

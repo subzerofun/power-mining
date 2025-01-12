@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generator: Adobe Illustrator 28.3.0, SVG Export Plug-In . SVG Version: 6.00 Build 0)  -->
+<svg version="1.1" id="Ebene_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
+	 viewBox="0 0 14 14" style="enable-background:new 0 0 14 14;" xml:space="preserve">
+	<filter id="blur">
+	<feGaussianBlur stdDeviation="1 1" />
+	</filter>
+<style type="text/css">
+	.st0{opacity:0.8;fill:url(#XMLID_00000166670017153081977050000001596077331257848989_);}
+	.st1{fill:none;stroke:#FFE900;stroke-miterlimit:10;}
+</style>
+<radialGradient id="XMLID_00000106863683143923620010000017481425708766342804_" cx="7" cy="7" r="7" gradientUnits="userSpaceOnUse">
+	<stop  offset="2.831221e-07" style="stop-color:#F9EDA9"/>
+	<stop  offset="8.808390e-02" style="stop-color:#F8E8A0"/>
+	<stop  offset="0.2317" style="stop-color:#F4DA88"/>
+	<stop  offset="0.4119" style="stop-color:#EEC460"/>
+	<stop  offset="0.4862" style="stop-color:#EBBA4E"/>
+	<stop  offset="0.6279" style="stop-color:#E39C47"/>
+	<stop  offset="0.8136" style="stop-color:#D66F3C"/>
+	<stop  offset="1" style="stop-color:#D54646"/>
+</radialGradient>
+<circle id="XMLID_00000099647596272196785720000014766616159277499574_" style="opacity:0.8;fill:url(#XMLID_00000106863683143923620010000017481425708766342804_);" cx="7" cy="7" r="7"/>
+<g id="Ebene_2_00000137836691659574863910000002971581917896462978_">
+	<line id="XMLID_00000067946368980392755400000006150268326624618917_" class="st1" x1="1.5" y1="7" x2="4.5" y2="7"/>
+	<line id="XMLID_00000160873765290008216610000008393445835691327117_" class="st1" x1="9.2" y1="7" x2="12.2" y2="7"/>
+	<line id="XMLID_00000052812955853829250730000017853782240884379787_" class="st1" x1="7" y1="2" x2="7" y2="5"/>
+	<line id="XMLID_00000019650039771057273970000015355869109873313198_" class="st1" x1="7" y1="9" x2="7" y2="12"/>
+</g>
+</svg>

@@ -1,4 +1,4 @@
-# Elite Dangerous Merit Miner
+# Elite Dangerous Merit Miner - Web Version
 
 A specialized mining helper tool for Elite Dangerous that helps you find the most profitable mining locations within your power's territory. It displays optimal mining locations where you can both mine materials and sell them at high prices, showing station demands, planetary ring conditions and hotspot details. 
 
@@ -29,8 +29,36 @@ Adds special search option for res hotspots and high yield platinum hotspots (ba
 1. Go to the website: https://powermining.applikuapp.com
 
 2. Start searching and **make profit**! 
+
+3. I would really appreciate it if you help me with the server costs: 
    
-3. Think about supporting me with server costs: [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/H2H618T1H5)
+   [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/H2H618T1H5)
+
+---
+
+## Updates
+
+![Search results](img/EDDN-status.png)
+
+### 2025-01 Update #1
+
+- Rewrote the local install to use flask in combination with gunicorn to put it on a server
+
+- Changed from SQlite to PostgreSQL since that is more efficient and more commonly used on servers
+
+- Changed the complete search logic for PostgreSQL
+
+- Added update_live.py - which connects to the EDDN network and constantly updates the database (daemon watches updater and sends updates to website)
+  
+  
+
+---
+
+## 2025-01 Release
+
+- Initial release of local webserver tool with manual database download and conversion into sqlite - without update functionality
+
+
 
 ---- 
 

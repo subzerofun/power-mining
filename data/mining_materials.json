@@ -1,0 +1,924 @@
+{
+    "materials": {
+        "Alexandrite": {
+            "name": "Alexandrite",
+            "short": "ALE",
+            "type": "core",
+            "ring_types": {
+                "Rocky": {
+                    "core": true,
+                    "hotspot": true
+                },
+                "Metal Rich": {
+                    "core": true,
+                    "hotspot": true
+                },
+                "Icy": {
+                    "core": true,
+                    "hotspot": true
+                }
+            },
+            "conditions": "none",
+            "typical_value": "High"
+        },
+        "Aluminium": {
+            "name": "Aluminium",
+            "short": "ALU",
+            "type": "non-core",
+            "ring_types": {
+                "Metal Rich": {
+                    "surfaceLaserMining": true,
+                    "surfaceDeposit": true,
+                    "subSurfaceDeposit": true
+                },
+                "Metallic": {
+                    "surfaceLaserMining": true,
+                    "surfaceDeposit": true,
+                    "subSurfaceDeposit": true
+                }
+            },
+            "conditions": "Higher yields in Pristine metallic",
+            "typical_value": "Yes"
+        },
+        "Bauxite": {
+            "name": "Bauxite",
+            "short": "BAU",
+            "type": "non-core",
+            "ring_types": {
+                "Rocky": {
+                    "surfaceLaserMining": true,
+                    "surfaceDeposit": true,
+                    "subSurfaceDeposit": true
+                }
+            },
+            "conditions": "Common in all rocky rings",
+            "typical_value": "Low"
+        },
+        "Benitoite": {
+            "name": "Benitoite",
+            "short": "BEN",
+            "type": "core",
+            "ring_types": {
+                "Rocky": {
+                    "core": true,
+                    "hotspot": true
+                },
+                "Metal Rich": {
+                    "core": true,
+                    "hotspot": true
+                }
+            },
+            "conditions": "none",
+            "typical_value": "High"
+        },
+        "Bertrandite": {
+            "name": "Bertrandite",
+            "short": "BRT",
+            "type": "non-core",
+            "ring_types": {
+                "Rocky": {
+                    "surfaceLaserMining": true,
+                    "surfaceDeposit": true,
+                    "subSurfaceDeposit": true
+                },
+                "Icy": {
+                    "surfaceLaserMining": true,
+                    "surfaceDeposit": true,
+                    "subSurfaceDeposit": true
+                }
+            },
+            "conditions": "More common in rocky rings",
+            "typical_value": "Medium"
+        },
+        "Beryllium": {
+            "name": "Beryllium",
+            "short": "BER",
+            "type": "non-core",
+            "ring_types": {
+                "Metal Rich": {
+                    "surfaceLaserMining": true,
+                    "surfaceDeposit": true,
+                    "subSurfaceDeposit": true
+                },
+                "Metallic": {
+                    "surfaceLaserMining": true,
+                    "surfaceDeposit": true,
+                    "subSurfaceDeposit": true
+                }
+            },
+            "conditions": "Higher yields in Pristine metallic",
+            "typical_value": "Yes"
+        },
+        "Bismuth": {
+            "name": "Bismuth",
+            "short": "BIS",
+            "type": "non-core",
+            "ring_types": {
+                "Metal Rich": {
+                    "surfaceLaserMining": true,
+                    "surfaceDeposit": true,
+                    "subSurfaceDeposit": true
+                },
+                "Metallic": {
+                    "surfaceLaserMining": true,
+                    "surfaceDeposit": true,
+                    "subSurfaceDeposit": true
+                }
+            },
+            "conditions": "Higher yields in Pristine metallic",
+            "typical_value": "Yes"
+        },
+        "Bromellite": {
+            "name": "Bromellite",
+            "short": "BRM",
+            "type": "both",
+            "ring_types": {
+                "Icy": {
+                    "surfaceLaserMining": true,
+                    "surfaceDeposit": true,
+                    "subSurfaceDeposit": true,
+                    "core": true,
+                    "hotspot": true
+                }
+            },
+            "conditions": "none",
+            "typical_value": "Medium"
+        },
+        "Cobalt": {
+            "name": "Cobalt",
+            "short": "COB",
+            "type": "non-core",
+            "ring_types": {
+                "Metallic": {
+                    "surfaceLaserMining": true,
+                    "surfaceDeposit": true,
+                    "subSurfaceDeposit": true
+                },
+                "Metal Rich": {
+                    "surfaceLaserMining": true,
+                    "surfaceDeposit": true,
+                    "subSurfaceDeposit": true
+                }
+            },
+            "conditions": "Higher yields in pristine metallic",
+            "typical_value": "Medium"
+        },
+        "Coltan": {
+            "name": "Coltan",
+            "short": "CLT",
+            "type": "non-core",
+            "ring_types": {
+                "Rocky": {
+                    "surfaceLaserMining": true,
+                    "surfaceDeposit": true,
+                    "subSurfaceDeposit": true
+                },
+                "Metal Rich": {
+                    "surfaceLaserMining": true,
+                    "surfaceDeposit": true,
+                    "subSurfaceDeposit": true
+                }
+            },
+            "conditions": "More common in Metal Rich",
+            "typical_value": "Medium"
+        },
+        "Copper": {
+            "name": "Copper",
+            "short": "COP",
+            "type": "non-core",
+            "ring_types": {
+                "Metallic": {
+                    "surfaceLaserMining": true,
+                    "surfaceDeposit": true,
+                    "subSurfaceDeposit": true
+                },
+                "Metal Rich": {
+                    "surfaceLaserMining": true,
+                    "surfaceDeposit": true,
+                    "subSurfaceDeposit": true
+                }
+            },
+            "conditions": "Higher yields in pristine metallic",
+            "typical_value": "Medium"
+        },
+        "Cryolite": {
+            "name": "Cryolite",
+            "short": "CRY",
+            "type": "non-core",
+            "ring_types": {
+                "Icy": {
+                    "surfaceLaserMining": true,
+                    "surfaceDeposit": true,
+                    "subSurfaceDeposit": true
+                }
+            },
+            "conditions": "Best in Pristine reserves",
+            "typical_value": "Unknown"
+        },
+        "Gallite": {
+            "name": "Gallite",
+            "short": "GAL",
+            "type": "non-core",
+            "ring_types": {
+                "Rocky": {
+                    "surfaceLaserMining": true,
+                    "surfaceDeposit": true,
+                    "subSurfaceDeposit": true
+                },
+                "Metallic": {
+                    "surfaceLaserMining": true,
+                    "surfaceDeposit": true,
+                    "subSurfaceDeposit": true
+                }
+            },
+            "conditions": "More common in metallic",
+            "typical_value": "Low"
+        },
+        "Gallium": {
+            "name": "Gallium",
+            "short": "GLM",
+            "type": "non-core",
+            "ring_types": {
+                "Metallic": {
+                    "surfaceLaserMining": true,
+                    "surfaceDeposit": true,
+                    "subSurfaceDeposit": true
+                },
+                "Metal Rich": {
+                    "surfaceLaserMining": true,
+                    "surfaceDeposit": true,
+                    "subSurfaceDeposit": true
+                }
+            },
+            "conditions": "Higher yields in pristine metallic",
+            "typical_value": "Medium"
+        },
+        "Gold": {
+            "name": "Gold",
+            "short": "GLD",
+            "type": "non-core",
+            "ring_types": {
+                "Metallic": {
+                    "surfaceLaserMining": true,
+                    "surfaceDeposit": true,
+                    "subSurfaceDeposit": true
+                }
+            },
+            "conditions": "Best yields in pristine reserves",
+            "typical_value": "High"
+        },
+        "Goslarite": {
+            "name": "Goslarite",
+            "short": "GOS",
+            "type": "non-core",
+            "ring_types": {
+                "Icy": {
+                    "surfaceLaserMining": true,
+                    "surfaceDeposit": true,
+                    "subSurfaceDeposit": true
+                }
+            },
+            "conditions": "Best in Pristine reserves",
+            "typical_value": "Unknown"
+        },
+        "Grandidierite": {
+            "name": "Grandidierite",
+            "short": "GRN",
+            "type": "core",
+            "ring_types": {
+                "Rocky": {
+                    "core": true,
+                    "hotspot": true
+                },
+                "Metal Rich": {
+                    "core": true,
+                    "hotspot": true
+                }
+            },
+            "conditions": "none",
+            "typical_value": "High"
+        },
+        "Hafnium 178": {
+            "name": "Hafnium 178",
+            "short": "HAF",
+            "type": "non-core",
+            "ring_types": {
+                "Metal Rich": {
+                    "surfaceLaserMining": true,
+                    "surfaceDeposit": true,
+                    "subSurfaceDeposit": true
+                },
+                "Metallic": {
+                    "surfaceLaserMining": true,
+                    "surfaceDeposit": true,
+                    "subSurfaceDeposit": true
+                }
+            },
+            "conditions": "Higher yields in Pristine metallic",
+            "typical_value": "Unknown"
+        },
+        "Hydrogen Peroxide": {
+            "name": "Hydrogen Peroxide",
+            "short": "HYD",
+            "type": "non-core",
+            "ring_types": {
+                "Icy": {
+                    "surfaceLaserMining": true,
+                    "surfaceDeposit": true,
+                    "subSurfaceDeposit": true
+                }
+            },
+            "conditions": "none",
+            "typical_value": "Medium"
+        },
+        "Indite": {
+            "name": "Indite",
+            "short": "IDT",
+            "type": "non-core",
+            "ring_types": {
+                "Rocky": {
+                    "surfaceLaserMining": true,
+                    "surfaceDeposit": true,
+                    "subSurfaceDeposit": true
+                },
+                "Metal Rich": {
+                    "surfaceLaserMining": true,
+                    "surfaceDeposit": true,
+                    "subSurfaceDeposit": true
+                }
+            },
+            "conditions": "More common in Metal Rich",
+            "typical_value": "Low"
+        },
+        "Indium": {
+            "name": "Indium",
+            "short": "IND",
+            "type": "non-core",
+            "ring_types": {
+                "Metal Rich": {
+                    "surfaceLaserMining": true,
+                    "surfaceDeposit": true,
+                    "subSurfaceDeposit": true
+                },
+                "Metallic": {
+                    "surfaceLaserMining": true,
+                    "surfaceDeposit": true,
+                    "subSurfaceDeposit": true
+                }
+            },
+            "conditions": "Higher yields in Pristine metallic",
+            "typical_value": "Unknown"
+        },
+        "Jadeite": {
+            "name": "Jadeite",
+            "short": "JAD",
+            "type": "non-core",
+            "ring_types": {
+                "Rocky": {
+                    "surfaceLaserMining": true,
+                    "surfaceDeposit": true,
+                    "subSurfaceDeposit": true
+                }
+            },
+            "conditions": "Best in Pristine reserves",
+            "typical_value": "Unknown"
+        },
+        "Lanthanum": {
+            "name": "Lanthanum",
+            "short": "LAN",
+            "type": "non-core",
+            "ring_types": {
+                "Metal Rich": {
+                    "surfaceLaserMining": true,
+                    "surfaceDeposit": true,
+                    "subSurfaceDeposit": true
+                },
+                "Metallic": {
+                    "surfaceLaserMining": true,
+                    "surfaceDeposit": true,
+                    "subSurfaceDeposit": true
+                }
+            },
+            "conditions": "Higher yields in Pristine metallic",
+            "typical_value": "Yes"
+        },
+        "Lepidolite": {
+            "name": "Lepidolite",
+            "short": "LEP",
+            "type": "non-core",
+            "ring_types": {
+                "Rocky": {
+                    "surfaceLaserMining": true,
+                    "surfaceDeposit": true,
+                    "subSurfaceDeposit": true
+                }
+            },
+            "conditions": "Common in all rocky rings",
+            "typical_value": "Low"
+        },
+        "Liquid Oxygen": {
+            "name": "Liquid Oxygen",
+            "short": "LOX",
+            "type": "non-core",
+            "ring_types": {
+                "Icy": {
+                    "surfaceLaserMining": true,
+                    "surfaceDeposit": true,
+                    "subSurfaceDeposit": true
+                }
+            },
+            "conditions": "none",
+            "typical_value": "Medium"
+        },
+        "Lithium": {
+            "name": "Lithium",
+            "short": "LIT",
+            "type": "non-core",
+            "ring_types": {
+                "Metal Rich": {
+                    "surfaceLaserMining": true,
+                    "surfaceDeposit": true,
+                    "subSurfaceDeposit": true
+                },
+                "Metallic": {
+                    "surfaceLaserMining": true,
+                    "surfaceDeposit": true,
+                    "subSurfaceDeposit": true
+                }
+            },
+            "conditions": "Higher yields in Pristine metallic",
+            "typical_value": "Yes"
+        },
+        "Lithium Hydroxide": {
+            "name": "Lithium Hydroxide",
+            "short": "LHY",
+            "type": "non-core",
+            "ring_types": {
+                "Icy": {
+                    "surfaceLaserMining": true,
+                    "surfaceDeposit": true,
+                    "subSurfaceDeposit": true
+                }
+            },
+            "conditions": "Best in Pristine reserves",
+            "typical_value": "Unknown"
+        },
+        "Low Temperature Diamonds": {
+            "name": "Low Temperature Diamonds",
+            "short": "LTD",
+            "type": "both",
+            "ring_types": {
+                "Icy": {
+                    "surfaceLaserMining": true,
+                    "surfaceDeposit": true,
+                    "subSurfaceDeposit": true,
+                    "core": true,
+                    "hotspot": true
+                }
+            },
+            "conditions": "none",
+            "typical_value": "High"
+        },
+        "Methane Clathrate": {
+            "name": "Methane Clathrate",
+            "short": "MCL",
+            "type": "non-core",
+            "ring_types": {
+                "Icy": {
+                    "surfaceLaserMining": true,
+                    "surfaceDeposit": true,
+                    "subSurfaceDeposit": true
+                }
+            },
+            "conditions": "Common in all icy rings",
+            "typical_value": "Low"
+        },
+        "Methanol Monohydrate Crystals": {
+            "name": "Methanol Monohydrate Crystals",
+            "short": "MNL",
+            "type": "non-core",
+            "ring_types": {
+                "Icy": {
+                    "surfaceLaserMining": true,
+                    "surfaceDeposit": true,
+                    "subSurfaceDeposit": true
+                }
+            },
+            "conditions": "Common in all icy rings",
+            "typical_value": "Low"
+        },
+        "Moissanite": {
+            "name": "Moissanite",
+            "short": "MOI",
+            "type": "non-core",
+            "ring_types": {
+                "Rocky": {
+                    "surfaceLaserMining": true,
+                    "surfaceDeposit": true,
+                    "subSurfaceDeposit": true
+                }
+            },
+            "conditions": "Best in Pristine reserves",
+            "typical_value": "Unknown"
+        },
+        "Monazite": {
+            "name": "Monazite",
+            "short": "MON",
+            "type": "core",
+            "ring_types": {
+                "Rocky": {
+                    "core": true,
+                    "hotspot": true
+                },
+                "Metal Rich": {
+                    "core": true,
+                    "hotspot": true
+                },
+                "Metallic": {
+                    "core": true,
+                    "hotspot": true
+                }
+            },
+            "conditions": "none",
+            "typical_value": "High"
+        },
+        "Musgravite": {
+            "name": "Musgravite",
+            "short": "MUS",
+            "type": "core",
+            "ring_types": {
+                "Rocky": {
+                    "core": true,
+                    "hotspot": true
+                },
+                "Metal Rich": {
+                    "core": true,
+                    "hotspot": true
+                }
+            },
+            "conditions": "none",
+            "typical_value": "High"
+        },
+        "Osmium": {
+            "name": "Osmium",
+            "short": "OSM",
+            "type": "non-core",
+            "ring_types": {
+                "Metallic": {
+                    "surfaceLaserMining": true,
+                    "surfaceDeposit": true,
+                    "subSurfaceDeposit": true
+                }
+            },
+            "conditions": "Best yields in pristine metallic rings",
+            "typical_value": "High"
+        },
+        "Painite": {
+            "name": "Painite",
+            "short": "PAI",
+            "type": "both",
+            "ring_types": {
+                "Metallic": {
+                    "surfaceLaserMining": true,
+                    "surfaceDeposit": true,
+                    "subSurfaceDeposit": true,
+                    "core": true,
+                    "hotspot": true
+                },
+                "Metal Rich": {
+                    "core": true,
+                    "hotspot": true
+                }
+            },
+            "conditions": "none",
+            "typical_value": "High"
+        },
+        "Palladium": {
+            "name": "Palladium",
+            "short": "PAL",
+            "type": "non-core",
+            "ring_types": {
+                "Metallic": {
+                    "surfaceLaserMining": true,
+                    "surfaceDeposit": true,
+                    "subSurfaceDeposit": true
+                }
+            },
+            "conditions": "Best yields in Pristine reserves",
+            "typical_value": "Yes"
+        },
+        "Platinum": {
+            "name": "Platinum",
+            "short": "PLA",
+            "type": "both",
+            "ring_types": {
+                "Metallic": {
+                    "surfaceLaserMining": true,
+                    "surfaceDeposit": true,
+                    "subSurfaceDeposit": true,
+                    "core": true,
+                    "hotspot": true
+                },
+                "Metal Rich": {
+                    "core": true,
+                    "hotspot": true
+                }
+            },
+            "conditions": "none",
+            "typical_value": "High"
+        },
+        "Praseodymium": {
+            "name": "Praseodymium",
+            "short": "PRA",
+            "type": "non-core",
+            "ring_types": {
+                "Metal Rich": {
+                    "surfaceLaserMining": true,
+                    "surfaceDeposit": true,
+                    "subSurfaceDeposit": true
+                },
+                "Metallic": {
+                    "surfaceLaserMining": true,
+                    "surfaceDeposit": true,
+                    "subSurfaceDeposit": true
+                }
+            },
+            "conditions": "Higher yields in Pristine metallic",
+            "typical_value": "Yes"
+        },
+        "Pyrophyllite": {
+            "name": "Pyrophyllite",
+            "short": "PYR",
+            "type": "non-core",
+            "ring_types": {
+                "Rocky": {
+                    "surfaceLaserMining": true,
+                    "surfaceDeposit": true,
+                    "subSurfaceDeposit": true
+                }
+            },
+            "conditions": "Best in Pristine reserves",
+            "typical_value": "Unknown"
+        },
+        "Rhodplumsite": {
+            "name": "Rhodplumsite",
+            "short": "RHO",
+            "type": "core",
+            "ring_types": {
+                "Rocky": {
+                    "core": true,
+                    "hotspot": true
+                },
+                "Metal Rich": {
+                    "core": true,
+                    "hotspot": true
+                }
+            },
+            "conditions": "none",
+            "typical_value": "High"
+        },
+        "Rutile": {
+            "name": "Rutile",
+            "short": "RUT",
+            "type": "non-core",
+            "ring_types": {
+                "Metal Rich": {
+                    "surfaceLaserMining": true,
+                    "surfaceDeposit": true,
+                    "subSurfaceDeposit": true
+                },
+                "Rocky": {
+                    "surfaceLaserMining": true,
+                    "surfaceDeposit": true,
+                    "subSurfaceDeposit": true
+                }
+            },
+            "conditions": "More common in Metal Rich",
+            "typical_value": "Low"
+        },
+        "Samarium": {
+            "name": "Samarium",
+            "short": "SAM",
+            "type": "non-core",
+            "ring_types": {
+                "Metal Rich": {
+                    "surfaceLaserMining": true,
+                    "surfaceDeposit": true,
+                    "subSurfaceDeposit": true
+                },
+                "Metallic": {
+                    "surfaceLaserMining": true,
+                    "surfaceDeposit": true,
+                    "subSurfaceDeposit": true
+                }
+            },
+            "conditions": "Higher yields in Pristine metallic",
+            "typical_value": "Unknown"
+        },
+        "Serendibite": {
+            "name": "Serendibite",
+            "short": "SER",
+            "type": "core",
+            "ring_types": {
+                "Rocky": {
+                    "core": true,
+                    "hotspot": true
+                },
+                "Metal Rich": {
+                    "core": true,
+                    "hotspot": true
+                }
+            },
+            "conditions": "none",
+            "typical_value": "High"
+        },
+        "Silver": {
+            "name": "Silver",
+            "short": "SIL",
+            "type": "non-core",
+            "ring_types": {
+                "Metallic": {
+                    "surfaceLaserMining": true,
+                    "surfaceDeposit": true,
+                    "subSurfaceDeposit": true
+                },
+                "Metal Rich": {
+                    "surfaceLaserMining": true,
+                    "surfaceDeposit": true,
+                    "subSurfaceDeposit": true
+                }
+            },
+            "conditions": "Higher yields in pristine metallic",
+            "typical_value": "Medium-High"
+        },
+        "Taaffeite": {
+            "name": "Taaffeite",
+            "short": "TAF",
+            "type": "non-core",
+            "ring_types": {
+                "Rocky": {
+                    "surfaceLaserMining": true,
+                    "surfaceDeposit": true,
+                    "subSurfaceDeposit": true
+                }
+            },
+            "conditions": "Best in Pristine reserves",
+            "typical_value": "Unknown"
+        },
+        "Tantalum": {
+            "name": "Tantalum",
+            "short": "TAN",
+            "type": "non-core",
+            "ring_types": {
+                "Metal Rich": {
+                    "surfaceLaserMining": true,
+                    "surfaceDeposit": true,
+                    "subSurfaceDeposit": true
+                },
+                "Metallic": {
+                    "surfaceLaserMining": true,
+                    "surfaceDeposit": true,
+                    "subSurfaceDeposit": true
+                }
+            },
+            "conditions": "Higher yields in Pristine metallic",
+            "typical_value": "Yes"
+        },
+        "Thallium": {
+            "name": "Thallium",
+            "short": "THL",
+            "type": "non-core",
+            "ring_types": {
+                "Metal Rich": {
+                    "surfaceLaserMining": true,
+                    "surfaceDeposit": true,
+                    "subSurfaceDeposit": true
+                },
+                "Metallic": {
+                    "surfaceLaserMining": true,
+                    "surfaceDeposit": true,
+                    "subSurfaceDeposit": true
+                }
+            },
+            "conditions": "Higher yields in Pristine metallic",
+            "typical_value": "Yes"
+        },
+        "Thorium": {
+            "name": "Thorium",
+            "short": "THR",
+            "type": "non-core",
+            "ring_types": {
+                "Metal Rich": {
+                    "surfaceLaserMining": true,
+                    "surfaceDeposit": true,
+                    "subSurfaceDeposit": true
+                },
+                "Metallic": {
+                    "surfaceLaserMining": true,
+                    "surfaceDeposit": true,
+                    "subSurfaceDeposit": true
+                }
+            },
+            "conditions": "Higher yields in Pristine metallic",
+            "typical_value": "Yes"
+        },
+        "Titanium": {
+            "name": "Titanium",
+            "short": "TIT",
+            "type": "non-core",
+            "ring_types": {
+                "Metal Rich": {
+                    "surfaceLaserMining": true,
+                    "surfaceDeposit": true,
+                    "subSurfaceDeposit": true
+                },
+                "Metallic": {
+                    "surfaceLaserMining": true,
+                    "surfaceDeposit": true,
+                    "subSurfaceDeposit": true
+                }
+            },
+            "conditions": "Higher yields in Pristine metallic",
+            "typical_value": "Yes"
+        },
+        "Tritium": {
+            "name": "Tritium",
+            "short": "TRI",
+            "type": "non-core",
+            "ring_types": {
+                "Icy": {
+                    "surfaceLaserMining": true,
+                    "surfaceDeposit": true,
+                    "subSurfaceDeposit": true
+                }
+            },
+            "conditions": "none",
+            "typical_value": "Medium"
+        },
+        "Uraninite": {
+            "name": "Uraninite",
+            "short": "URT",
+            "type": "non-core",
+            "ring_types": {
+                "Rocky": {
+                    "surfaceLaserMining": true,
+                    "surfaceDeposit": true,
+                    "subSurfaceDeposit": true
+                },
+                "Metal Rich": {
+                    "surfaceLaserMining": true,
+                    "surfaceDeposit": true,
+                    "subSurfaceDeposit": true
+                }
+            },
+            "conditions": "Higher yields in Metal Rich",
+            "typical_value": "Medium-High"
+        },
+        "Uranium": {
+            "name": "Uranium",
+            "short": "URN",
+            "type": "non-core",
+            "ring_types": {
+                "Metal Rich": {
+                    "surfaceLaserMining": true,
+                    "surfaceDeposit": true,
+                    "subSurfaceDeposit": true
+                },
+                "Metallic": {
+                    "surfaceLaserMining": true,
+                    "surfaceDeposit": true,
+                    "subSurfaceDeposit": true
+                }
+            },
+            "conditions": "Higher yields in Pristine metallic",
+            "typical_value": "Yes"
+        },
+        "Void Opal": {
+            "name": "Void Opal",
+            "short": "VOP",
+            "type": "core",
+            "ring_types": {
+                "Icy": {
+                    "core": true,
+                    "hotspot": true
+                }
+            },
+            "conditions": "Best in Pristine reserves",
+            "typical_value": "Unknown"
+        },
+        "Water": {
+            "name": "Water",
+            "short": "H2O",
+            "type": "non-core",
+            "ring_types": {
+                "Icy": {
+                    "surfaceLaserMining": true,
+                    "surfaceDeposit": true,
+                    "subSurfaceDeposit": true
+                }
+            },
+            "conditions": "Common in all icy rings",
+            "typical_value": "Low"
+        }
+    }
+}

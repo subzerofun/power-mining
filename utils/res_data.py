@@ -6,6 +6,8 @@ from pathlib import Path
 from typing import Dict, List, Optional
 import psycopg2
 from psycopg2.extras import DictCursor
+import os
+from utils.common import BASE_DIR
 
 def dict_factory(cursor, row):
     """Simple dict factory without decompression."""
@@ -15,7 +17,7 @@ def load_res_data() -> List[Dict]:
     """Load RES hotspot data from CSV file."""
     try:
         res_data = []
-        csv_path = 'data/plat-hs-and-res-maps.csv'
+        csv_path = os.path.join(BASE_DIR, 'data/plat-hs-and-res-maps.csv')
         with open(csv_path, 'r') as f:
             reader = csv.DictReader(f)
             for row in reader:
@@ -109,7 +111,7 @@ def load_high_yield_platinum():
     """Load high yield platinum hotspot data from CSV file."""
     try:
         data = []
-        csv_path = 'data/plat-high-yield-hotspots.csv'
+        csv_path = os.path.join(BASE_DIR, 'data/plat-high-yield-hotspots.csv')
         
         with open(csv_path, 'r') as f:
             reader = csv.DictReader(f)

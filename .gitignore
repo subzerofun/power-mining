@@ -15,6 +15,7 @@ json/powerPlay.json
 json/Commodity-*
 json/old/*
 img/*.psd
+img/*.ai
 __pycache__/
 json/Commodity-2025-01-04.jsonl
 json/galaxy_populated.json
@@ -74,3 +75,6 @@ migrate_to_postgres.py
 data/mining_data.xlsx
 img/demand-icons.ai
 utils/search_old.py
+utils/mining_data_really_old.py
+utils/search_really_old.py
+utils/search_web.py

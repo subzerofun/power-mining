@@ -4,6 +4,8 @@ import csv
 import json
 import psycopg2
 from psycopg2.extras import DictCursor
+import os
+from utils.common import BASE_DIR
 
 # Materials that can be mined without hotspots
 NON_HOTSPOT_MATERIALS = {
@@ -64,22 +66,44 @@ NON_HOTSPOT_MATERIALS = {
     'Rutile': ['Metal Rich', 'Rocky']
 }
 
+# Materials that can be both laser mined and core mined
+BOTH_MINING_MATERIALS = {
+    'Low Temperature Diamonds': {
+        'laser': ['Icy'],
+        'core': ['Icy']
+    },
+    'Platinum': {
+        'laser': ['Metallic'],
+        'core': ['Metallic', 'Metal Rich']
+    },
+    'Painite': {
+        'laser': ['Metallic'],
+        'core': ['Metallic', 'Metal Rich']
+    }
+}
+
 # Load material mappings from JSON
-with open('data/materials.json', 'r') as f:
+with open(os.path.join(BASE_DIR, 'data/materials.json'), 'r') as f:
     MATERIAL_MAPPINGS = json.load(f)
 
 def get_material_ring_types(material_name: str) -> list:
-    """Get the required ring types for a given material."""
-    # Special case for Low Temperature Diamonds
+    """Get list of ring types where a material can be found."""
     if material_name == 'Low Temperature Diamonds':
-        return ['hotspot', 'LowTemperatureDiamond']
-    
-    # Non-hotspot materials
-    if material_name in NON_HOTSPOT_MATERIALS:
+        # LTDs can be found in Icy rings (both hotspot and non-hotspot)
+        return ['hotspot', 'Icy']
+    elif material_name in BOTH_MINING_MATERIALS:
+        # For materials that can be both laser mined and core mined,
+        # combine their ring types
+        material_data = BOTH_MINING_MATERIALS[material_name]
+        ring_types = set()
+        ring_types.update(material_data['laser'])
+        ring_types.update(material_data['core'])
+        return list(ring_types)
+    elif material_name in NON_HOTSPOT_MATERIALS:
         return NON_HOTSPOT_MATERIALS[material_name]
-    
-    # All other materials are hotspot-based
-    return ['hotspot']
+    else:
+        # Default to hotspot only
+        return ['hotspot']
 
 def is_non_hotspot_material(material_name: str) -> bool:
     """Check if a material can be mined without hotspots."""
@@ -90,12 +114,35 @@ def get_material_sql_conditions(material_name: str) -> tuple[str, list]:
     ring_types = get_material_ring_types(material_name)
     
     if material_name == 'Low Temperature Diamonds':
-        return 'ms.mineral_type = %s', ['LowTemperatureDiamond']
+        # Special case for LTDs:
+        # 1. Hotspots use mineral_type = 'LowTemperatureDiamond'
+        # 2. Regular Icy rings for laser mining (no mineral_type)
+        # Note: Use parameters to avoid SQL injection
+        return '(ms.mineral_type = %s OR (ms.ring_type = %s AND ms.mineral_type IS NULL))', ['LowTemperatureDiamond', 'Icy']
+    elif material_name in BOTH_MINING_MATERIALS:
+        # For materials that can be both laser mined and core mined
+        material_data = BOTH_MINING_MATERIALS[material_name]
+        conditions = []
+        params = []
+        
+        # Add laser mining conditions
+        laser_rings = material_data['laser']
+        if laser_rings:
+            conditions.append('(ms.ring_type = ANY(%s) AND ms.mineral_type IS NULL)')
+            params.append(laser_rings)
+        
+        # Add core mining conditions
+        core_rings = material_data['core']
+        if core_rings:
+            conditions.append('(ms.ring_type = ANY(%s) AND ms.mineral_type = %s)')
+            params.extend([core_rings, material_name])
+        
+        return '(' + ' OR '.join(conditions) + ')', params
     elif 'hotspot' in ring_types:
         return 'ms.mineral_type = %s', [material_name]
     else:
         placeholders = ','.join(['%s' for _ in ring_types])
-        return f'ms.ring_type IN ({placeholders})', ring_types 
+        return f'ms.ring_type IN ({placeholders})', ring_types
 
 def get_ring_type_case_statement(commodity_column: str = 'commodity_name') -> str:
     """Generate SQL CASE statement for checking ring types."""
@@ -123,7 +170,7 @@ def get_non_hotspot_materials_list():
 def load_price_data():
     """Load price data from CSV file."""
     price_data = {}
-    with open('data/current_prices.csv', 'r') as f:
+    with open(os.path.join(BASE_DIR, 'data/current_prices.csv'), 'r') as f:
         reader = csv.DictReader(f)
         for row in reader:
             price_data[row['Material']] = {
@@ -193,7 +240,7 @@ def get_mining_type_conditions(commodity: str, mining_types: list) -> tuple[str,
         
     # Load material mining data
     try:
-        with open('data/mining_data.json', 'r') as f:
+        with open(os.path.join(BASE_DIR, 'data/mining_data.json'), 'r') as f:
             material_data = json.load(f)
             
         # Find the commodity data
@@ -262,7 +309,7 @@ def get_ring_materials():
     materials = {}
     
     try:
-        with open('data/mining_data.json', 'r') as f:
+        with open(os.path.join(BASE_DIR, 'data/mining_data.json'), 'r') as f:
             material_data = json.load(f)
             
             for item in material_data['materials']:
@@ -296,7 +343,7 @@ def get_potential_ring_types(material_name: str) -> list:
         return NON_HOTSPOT_MATERIALS[material_name]
         
     try:
-        with open('data/mining_data.json', 'r') as f:
+        with open(os.path.join(BASE_DIR, 'data/mining_data.json'), 'r') as f:
             material_data = json.load(f)
             
         # Find the material data

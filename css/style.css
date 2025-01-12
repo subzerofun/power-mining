@@ -229,8 +229,8 @@ button:not(:hover) {
 
 .results-table:not(.res-hotspot-table):not(.highest-price-table) th:nth-child(3),
 .results-table:not(.res-hotspot-table):not(.highest-price-table) td:nth-child(3) {
-    width: 400px;
-    min-width: 400px;
+    width: 350px;
+    min-width: 350px;
 }
 
 .results-table:not(.res-hotspot-table):not(.highest-price-table) th:nth-child(4),
@@ -241,14 +241,14 @@ button:not(:hover) {
 
 .results-table:not(.res-hotspot-table):not(.highest-price-table) th:nth-child(5),
 .results-table:not(.res-hotspot-table):not(.highest-price-table) td:nth-child(5) {
-    width: 120px;
-    min-width: 120px;
+    width: 100px;
+    min-width: 100px;
 }
 
 .results-table:not(.res-hotspot-table):not(.highest-price-table) th:nth-child(6),
 .results-table:not(.res-hotspot-table):not(.highest-price-table) td:nth-child(6) {
-    width: 150px;
-    min-width: 150px;
+    width: 220px;
+    min-width: 220px;
 }
 
 /* RES hotspots table */
@@ -474,6 +474,11 @@ button:not(:hover) {
     background: rgba(0, 0, 0, 0.7);
     z-index: 1000;
     display: none;
+    visibility: hidden;
+}
+
+.loading-overlay.visible {
+    visibility: visible;
 }
 
 /* Toggle switch */
@@ -598,6 +603,11 @@ button:not(:hover) {
     font-size: 12px;
     display: flex;
     align-items: center;
+}
+
+.commodity-item .demand-icon {
+    margin-left: 4px;
+    vertical-align: top;
 }
 
 .commodity-code {
@@ -899,7 +909,7 @@ button:not(:hover) {
 
 .results-table:not(.res-hotspot-table):not(.highest-price-table) th:nth-child(3),
 .results-table:not(.res-hotspot-table):not(.highest-price-table) td:nth-child(3) {
-    width: 25%;
+    width: 20%;
 }
 
 .results-table:not(.res-hotspot-table):not(.highest-price-table) th:nth-child(4),
@@ -909,12 +919,12 @@ button:not(:hover) {
 
 .results-table:not(.res-hotspot-table):not(.highest-price-table) th:nth-child(5),
 .results-table:not(.res-hotspot-table):not(.highest-price-table) td:nth-child(5) {
-    width: 12.5%;
+    width: 10%;
 }
 
 .results-table:not(.res-hotspot-table):not(.highest-price-table) th:nth-child(6),
 .results-table:not(.res-hotspot-table):not(.highest-price-table) td:nth-child(6) {
-    width: 12.5%;
+    width: 15%;
 }
 
 /* Highest price table styles */
@@ -1194,4 +1204,9 @@ button:not(:hover) {
     font-size: 14px !important;
     line-height: 48px !important;
     padding: 0 12px !important;
+}
+
+.hotspot-icon {
+    vertical-align: middle;
+    margin-top: -0.2em;
 }

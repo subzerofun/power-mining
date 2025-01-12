@@ -194,7 +194,7 @@ async function searchResHotspots() {
                                 priceSpan.textContent = `${commodity.sell_price.toLocaleString()} CR${priceData[index]?.indicator || ''}`;
                                 commodityItem.innerHTML = `<span class="commodity-code">${code}</span>`;
                                 commodityItem.appendChild(priceSpan);
-                                commodityItem.innerHTML += ` | ${commodity.demand.toLocaleString()} Demand`;
+                                commodityItem.innerHTML += ` | ${search.getDemandIcon(commodity.demand)} ${commodity.demand.toLocaleString()} Demand`;
                                 commoditiesList.appendChild(commodityItem);
                             });
                         });
@@ -367,7 +367,7 @@ async function searchHighYieldPlatinum() {
                                 priceSpan.textContent = `${commodity.sell_price.toLocaleString()} CR${priceData[index]?.indicator || ''}`;
                                 commodityItem.innerHTML = `<span class="commodity-code">${code}</span>`;
                                 commodityItem.appendChild(priceSpan);
-                                commodityItem.innerHTML += ` | ${commodity.demand.toLocaleString()} Demand`;
+                                commodityItem.innerHTML += ` | ${search.getDemandIcon(commodity.demand)} ${commodity.demand.toLocaleString()} Demand`;
                                 commoditiesList.appendChild(commodityItem);
                             });
                         });

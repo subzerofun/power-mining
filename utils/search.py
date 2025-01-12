@@ -1,32 +1,27 @@
 import json
+import os
 from datetime import datetime
 from flask import jsonify, request
-import mining_data
-from mining_data import (
-    get_non_hotspot_materials_list,
-    normalize_commodity_name,
-    get_price_comparison,
-    get_mining_type_conditions,
-    PRICE_DATA,
-    NON_HOTSPOT_MATERIALS
-)
-import res_data
-from utils.common import (
-    get_db_connection, log_message, 
-    BLUE, RED, get_ring_materials
-)
+from utils.mining_data import get_price_comparison, PRICE_DATA, normalize_commodity_name
+from utils.common import log_message, get_db_connection, YELLOW, RED, BLUE
+from utils import res_data
+
+# Constants
+SYSTEM_IN_RING_NAME = False
 
 def search():
     try:
+        # Get all input parameters from the request
         ref_system = request.args.get('system', 'Sol')
         max_dist = float(request.args.get('distance', '10000'))
         controlling_power = request.args.get('controlling_power')
         power_states = request.args.getlist('power_state[]')
         signal_type = request.args.get('signal_type')
-        ring_type_filter = request.args.get('ring_type_filter', 'All')
+        ring_type_filter = request.args.get('ring_type_filter', 'Hotspots')
         limit = int(request.args.get('limit', '30'))
         mining_types = request.args.getlist('mining_types[]')
 
+        # Log search parameters
         log_message(BLUE, "SEARCH", f"Search parameters:")
         log_message(BLUE, "SEARCH", f"- System: {ref_system}")
         log_message(BLUE, "SEARCH", f"- Distance: {max_dist}")
@@ -36,12 +31,14 @@ def search():
         log_message(BLUE, "SEARCH", f"- Ring type filter: {ring_type_filter}")
         log_message(BLUE, "SEARCH", f"- Mining types: {mining_types}")
 
-        # Get reference system coordinates
+        # Get database connection
         conn = get_db_connection()
         if not conn:
             return jsonify({'error': 'Database connection failed'}), 500
 
         c = conn.cursor()
+
+        # Get reference system coordinates
         c.execute('SELECT x, y, z FROM systems WHERE name = %s', (ref_system,))
         ref_coords = c.fetchone()
         if not ref_coords:
@@ -50,81 +47,86 @@ def search():
 
         rx, ry, rz = ref_coords['x'], ref_coords['y'], ref_coords['z']
 
-        # Load material mining data
-        with open('data/mining_data.json', 'r') as f:
-            mat_data = json.load(f)
-            log_message(BLUE, "SEARCH", f"Checking material {signal_type} in mining_data.json")
-            cd = next((i for i in mat_data['materials'] if i['name'] == signal_type), None)
-            if not cd:
-                log_message(RED, "SEARCH", f"Material {signal_type} not found in mining_data.json")
+        # Load material data from mining_materials.json
+        with open('data/mining_materials.json', 'r') as f:
+            mat_data = json.load(f)['materials']
+            # Convert LowTemperatureDiamond to Low Temperature Diamonds for material lookup
+            material_name = 'Low Temperature Diamonds' if signal_type == 'LowTemperatureDiamond' else signal_type
+            material = mat_data.get(material_name)
+            if not material:
+                log_message(RED, "SEARCH", f"Material {material_name} not found in mining_materials.json")
                 return jsonify([])
-            log_message(BLUE, "SEARCH", f"Material data: {cd}")
+            log_message(BLUE, "SEARCH", f"Material data: {material}")
 
-        # Build WHERE conditions
+        # Build WHERE conditions for power filters
         where_conditions = []
         where_params = []
 
         if controlling_power:
-            where_conditions.append("s.controlling_power = %s")
-            where_params.append(controlling_power)
+            # For Exploited/Fortified/Stronghold states, check controlling_power
+            if not power_states or all(state in ['Exploited', 'Fortified', 'Stronghold'] for state in power_states):
+                where_conditions.append("s.controlling_power = %s")
+                where_params.append(controlling_power)
+            # For Prepared/In Prepare Radius states, check powers_acquiring
+            elif all(state in ['Prepared', 'InPrepareRadius'] for state in power_states):
+                where_conditions.append("%s::text = ANY(SELECT jsonb_array_elements_text(s.powers_acquiring::jsonb))")
+                where_params.append(controlling_power)
+            # For mixed states, check both
+            else:
+                where_conditions.append("(s.controlling_power = %s OR %s::text = ANY(SELECT jsonb_array_elements_text(s.powers_acquiring::jsonb)))")
+                where_params.extend([controlling_power, controlling_power])
 
         if power_states:
             where_conditions.append("s.power_state = ANY(%s::text[])")
             where_params.append(power_states)
 
-        # Get mining type conditions if specified
-        mining_cond = ''
-        mining_params = []
+        # Handle mining types filter
         if mining_types and 'All' not in mining_types:
-            mining_cond, mining_params = get_mining_type_conditions(signal_type, mining_types)
-            if mining_cond:
-                where_conditions.append(mining_cond)
-                where_params.extend(mining_params)
-
-        # Handle ring type filter
-        ring_cond = ''
-        ring_params = []
-        if ring_type_filter != 'All':
-            if ring_type_filter == 'Just Hotspots':
-                ring_cond = ' AND ms.mineral_type = %s'
-                ring_params.append(signal_type)
-            elif ring_type_filter == 'Without Hotspots':
-                # For "Without Hotspots", include rings where the material can be mined without hotspots
-                valid_ring_types = []
-                for ring_type, ring_data in cd['ring_types'].items():
-                    if any([
-                        ring_data.get('surfaceLaserMining', False),
-                        ring_data.get('surfaceDeposit', False),
-                        ring_data.get('subSurfaceDeposit', False)
-                    ]):
+            valid_ring_types = []
+            for ring_type, data in material['ring_types'].items():
+                for mining_type in mining_types:
+                    if (mining_type == 'Surface' and (data.get('surfaceLaserMining', False) or data.get('surfaceDeposit', False))) or \
+                       (mining_type == 'Subsurface' and data.get('subSurfaceDeposit', False)) or \
+                       (mining_type == 'Core' and data.get('core', False)):
                         valid_ring_types.append(ring_type)
-                if valid_ring_types:
-                    ring_cond = ' AND ms.mineral_type IS NULL AND ms.ring_type = ANY(%s::text[])'
-                    ring_params.append(valid_ring_types)
+                        break
+            
+            if valid_ring_types:
+                # For Core mining, we only want to filter by ring type if not looking for hotspots
+                if not (mining_types == ['Core'] and ring_type_filter == 'Hotspots'):
+                    where_conditions.append("ms.ring_type = ANY(%s::text[])")
+                    where_params.append(valid_ring_types)
             else:
-                ring_cond = ' AND ms.ring_type = %s'
-                ring_params.append(ring_type_filter)
+                return jsonify([])
 
-        # Add ring conditions to WHERE clause if present
-        if ring_cond:
-            where_conditions.append(ring_cond.lstrip(' AND'))
-            where_params.extend(ring_params)
+        # Build the JOIN condition based on material type and ring type filter
+        join_condition = "s.id64 = ms.system_id64"
+        join_params = []
 
-        # Add parameters for the query
-        params = [
-            rx, ry, rz,  # Distance calculation in subquery
-            rx, ry, rz,  # Distance filter in subquery
-            max_dist,    # Maximum distance
-            signal_type, # For station_commodities
-            signal_type, # For LTD check
-            signal_type, # For hotspots
-            signal_type  # For regular rings
-        ]
+        if ring_type_filter == 'Hotspots':
+            # For hotspots, we want rings with the specific mineral type
+            join_condition += " AND ms.mineral_type = %s"
+            join_params.append(signal_type)  # Use original signal_type for mineral_type comparison
+        elif ring_type_filter == 'Without Hotspots':
+            # For non-hotspots, we want rings with NULL mineral type but valid ring types
+            join_condition += " AND ms.mineral_type IS NULL AND ms.ring_type = ANY(%s::text[])"
+            valid_ring_types = [rt for rt, data in material['ring_types'].items() 
+                              if any([data.get('surfaceLaserMining', False),
+                                    data.get('surfaceDeposit', False),
+                                    data.get('subSurfaceDeposit', False),
+                                    data.get('core', False)])]
+            join_params.append(valid_ring_types)
+        else:
+            # For 'All', include both hotspots and valid ring types
+            join_condition += " AND (ms.mineral_type = %s OR (ms.mineral_type IS NULL AND ms.ring_type = ANY(%s::text[])))"
+            valid_ring_types = [rt for rt, data in material['ring_types'].items() 
+                              if any([data.get('surfaceLaserMining', False),
+                                    data.get('surfaceDeposit', False),
+                                    data.get('subSurfaceDeposit', False),
+                                    data.get('core', False)])]
+            join_params.extend([signal_type, valid_ring_types])  # Use original signal_type for mineral_type comparison
 
-        # Add parameters for WHERE conditions
-        params.extend(where_params)
-
-        # Now build the complete query with all conditions
+        # Build the complete query
         query = f"""
         WITH relevant_systems AS (
             SELECT s.*, SQRT(POWER(s.x - %s, 2) + POWER(s.y - %s, 2) + POWER(s.z - %s, 2)) as distance
@@ -134,7 +136,7 @@ def search():
         relevant_stations AS (
             SELECT sc.system_id64, sc.station_name, sc.sell_price, sc.demand
             FROM station_commodities sc
-            WHERE (sc.commodity_name = %s OR (%s = 'LowTemperatureDiamond' AND sc.commodity_name = 'Low Temperature Diamonds'))
+            WHERE sc.commodity_name = %s
             AND sc.demand > 0 AND sc.sell_price > 0
         )
         SELECT DISTINCT s.name as system_name, s.id64 as system_id64, s.controlling_power,
@@ -142,6 +144,7 @@ def search():
             ms.mineral_type, ms.signal_count, ms.reserve_level, rs.station_name,
             st.landing_pad_size, st.distance_to_arrival as station_distance,
             st.station_type, rs.demand, rs.sell_price, st.update_time,
+            s.powers_acquiring,
             COALESCE(rs.sell_price, 0) as sort_price,
             CASE 
                 WHEN ms.reserve_level = 'Pristine' THEN 1
@@ -152,21 +155,16 @@ def search():
                 ELSE 6 
             END as reserve_level_order
         FROM relevant_systems s
-        JOIN mineral_signals ms ON s.id64 = ms.system_id64 
-        AND (
-            ms.mineral_type = %s  -- For hotspots
-            OR (
-                ms.mineral_type IS NULL  -- For regular rings
-                AND ms.ring_type = %s    -- With matching ring type
-            )
-        )
+        JOIN mineral_signals ms ON {join_condition}
         LEFT JOIN relevant_stations rs ON s.id64 = rs.system_id64
         LEFT JOIN stations st ON s.id64 = st.system_id64 AND rs.station_name = st.station_name
         """
 
+        # Add WHERE conditions if present
         if where_conditions:
             query += " WHERE " + " AND ".join(where_conditions)
 
+        # Add ORDER BY
         query += """
         ORDER BY 
             sort_price DESC,
@@ -176,6 +174,22 @@ def search():
 
         if limit:
             query += " LIMIT %s"
+
+        # Initialize all parameters in the correct order
+        params = [
+            rx, ry, rz,  # Distance calculation in subquery
+            rx, ry, rz,  # Distance filter in subquery
+            max_dist,    # Maximum distance
+            material['name']  # For station_commodities
+        ]
+
+        # Add JOIN parameters
+        params.extend(join_params)
+
+        # Add WHERE parameters
+        params.extend(where_params)
+
+        if limit:
             params.append(limit)
 
         # Execute query and process results
@@ -188,6 +202,7 @@ def search():
         pr = []
         cur_sys = None
 
+        # Get other commodities for stations
         station_pairs = [(r['system_id64'], r['station_name']) for r in rows if r['station_name']]
         other_commodities = {}
 
@@ -198,7 +213,6 @@ def search():
             sel_mats = request.args.getlist('selected_materials[]', type=str)
 
             if sel_mats and sel_mats != ['Default']:
-                full_names = [mining_data.MATERIAL_CODES.get(m,m) for m in sel_mats]
                 oc.execute(f"""
                     SELECT sc.system_id64, sc.station_name, sc.commodity_name, sc.sell_price, sc.demand,
                     COUNT(*) OVER (PARTITION BY sc.system_id64, sc.station_name) total_commodities
@@ -207,7 +221,7 @@ def search():
                     AND sc.commodity_name = ANY(%s::text[])
                     AND sc.sell_price > 0 AND sc.demand > 0
                     ORDER BY sc.system_id64, sc.station_name, sc.sell_price DESC
-                """, ps + [full_names])
+                """, ps + [sel_mats])
             else:
                 oc.execute(f"""
                     SELECT system_id64, station_name, commodity_name, sell_price, demand
@@ -228,13 +242,32 @@ def search():
                         'demand': r2['demand']
                     })
 
+        # Process each row
         for row in rows:
             if cur_sys is None or cur_sys['name'] != row['system_name']:
                 if cur_sys:
                     pr.append(cur_sys)
+                
+                # Format power information
+                power_info = []
+                if row['controlling_power'] and row['power_state'] in ['Exploited', 'Fortified', 'Stronghold']:
+                    power_info.append(f'<span style="color: yellow">{row["controlling_power"]} (Control)</span>')
+                
+                # Add exploiting powers from powers_acquiring array
+                if row['powers_acquiring']:
+                    try:
+                        log_message(BLUE, "POWERS", f"powers_acquiring for {row['system_name']}: {row['powers_acquiring']}")
+                        for power in row['powers_acquiring']:
+                            if power != row['controlling_power']:  # Don't show controlling power twice
+                                power_info.append(f'{power} (Exploited)')
+                    except Exception as e:
+                        log_message(RED, "POWERS", f"Error processing powers_acquiring for {row['system_name']}: {e}")
+                else:
+                    log_message(BLUE, "POWERS", f"No powers_acquiring for {row['system_name']}")
+                
                 cur_sys = {
                     'name': row['system_name'],
-                    'controlling_power': row['controlling_power'],
+                    'controlling_power': '<br>'.join(power_info) if power_info else row['controlling_power'],
                     'power_state': row['power_state'],
                     'distance': float(row['distance']),
                     'system_id64': row['system_id64'],
@@ -243,34 +276,51 @@ def search():
                     'all_signals': []
                 }
 
-            if ring_type_filter == 'Without Hotspots':
+            # Handle ring details based on mining_materials.json data
+            ring_data = material['ring_types'].get(row['ring_type'], {})
+            
+            # Format ring name - remove system name if it appears at the start
+            display_ring_name = row['ring_name']
+            if not SYSTEM_IN_RING_NAME and display_ring_name.startswith(row['system_name']):
+                display_ring_name = display_ring_name[len(row['system_name']):].lstrip()
+            
+            # Show ring details for both hotspots and valid rings
+            if row['mineral_type'] == signal_type:
+                # This is a hotspot
+                hotspot_text = "Hotspot " if row['signal_count'] == 1 else "Hotspots " if row['signal_count'] else ""
                 re = {
-                    'name': row['ring_name'],
+                    'name': display_ring_name,
                     'body_name': row['body_name'],
-                    'signals': f"{signal_type} ({row['ring_type']}, {row['reserve_level']})"
+                    'signals': f"<img src='img/icons/hotspot-2.svg' width='11' height='11' class='hotspot-icon'> {material['name']}: {row['signal_count'] or ''} {hotspot_text}({row['reserve_level']})"
                 }
                 if re not in cur_sys['rings']:
                     cur_sys['rings'].append(re)
-            else:
-                if row['mineral_type'] == signal_type:
-                    re = {
-                        'name': row['ring_name'],
-                        'body_name': row['body_name'],
-                        'signals': f"{signal_type}: {row['signal_count'] or ''} ({row['reserve_level']})"
-                    }
-                    if re not in cur_sys['rings']:
-                        cur_sys['rings'].append(re)
+            elif any([ring_data.get('surfaceLaserMining', False),
+                     ring_data.get('surfaceDeposit', False),
+                     ring_data.get('subSurfaceDeposit', False),
+                     ring_data.get('core', False)]):
+                # This is a regular ring that can have this material
+                re = {
+                    'name': display_ring_name,
+                    'body_name': row['body_name'],
+                    'signals': f"{material['name']} ({row['ring_type']}, {row['reserve_level']})"
+                }
+                if re not in cur_sys['rings']:
+                    cur_sys['rings'].append(re)
 
-            si = {
-                'ring_name': row['ring_name'],
-                'mineral_type': row['mineral_type'],
-                'signal_count': row['signal_count'] or '',
-                'reserve_level': row['reserve_level'],
-                'ring_type': row['ring_type']
-            }
-            if si not in cur_sys['all_signals'] and si['mineral_type']:
-                cur_sys['all_signals'].append(si)
+            # Add to all_signals if it's a hotspot
+            if row['mineral_type']:
+                si = {
+                    'ring_name': row['ring_name'],
+                    'mineral_type': row['mineral_type'],
+                    'signal_count': row['signal_count'] or '',
+                    'reserve_level': row['reserve_level'],
+                    'ring_type': row['ring_type']
+                }
+                if si not in cur_sys['all_signals']:
+                    cur_sys['all_signals'].append(si)
 
+            # Add station information
             if row['station_name']:
                 try:
                     ex = next((s for s in cur_sys['stations'] if s['name'] == row['station_name']), None)
@@ -294,9 +344,6 @@ def search():
 
         if cur_sys:
             pr.append(cur_sys)
-
-        # Apply the limit here, after processing all results
-        pr = pr[:limit]
 
         # Get other signals for each system
         if pr:
@@ -345,6 +392,10 @@ def search_highest():
             
         cur = conn.cursor()
         
+        # Load material data from mining_materials.json
+        with open('data/mining_materials.json', 'r') as f:
+            mat_data = json.load(f)['materials']
+        
         # Build all WHERE conditions first
         where_conditions = ["sc.demand > 0", "sc.sell_price > 0"]
         params = []
@@ -354,20 +405,22 @@ def search_highest():
             params.append(controlling_power)
         
         if power_states:
-            where_conditions.append("s.power_state = ANY(%s)")
+            where_conditions.append("s.power_state = ANY(%s::text[])")
             params.append(power_states)
         
         where_clause = " AND ".join(where_conditions)
         
-        # Get the list of non-hotspot materials
-        non_hotspot = get_non_hotspot_materials_list()
-        non_hotspot_str = ','.join([f"'{material}'" for material in non_hotspot])
-        
-        # Build ring type case statement
+        # Build ring type case statement for each material
         ring_type_cases = []
-        for material, ring_types in mining_data.NON_HOTSPOT_MATERIALS.items():
-            ring_types_str = ','.join([f"'{rt}'" for rt in ring_types])
-            ring_type_cases.append(f"WHEN hp.commodity_name = '{material}' AND ms.ring_type IN ({ring_types_str}) THEN 1")
+        for material_name, material in mat_data.items():
+            valid_ring_types = [rt for rt, data in material['ring_types'].items() 
+                              if any([data.get('surfaceLaserMining', False),
+                                    data.get('surfaceDeposit', False),
+                                    data.get('subSurfaceDeposit', False),
+                                    data.get('core', False)])]
+            if valid_ring_types:
+                ring_types_str = ','.join([f"'{rt}'" for rt in valid_ring_types])
+                ring_type_cases.append(f"WHEN hp.commodity_name = '{material['name']}' AND ms.ring_type IN ({ring_types_str}) THEN 1")
         ring_type_case = '\n'.join(ring_type_cases)
         
         query = f"""
@@ -399,8 +452,7 @@ def search_highest():
                 ms.ring_type,
                 ms.reserve_level,
                 CASE
-                    WHEN hp.commodity_name NOT IN ({non_hotspot_str})
-                        AND ms.mineral_type = hp.commodity_name THEN 1
+                    WHEN ms.mineral_type = hp.commodity_name THEN 1
                     WHEN hp.commodity_name = 'Low Temperature Diamonds' 
                         AND ms.mineral_type = 'LowTemperatureDiamond' THEN 1
                     {ring_type_case}
@@ -450,12 +502,9 @@ def search_highest():
                 'update_time': row['update_time'].isoformat() if row['update_time'] is not None else None
             })
         
-        conn.close()
         return jsonify(formatted_results)
-        
     except Exception as e:
-        app.logger.error(f"Search highest error: {str(e)}")
-        return jsonify({'error': f'Search highest error: {str(e)}'}), 500
+        return jsonify({'error': str(e)}), 500
 
 def get_price_comparison_endpoint():
     try:
@@ -525,7 +574,6 @@ def search_res_hotspots():
         conn.close()
         return jsonify(results)
     except Exception as e:
-        app.logger.error(f"RES hotspot search error: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
 def search_high_yield_platinum():
@@ -573,5 +621,4 @@ def search_high_yield_platinum():
         conn.close()
         return jsonify(results)
     except Exception as e:
-        app.logger.error(f"High yield platinum search error: {str(e)}")
         return jsonify({'error': str(e)}), 500

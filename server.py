@@ -6,9 +6,9 @@ from json import JSONEncoder
 import zmq
 import psutil
 from typing import Dict, List, Optional
-import mining_data as mining_data, res_data as res_data
 import tempfile
 import io
+from utils import mining_data, res_data
 from utils.common import (
     get_db_connection, log_message, 
     BLUE, RED, YELLOW, GREEN, CYAN, ORANGE, RESET,

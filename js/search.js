@@ -1,3 +1,5 @@
+import formStorage from './storage.js';
+
 class MiningSearch {
     constructor() {
         this.form = document.getElementById('searchForm');
@@ -8,9 +10,7 @@ class MiningSearch {
         this.useMaxPrice = false;
         this.selectedMaterials = new Set(['Default']);
         this.selectedMiningTypes = new Set(['All']);
-        
-        // Load default settings
-        this.loadDefaultSettings();
+        this.formStorage = formStorage;
         
         // Create and add spinner
         const spinnerContainer = document.getElementById('spinner-container');
@@ -33,62 +33,6 @@ class MiningSearch {
         this.setupMiningTypeAutocomplete();
     }
 
-    async loadDefaultSettings() {
-        try {
-            const response = await fetch('/Config.ini');
-            const text = await response.text();
-            
-            // Parse INI file
-            const settings = {};
-            let currentSection = '';
-            
-            text.split('\n').forEach(line => {
-                line = line.trim();
-                if (line.startsWith('[') && line.endsWith(']')) {
-                    currentSection = line.slice(1, -1);
-                    settings[currentSection] = {};
-                } else if (line && currentSection) {
-                    const [key, value] = line.split('=').map(s => s.trim());
-                    if (key && value) {
-                        settings[currentSection][key] = value;
-                    }
-                }
-            });
-            
-            // Apply settings if they exist
-            if (settings.Defaults) {
-                const defaults = settings.Defaults;
-                
-                // Set reference system
-                if (defaults.system) {
-                    document.getElementById('system').value = defaults.system;
-                }
-                
-                // Set controlling power
-                if (defaults.controlling_power) {
-                    document.getElementById('controlling_power').value = defaults.controlling_power;
-                }
-                
-                // Set max distance
-                if (defaults.max_distance) {
-                    document.getElementById('distance').value = defaults.max_distance;
-                }
-                
-                // Set search results limit
-                if (defaults.search_results) {
-                    document.getElementById('limit').value = defaults.search_results;
-                }
-                
-                // Set database
-                if (defaults.system_database) {
-                    document.getElementById('database').value = defaults.system_database;
-                }
-            }
-        } catch (error) {
-            console.error('Error loading default settings:', error);
-        }
-    }
-
     setupEventListeners() {
         this.form.addEventListener('submit', (e) => {
             e.preventDefault();
@@ -97,6 +41,7 @@ class MiningSearch {
     }
 
     async handleSearch() {
+        this.formStorage.saveFormValues(this); // Pass the MiningSearch instance
         this.showLoading();
         
         // Reset table class and headers for normal search
@@ -293,7 +238,7 @@ class MiningSearch {
                             ${this.getStationIcon(station.station_type)}${station.name} (${station.pad_size})
                             <div class="station-details">
                                 <div>Price: ${priceSpan.outerHTML}</div>
-                                <div>Demand: ${station.demand.toLocaleString()}</div>
+                                <div>Demand: ${this.getDemandIcon(station.demand)} ${station.demand.toLocaleString()}</div>
                                 <div>Distance: ${Math.floor(station.distance).toLocaleString()} Ls</div>
                                 <div class="update-time">Updated: ${station.update_time ? station.update_time.split(' ')[0] : ''}</div>
                             </div>
@@ -326,7 +271,7 @@ class MiningSearch {
                                             const priceData = priceDataMap.get(key);
                                             const priceSpan = this.formatPriceSpan(commodity.sell_price, priceData);
                                             const commodityCode = this.getCommodityCode(commodity.name);
-                                            return `<div class="commodity-item"><span class="commodity-code">${commodityCode}</span>${priceSpan.outerHTML}&nbsp;| ${commodity.demand.toLocaleString()} Demand</div>`;
+                                            return `<div class="commodity-item"><span class="commodity-code">${commodityCode}</span>${priceSpan.outerHTML} ${this.getDemandIcon(commodity.demand, true)} ${commodity.demand.toLocaleString()} Demand</div>`;
                                         }).join('')}
                                 </div>
                             </div>` : ''}
@@ -457,18 +402,21 @@ class MiningSearch {
 
     showLoading() {
         this.loadingOverlay.style.display = 'block';
+        this.loadingOverlay.classList.add('visible');
         this.loadingIndicator.style.display = 'block';
         this.resultsTable.style.display = 'none';
     }
 
     hideLoading() {
         this.loadingOverlay.style.display = 'none';
+        this.loadingOverlay.classList.remove('visible');
         this.loadingIndicator.style.display = 'none';
     }
 
     clearResults() {
         this.resultsBody.innerHTML = '';
         this.resultsTable.style.display = 'none';
+        this.hideLoading(); // Ensure loading is hidden when clearing results
     }
 
     formatNumber(number) {
@@ -786,11 +734,24 @@ class MiningSearch {
             this.hideLoading();
         }
     }
+
+    getDemandIcon(demand, isOtherCommodity = false) {
+        let iconId = 'demand-none';
+        if (demand > 2000) iconId = 'demand-veryhigh';
+        else if (demand > 1000) iconId = 'demand-high';
+        else if (demand > 300) iconId = 'demand-medium';
+        else if (demand > 100) iconId = 'demand-low';
+        
+        const height = isOtherCommodity ? '8' : '12';
+        return `<svg class="demand-icon" width="13" height="${height}" style="margin-right: 2px;"><use href="img/icons/demand.svg#${iconId}"></use></svg>`;
+    }
 }
 
 // Initialize search when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
     window.miningSearch = new MiningSearch();
+    // Load saved values after initialization
+    formStorage.loadSavedFormValues(window.miningSearch);
 });
 
 async function searchHighest() {
@@ -856,7 +817,8 @@ async function searchHighest() {
             const priceComparison = Array.isArray(priceData) ? priceData[index] : null;
             const priceSpan = search.formatPriceSpan(item.max_price, priceComparison);
             priceCell.appendChild(priceSpan);
-            row.insertCell().textContent = search.formatNumber(item.demand);
+            const demandCell = row.insertCell();
+            demandCell.innerHTML = `${search.getDemandIcon(item.demand)} ${search.formatNumber(item.demand)}`;
             row.insertCell().textContent = item.system_name;
             const stationCell = row.insertCell();
             stationCell.innerHTML = search.getStationIcon(item.station_type) + item.station_name;
@@ -865,7 +827,13 @@ async function searchHighest() {
             row.insertCell().textContent = item.reserve_level;
             row.insertCell().textContent = item.controlling_power || '-';
             row.insertCell().textContent = item.power_state || '-';
-            row.insertCell().textContent = item.update_time ? item.update_time.split(' ')[0] : '-';
+            const updateCell = row.insertCell();
+            if (item.update_time) {
+                const [date, time] = item.update_time.split('T');
+                updateCell.innerHTML = `${date}<br/>${time}`;
+            } else {
+                updateCell.textContent = '-';
+            }
         });
         
         table.style.display = 'table';
