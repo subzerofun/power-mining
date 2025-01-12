@@ -386,6 +386,9 @@ def handle_powers_data(message):
 def process_journal_message(message):
     """Process journal messages for power data"""
     try:
+        # Log the full message so we can see its structure
+        log_message("POWER-DEBUG", GREEN + f"Full message received: {json.dumps(message, indent=2)}", level=1)
+        
         # Get the inner message object
         msg_data = message.get("message")
         if not msg_data:
@@ -410,8 +413,11 @@ def process_journal_message(message):
 def process_message(message, commodity_map):
     """Process a single EDDN message"""
     try:
-        # First try to process as journal message
-        if process_journal_message(message):
+        # Check if this is a journal message by schema reference
+        schema_ref = message.get("$schemaRef", "")
+        if "journal" in schema_ref.lower():
+            log_message("POWER-DEBUG", GREEN + f"Found journal message with schema: {schema_ref}", level=1)
+            process_journal_message(message)
             return None, None  # Journal messages don't have commodity data
             
         # Skip fleet carriers
