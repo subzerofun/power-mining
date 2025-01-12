@@ -386,8 +386,10 @@ def handle_powers_data(message):
 def process_journal_message(message):
     """Process journal messages for power data"""
     try:
-        # Log the full message so we can see its structure
-        log_message("POWER-DEBUG", GREEN + f"Full message received: {json.dumps(message, indent=2)}", level=1)
+        # Log the full message structure
+        log_message("POWER-DEBUG", GREEN + "Received journal message:", level=1)
+        log_message("POWER-DEBUG", GREEN + f"Keys in message: {list(message.keys())}", level=1)
+        log_message("POWER-DEBUG", GREEN + f"Full message: {json.dumps(message, indent=2)}", level=1)
         
         # Get the inner message object
         msg_data = message.get("message")
@@ -413,9 +415,11 @@ def process_journal_message(message):
 def process_message(message, commodity_map):
     """Process a single EDDN message"""
     try:
-        # First try to process as journal message
-        if process_journal_message(message):
-            return None, None  # Journal messages don't have commodity data
+        # Only process journal messages
+        schema_ref = message.get("$schemaRef", "")
+        if schema_ref == "https://eddn.edcd.io/schemas/journal/1":
+            if process_journal_message(message):
+                return None, None  # Journal messages don't have commodity data
             
         # Skip fleet carriers
         if message.get("stationType") == "FleetCarrier" or \
