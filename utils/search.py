@@ -85,7 +85,8 @@ def search():
             valid_ring_types = []
             for ring_type, data in material['ring_types'].items():
                 for mining_type in mining_types:
-                    if (mining_type == 'Surface' and (data.get('surfaceLaserMining', False) or data.get('surfaceDeposit', False))) or \
+                    if (mining_type == 'Laser surface' and data.get('surfaceLaserMining', False)) or \
+                       (mining_type == 'Surface' and data.get('surfaceDeposit', False)) or \
                        (mining_type == 'Subsurface' and data.get('subSurfaceDeposit', False)) or \
                        (mining_type == 'Core' and data.get('core', False)):
                         valid_ring_types.append(ring_type)
