@@ -235,8 +235,8 @@ button:not(:hover) {
 
 .results-table:not(.res-hotspot-table):not(.highest-price-table) th:nth-child(4),
 .results-table:not(.res-hotspot-table):not(.highest-price-table) td:nth-child(4) {
-    width: 500px;
-    min-width: 500px;
+    width: 520px;
+    min-width: 520px;
 }
 
 .results-table:not(.res-hotspot-table):not(.highest-price-table) th:nth-child(5),
@@ -247,8 +247,8 @@ button:not(:hover) {
 
 .results-table:not(.res-hotspot-table):not(.highest-price-table) th:nth-child(6),
 .results-table:not(.res-hotspot-table):not(.highest-price-table) td:nth-child(6) {
-    width: 220px;
-    min-width: 220px;
+    width: 200px;
+    min-width: 200px;
 }
 
 /* RES hotspots table */

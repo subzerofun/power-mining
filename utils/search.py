@@ -330,11 +330,17 @@ def search():
             if row['station_name']:
                 try:
                     ex = next((s for s in cur_sys['stations'] if s['name'] == row['station_name']), None)
+
+                     # Process station name - truncate if longer than 21 chars
+                    station_name = row['station_name']
+                    if len(station_name) > 21:
+                        station_name = station_name[:21] + '...'
+
                     if ex:
                         ex['other_commodities'] = other_commodities.get((row['system_id64'], row['station_name']), [])
                     else:
                         stn = {
-                            'name': row['station_name'],
+                            'name': station_name,
                             'pad_size': row['landing_pad_size'],
                             'distance': float(row['station_distance']) if row['station_distance'] else 0,
                             'demand': int(row['demand']) if row['demand'] else 0,
