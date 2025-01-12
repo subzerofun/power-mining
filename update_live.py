@@ -340,6 +340,11 @@ def process_message(message, commodity_map):
             log_message("DEBUG", f"Skipped Fleet Carrier Data: {message.get('stationName')}", level=3)
             return None, None
             
+        # Get message type
+        message_type = message.get("event")
+        if message_type in ['Location', 'FSDJump']:
+            handle_powers_data(message)
+            
         station_name = message.get("stationName")
         system_name = message.get("systemName", "Unknown")
         market_id = message.get("marketId")
@@ -407,9 +412,6 @@ def process_message(message, commodity_map):
         else:
             log_message("DEBUG", f"No relevant commodities found at {station_name}", level=2)
             
-        if message_type in ['Location', 'FSDJump']:
-            handle_powers_data(message['message'])
-        
     except Exception as e:
         log_message("ERROR", f"Error processing message: {str(e)}", level=1)
         import traceback
