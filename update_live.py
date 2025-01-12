@@ -609,19 +609,24 @@ def main():
                 message = zlib.decompress(raw_msg)
                 data = decoder.decode(message)
                 
-                # Check schema
-                schema = data.get("$schemaRef", "").lower()
-                if "commodity" in schema.lower():
+                # Route messages based on schema
+                schema_ref = data.get("$schemaRef", "").lower()
+                msg_data = data.get("message", {})
+
+                # Handle journal messages first
+                if "journal" in schema_ref:
+                    log_message("JOURNAL", BLUE + f"Processing Journal message", level=2)
+                    log_message("JOURNAL", BLUE + f"Journal Message schema: {schema_ref}", level=2)
+                    process_journal_message(data)
+                    continue
+
+                # Continue with commodity processing
+                if "commodity" in schema_ref:
                     commodity_messages += 1
-                    log_message("DEBUG", f"Processing commodity message {commodity_messages}", level=3)
-                    log_message("DEBUG", f"Message schema: {schema}", level=3)
+                    log_message("DEBUG", f"Processing commodity message {commodity_messages}", level=2)
+                    log_message("DEBUG", f"Commodity Message schema: {schema_ref}", level=2)
                 else:
                     continue
-                    
-                # Check for journal messages first
-                if "journal" in data.get("id", "").lower():
-                    process_journal_message(data)
-                    continue  # Skip commodity processing for journal messages
 
                 # Process commodity message
                 station_name, commodities = process_message(data.get("message", {}), commodity_map)
