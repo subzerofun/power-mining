@@ -17,6 +17,8 @@ class FormStorage {
                     }
                     values[element.name].push(element.value);
                 }
+            } else if (element.id === 'minDemand' || element.id === 'maxDemand') {
+                values[element.id] = element.value;
             } else {
                 values[element.name] = element.value;
             }
@@ -45,6 +47,8 @@ class FormStorage {
             } else if (name === 'selectedMiningTypes') {
                 miningSearch.selectedMiningTypes = new Set(value);
                 miningSearch.updateSelectedMiningTypes();
+            } else if (name === 'minDemand' || name === 'maxDemand') {
+                document.getElementById(name).value = value;
             } else {
                 const elements = document.getElementsByName(name);
                 elements.forEach(element => {

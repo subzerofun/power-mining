@@ -150,7 +150,7 @@
             </div>
             
             <div class="form-row">
-                <div class="form-group" style="flex: 1;">
+                <div class="form-group mining-type-group">
                     <label for="miningTypeInput">Mining Type:</label>
                     <div class="materials-input-container">
                         <div class="materials-wrapper">
@@ -159,6 +159,14 @@
                         </div>
                         <div id="miningTypeAutocomplete" class="autocomplete-results" style="display: none;"></div>
                     </div>
+                </div>
+                <div class="form-group demand-group">
+                    <label for="minDemand">Min. Demand:</label>
+                    <input type="number" id="minDemand" name="minDemand" value="0" min="0" class="demand-input">
+                </div>
+                <div class="form-group demand-group">
+                    <label for="maxDemand">Max. Demand:</label>
+                    <input type="number" id="maxDemand" name="maxDemand" value="90000" min="0" class="demand-input">
                 </div>
             </div>
 

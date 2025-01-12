@@ -20,6 +20,8 @@ def search():
         ring_type_filter = request.args.get('ring_type_filter', 'Hotspots')
         limit = int(request.args.get('limit', '30'))
         mining_types = request.args.getlist('mining_types[]')
+        min_demand = int(request.args.get('minDemand', '0'))
+        max_demand = int(request.args.get('maxDemand', '0'))
 
         # Log search parameters
         log_message(BLUE, "SEARCH", f"Search parameters:")
@@ -30,6 +32,8 @@ def search():
         log_message(BLUE, "SEARCH", f"- Signal type: {signal_type}")
         log_message(BLUE, "SEARCH", f"- Ring type filter: {ring_type_filter}")
         log_message(BLUE, "SEARCH", f"- Mining types: {mining_types}")
+        log_message(BLUE, "SEARCH", f"- Min demand: {min_demand}")
+        log_message(BLUE, "SEARCH", f"- Max demand: {max_demand}")
 
         # Get database connection
         conn = get_db_connection()
@@ -143,7 +147,15 @@ def search():
             SELECT sc.system_id64, sc.station_name, sc.sell_price, sc.demand
             FROM station_commodities sc
             WHERE sc.commodity_name = %s
-            AND sc.demand > 0 AND sc.sell_price > 0
+            AND sc.sell_price > 0
+            AND (
+                CASE 
+                    WHEN %s = 0 AND %s = 0 THEN sc.demand = 0
+                    WHEN %s = 0 THEN sc.demand <= %s
+                    WHEN %s = 0 THEN sc.demand >= %s
+                    ELSE sc.demand BETWEEN %s AND %s
+                END
+            )
         )
         SELECT DISTINCT s.name as system_name, s.id64 as system_id64, s.controlling_power,
             s.power_state, s.distance, ms.body_name, ms.ring_name, ms.ring_type,
@@ -186,7 +198,11 @@ def search():
             rx, ry, rz,  # Distance calculation in subquery
             rx, ry, rz,  # Distance filter in subquery
             max_dist,    # Maximum distance
-            material['name']  # For station_commodities
+            material['name'],  # For station_commodities
+            min_demand, max_demand,  # For zero-zero check
+            min_demand, max_demand,  # For min=0 check
+            max_demand, min_demand,  # For max=0 check
+            min_demand, max_demand   # For between check
         ]
 
         # Add JOIN parameters

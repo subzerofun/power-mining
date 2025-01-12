@@ -1210,3 +1210,39 @@ button:not(:hover) {
     vertical-align: middle;
     margin-top: -0.2em;
 }
+
+.mining-type-group {
+    flex: 0.66;  /* Takes 60% of the available space */
+}
+
+.demand-group {
+    flex: 0.15;  /* Takes enough space for the demand input */
+    margin-left: auto;  /* Push to the right */
+}
+
+.demand-group:first-of-type {
+    margin-left: auto;  /* First demand group also pushed right */
+}
+
+.demand-group:last-of-type {
+    margin-left: 15px;  /* Space between the two demand groups */
+}
+
+.demand-group label {
+    min-width: auto;  /* Override default min-width */
+    margin-right: 5px;  /* Smaller space between label and input */
+}
+
+.demand-input {
+    width: 50px;  /* Smaller width for input */
+    padding: 5px;
+    border: 1px solid var(--main-color);
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+/* Adjust materials input container for new width */
+.materials-input-container {
+    width: 100%;
+    position: relative;
+}
