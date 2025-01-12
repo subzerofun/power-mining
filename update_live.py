@@ -257,7 +257,7 @@ def handle_power_data(message):
         return
 
     # Log that we found a FSDJump event
-    log_message("POWER-DEBUG", GREEN + f"Processing {event} event", level=1)
+    log_message("POWER-DEBUG", ORANGE + f"Processing {event} event", level=1)
 
     # Get system info
     system_name = message.get("StarSystem", "")
@@ -329,7 +329,7 @@ def process_journal_message(message):
         # Check for FSDJump event and process power data
         message_type = msg_data.get("event")
         if message_type == 'FSDJump':
-            log_message("POWER-DEBUG", GREEN + f"Processing {message_type} event", level=1)
+            #log_message("POWER-DEBUG", GREEN + f"Processing {message_type} event", level=1)
             handle_power_data(msg_data)
             return True
             
@@ -543,8 +543,8 @@ def main():
 
                 # Handle journal messages first
                 if "journal" in schema_ref:
-                    log_message("JOURNAL", BLUE + f"Processing Journal message", level=2)
-                    log_message("JOURNAL", BLUE + f"Journal Message schema: {schema_ref}", level=2)
+                    #log_message("JOURNAL", BLUE + f"Processing Journal message", level=2)
+                    #log_message("JOURNAL", BLUE + f"Journal Message schema: {schema_ref}", level=2)
                     process_journal_message(data)
                     continue
 
