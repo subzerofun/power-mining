@@ -12,7 +12,6 @@ json/stations.json
 json/systemsPopulated.json
 json/systemsWithCoordinates.json
 json/powerPlay.json
-json/Commodity-*
 json/old/*
 img/*.psd
 img/*.ai
@@ -84,4 +83,3 @@ utils/search_web.py
 eddn/*
 
 json/journal-README.md
-json/journal-v1.0.json
