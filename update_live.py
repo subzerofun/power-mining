@@ -412,9 +412,19 @@ def process_journal_message(message):
         log_message("POWER-DEBUG", GREEN + f"Traceback: {traceback.format_exc()}", level=1)
         return False
 
-def process_commodity_message(message, commodity_map):
-    """Process commodity data from EDDN message"""
+def process_message(message, commodity_map):
+    """Process a single EDDN message"""
     try:
+        # Check schema type and get inner message
+        schema_ref = message.get("$schemaRef", "").lower()
+        msg_data = message.get("message", {})
+
+        # Route to appropriate handler
+        if "journal" in schema_ref:
+            if process_journal_message(message):
+                return None, None  # Journal messages don't have commodity data
+
+        # Continue with existing commodity processing
         if message.get("stationType") == "FleetCarrier" or \
            (message.get("economies") and message["economies"][0].get("name") == "Carrier"):
             log_message("DEBUG", f"Skipped Fleet Carrier Data: {message.get('stationName')}", level=3)
@@ -493,26 +503,6 @@ def process_commodity_message(message, commodity_map):
         log_message("ERROR", f"Traceback: {traceback.format_exc()}", level=1)
         
     return None, None
-
-def process_message(message, commodity_map):
-    """Central router for EDDN messages"""
-    try:
-        # Check schema type and get inner message
-        schema_ref = message.get("$schemaRef", "").lower()
-        msg_data = message.get("message", {})
-
-        # Route to appropriate handler
-        if "journal" in schema_ref:
-            if process_journal_message(message):
-                return None, None  # Journal messages don't have commodity data
-        elif "commodity" in schema_ref:
-            return process_commodity_message(msg_data, commodity_map)
-
-        return None, None
-            
-    except Exception as e:
-        log_message("ERROR", f"Error in message router: {str(e)}", level=1)
-        return None, None
 
 def main():
     """Main function"""
