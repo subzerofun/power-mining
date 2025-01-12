@@ -256,7 +256,7 @@ def handle_journal_message(message):
         return
 
     # Log that we found a relevant event
-    log_message("POWER-DEBUG", GREEN + f"Processing {event} event", level=1)
+    log_message("POWER-HANDLE-JOURNAL", GREEN + f"Processing {event} event", level=1)
 
     system_name = message.get("StarSystem", "")
     system_id64 = message.get("SystemAddress")
@@ -268,43 +268,43 @@ def handle_journal_message(message):
     powers = message.get("Powers")
     if powers is not None:
         if isinstance(powers, list):
-            log_message("POWER-DEBUG", GREEN + f"Found Powers array: {powers}", level=1)
+            log_message("POWER-HANDLE-JOURNAL", GREEN + f"Found Powers array: {powers}", level=1)
         elif isinstance(powers, str):
             powers = [powers]  # Convert single string to list
-            log_message("POWER-DEBUG", GREEN + f"Found Powers as string, converted to array: {powers}", level=1)
+            log_message("POWER-HANDLE-JOURNAL", GREEN + f"Found Powers as string, converted to array: {powers}", level=1)
         else:
-            log_message("POWER-DEBUG", GREEN + f"Powers field has unexpected type: {type(powers)}", level=1)
+            log_message("POWER-HANDLE-JOURNAL", GREEN + f"Powers field has unexpected type: {type(powers)}", level=1)
             return
     else:
-        log_message("POWER-DEBUG", GREEN + "No Powers field found in message", level=1)
+        log_message("POWER-HANDLE-JOURNAL", GREEN + "No Powers field found in message", level=1)
         return
 
     # Check for PowerplayState
     power_state = message.get("PowerplayState")
     if power_state is not None:
         if isinstance(power_state, str):
-            log_message("POWER-DEBUG", GREEN + f"Found PowerplayState: {power_state}", level=1)
+            log_message("POWER-HANDLE-JOURNAL", GREEN + f"Found PowerplayState: {power_state}", level=1)
         else:
-            log_message("POWER-DEBUG", GREEN + f"PowerplayState has unexpected type: {type(power_state)}", level=1)
+            log_message("POWER-HANDLE-JOURNAL", GREEN + f"PowerplayState has unexpected type: {type(power_state)}", level=1)
             return
     else:
-        log_message("POWER-DEBUG", GREEN + "No PowerplayState field found in message", level=1)
+        log_message("POWER-HANDLE-JOURNAL", GREEN + "No PowerplayState field found in message", level=1)
         power_state = ""  # Default to empty string if not present
 
     # Determine controlling power from Powers array
     controlling_power = None
     if len(powers) == 1:
         controlling_power = powers[0]
-        log_message("POWER-DEBUG", GREEN + f"Single power in array, using as controlling power: {controlling_power}", level=1)
+        log_message("POWER-HANDLE-JOURNAL", GREEN + f"Single power in array, using as controlling power: {controlling_power}", level=1)
     else:
-        log_message("POWER-DEBUG", GREEN + f"Multiple powers found ({len(powers)}), cannot determine controlling power", level=1)
+        log_message("POWER-HANDLE-JOURNAL", GREEN + f"Multiple powers found ({len(powers)}), cannot determine controlling power", level=1)
 
     # Log the final data we'll use for the database
-    log_message("POWER-DEBUG", GREEN + "Database update data:", level=1)
-    log_message("POWER-DEBUG", GREEN + f"  System: {system_name} (ID64: {system_id64})", level=1)
-    log_message("POWER-DEBUG", GREEN + f"  Controlling Power: {controlling_power}", level=1)
-    log_message("POWER-DEBUG", GREEN + f"  Power State: {power_state}", level=1)
-    log_message("POWER-DEBUG", GREEN + f"  All Powers: {powers}", level=1)
+    log_message("POWER-HANDLE-JOURNAL", GREEN + "Database update data:", level=1)
+    log_message("POWER-HANDLE-JOURNAL", GREEN + f"  System: {system_name} (ID64: {system_id64})", level=1)
+    log_message("POWER-HANDLE-JOURNAL", GREEN + f"  Controlling Power: {controlling_power}", level=1)
+    log_message("POWER-HANDLE-JOURNAL", GREEN + f"  Power State: {power_state}", level=1)
+    log_message("POWER-HANDLE-JOURNAL", GREEN + f"  All Powers: {powers}", level=1)
 
     # Database update commented out until we validate the data format
     # try:
@@ -345,29 +345,29 @@ def handle_powers_data(message):
         powers = message.get('Powers')
         
         # Log initial data received
-        log_message("POWER-DEBUG", GREEN + "Processing powers_acquiring data:", level=1)
-        log_message("POWER-DEBUG", GREEN + f"  System ID64: {system_id64}", level=1)
-        log_message("POWER-DEBUG", GREEN + f"  Raw Powers data: {powers}", level=1)
+        log_message("POWER-HANDLE-POWERS", ORANGE + "Processing powers_acquiring data:", level=1)
+        log_message("POWER-HANDLE-POWERS", ORANGE + f"  System ID64: {system_id64}", level=1)
+        log_message("POWER-HANDLE-POWERS", ORANGE + f"  Raw Powers data: {powers}", level=1)
         
         # Validate data
         if not system_id64:
-            log_message("POWER-DEBUG", GREEN + "Missing SystemAddress, skipping", level=1)
+            log_message("POWER-HANDLE-POWERS", ORANGE + "Missing SystemAddress, skipping", level=1)
             return
             
         if powers is None:
-            log_message("POWER-DEBUG", GREEN + "No Powers field found, skipping", level=1)
+            log_message("POWER-HANDLE-POWERS", ORANGE + "No Powers field found, skipping", level=1)
             return
             
         # Validate powers is an array
         if isinstance(powers, str):
             powers = [powers]  # Convert single string to array
-            log_message("POWER-DEBUG", GREEN + f"Converted single power string to array: {powers}", level=1)
+            log_message("POWER-HANDLE-POWERS", ORANGE + f"Converted single power string to array: {powers}", level=1)
         elif not isinstance(powers, list):
-            log_message("POWER-DEBUG", GREEN + f"Powers has unexpected type {type(powers)}, skipping", level=1)
+            log_message("POWER-HANDLE-POWERS", ORANGE + f"Powers has unexpected type {type(powers)}, skipping", level=1)
             return
             
         # Log what we would update in the database
-        log_message("POWER-DEBUG", f"\033[92mWould update system {system_id64} with powers_acquiring: {json.dumps(powers)}", level=1)
+        log_message("POWER-HANDLE-POWERS", ORANGE + f"Would update system {system_id64} with powers_acquiring: {json.dumps(powers)}", level=1)
         
         # This would be the actual database update (commented out for now)
         # sql = """
@@ -378,38 +378,38 @@ def handle_powers_data(message):
         # params = (json.dumps(powers), system_id64)
         # cursor.execute(sql, params)
         # conn.commit()
-        log_message("POWER-DEBUG", GREEN + f"Would update system {system_id64} with powers_acquiring: {json.dumps(powers)}", level=1)
+        log_message("POWER-HANDLE-POWERS", ORANGE + f"Would update system {system_id64} with powers_acquiring: {json.dumps(powers)}", level=1)
             
     except Exception as e:
-        log_message("POWER-DEBUG", GREEN + f"Error processing powers_acquiring: {str(e)}", level=1)
+        log_message("POWER-HANDLE-POWERS", ORANGE + f"Error processing powers_acquiring: {str(e)}", level=1)
 
 def process_journal_message(message):
     """Process journal messages for power data"""
     try:
         # Log the full message structure
-        log_message("POWER-DEBUG", GREEN + "Received journal message:", level=1)
-        log_message("POWER-DEBUG", GREEN + f"Keys in message: {list(message.keys())}", level=1)
-        log_message("POWER-DEBUG", GREEN + f"Full message: {json.dumps(message, indent=2)}", level=1)
+        log_message("POWER-PROCESS-JOURNAL", BLUE + "Received journal message:", level=1)
+        log_message("POWER-PROCESS-JOURNAL", BLUE + f"Keys in message: {list(message.keys())}", level=1)
+        log_message("POWER-PROCESS-JOURNAL", BLUE + f"Full message: {json.dumps(message, indent=2)}", level=1)
         
         # Get the inner message object
         msg_data = message.get("message")
         if not msg_data:
-            log_message("POWER-DEBUG", GREEN + "Missing message field", level=1)
+            log_message("POWER-PROCESS-JOURNAL", BLUE + "Missing message field", level=1)
             return False
             
         # Check for journal events we care about
         message_type = msg_data.get("event")
         if message_type in ['Location', 'FSDJump']:
-            log_message("POWER-DEBUG", GREEN + f"Processing {message_type} event with data: {json.dumps(msg_data, indent=2)}", level=1)
+            log_message("POWER-PROCESS-JOURNAL", BLUE + f"Processing {message_type} event with data: {json.dumps(msg_data, indent=2)}", level=1)
             handle_journal_message(msg_data)
             handle_powers_data(msg_data)
             return True
             
         return False
     except Exception as e:
-        log_message("POWER-DEBUG", GREEN + f"Error processing journal message: {str(e)}", level=1)
+        log_message("POWER-PROCESS-JOURNAL", BLUE + f"Error processing journal message: {str(e)}", level=1)
         import traceback
-        log_message("POWER-DEBUG", GREEN + f"Traceback: {traceback.format_exc()}", level=1)
+        log_message("POWER-PROCESS-JOURNAL", BLUE + f"Traceback: {traceback.format_exc()}", level=1)
         return False
 
 def process_message(message, commodity_map):
@@ -418,11 +418,6 @@ def process_message(message, commodity_map):
         # Check schema type and get inner message
         schema_ref = message.get("$schemaRef", "").lower()
         msg_data = message.get("message", {})
-
-        # Route to appropriate handler
-        if "journal" in schema_ref:
-            if process_journal_message(message):
-                return None, None  # Journal messages don't have commodity data
 
         # Continue with existing commodity processing
         if message.get("stationType") == "FleetCarrier" or \
@@ -623,7 +618,12 @@ def main():
                 else:
                     continue
                     
-                # Process message
+                # Check for journal messages first
+                if "journal" in data.get("id", "").lower():
+                    process_journal_message(data)
+                    continue  # Skip commodity processing for journal messages
+
+                # Process commodity message
                 station_name, commodities = process_message(data.get("message", {}), commodity_map)
                 if station_name and commodities:
                     commodity_buffer[station_name] = commodities
