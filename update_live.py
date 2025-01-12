@@ -305,6 +305,32 @@ def handle_journal_message(message):
     except Exception as e:
         log_message("ERROR", f"Failed to update power status: {e}")
 
+def handle_powers_data(message):
+    """Handle powers data from EDDN message and log it for analysis"""
+    try:
+        # Extract system info and powers array
+        system_id64 = message.get('SystemID64')
+        powers = message.get('Powers', [])  # This should be the array of powers
+        
+        # Log with bright cyan color for visibility
+        log_message('\033[96m', "POWERS-DEBUG", f"System ID64: {system_id64}")
+        log_message('\033[96m', "POWERS-DEBUG", f"Powers Array: {powers}")
+        
+        if system_id64 and powers:
+            # This would be the actual database update (commented out for now)
+            # sql = """
+            #     UPDATE systems 
+            #     SET powers_acquiring = %s::jsonb
+            #     WHERE id64 = %s
+            # """
+            # params = (json.dumps(powers), system_id64)
+            # cursor.execute(sql, params)
+            # conn.commit()
+            
+            log_message('\033[96m', "POWERS-DEBUG", f"Would update system {system_id64} with powers: {json.dumps(powers)}")
+    except Exception as e:
+        log_message('\033[96m', "POWERS-DEBUG", f"Error processing powers: {str(e)}")
+
 def process_message(message, commodity_map):
     """Process a single EDDN message"""
     try:
@@ -381,6 +407,9 @@ def process_message(message, commodity_map):
         else:
             log_message("DEBUG", f"No relevant commodities found at {station_name}", level=2)
             
+        if message_type in ['Location', 'FSDJump']:
+            handle_powers_data(message['message'])
+        
     except Exception as e:
         log_message("ERROR", f"Error processing message: {str(e)}", level=1)
         import traceback
