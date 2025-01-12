@@ -255,25 +255,56 @@ def handle_journal_message(message):
     if event not in ("FSDJump", "Location"):
         return
 
+    # Log that we found a relevant event
+    log_message('\033[92m', "POWER-DEBUG", f"Processing {event} event")
+
     system_name = message.get("StarSystem", "")
     system_id64 = message.get("SystemAddress")
     if not system_name or not system_id64:
+        log_message('\033[92m', "POWER-DEBUG", f"Missing system info - Name: {system_name}, ID64: {system_id64}")
         return
 
-    powers = message.get("Powers", [])
-    power_state = message.get("PowerplayState", "")
+    # Check for Powers array
+    powers = message.get("Powers")
+    if powers is not None:
+        if isinstance(powers, list):
+            log_message('\033[92m', "POWER-DEBUG", f"Found Powers array: {powers}")
+        elif isinstance(powers, str):
+            powers = [powers]  # Convert single string to list
+            log_message('\033[92m', "POWER-DEBUG", f"Found Powers as string, converted to array: {powers}")
+        else:
+            log_message('\033[92m', "POWER-DEBUG", f"Powers field has unexpected type: {type(powers)}")
+            return
+    else:
+        log_message('\033[92m', "POWER-DEBUG", "No Powers field found in message")
+        return
 
+    # Check for PowerplayState
+    power_state = message.get("PowerplayState")
+    if power_state is not None:
+        if isinstance(power_state, str):
+            log_message('\033[92m', "POWER-DEBUG", f"Found PowerplayState: {power_state}")
+        else:
+            log_message('\033[92m', "POWER-DEBUG", f"PowerplayState has unexpected type: {type(power_state)}")
+            return
+    else:
+        log_message('\033[92m', "POWER-DEBUG", "No PowerplayState field found in message")
+        power_state = ""  # Default to empty string if not present
+
+    # Determine controlling power from Powers array
     controlling_power = None
-    if isinstance(powers, list) and len(powers) == 1:
+    if len(powers) == 1:
         controlling_power = powers[0]
-    elif isinstance(powers, str):
-        controlling_power = powers
+        log_message('\033[92m', "POWER-DEBUG", f"Single power in array, using as controlling power: {controlling_power}")
+    else:
+        log_message('\033[92m', "POWER-DEBUG", f"Multiple powers found ({len(powers)}), cannot determine controlling power")
 
-    if controlling_power is None:
-        return
-
-    # Log the power info we received from EDDN
-    log_message("POWER", f"EDDN Power Info - System: {system_name}, Power: {controlling_power}, State: {power_state}")
+    # Log the final data we'll use for the database
+    log_message('\033[92m', "POWER-DEBUG", f"Database update data:")
+    log_message('\033[92m', "POWER-DEBUG", f"  System: {system_name} (ID64: {system_id64})")
+    log_message('\033[92m', "POWER-DEBUG", f"  Controlling Power: {controlling_power}")
+    log_message('\033[92m', "POWER-DEBUG", f"  Power State: {power_state}")
+    log_message('\033[92m', "POWER-DEBUG", f"  All Powers: {powers}")
 
     try:
         with psycopg2.connect(DATABASE_URL) as conn:
@@ -288,7 +319,7 @@ def handle_journal_message(message):
             if row:
                 old_power, old_state = row
                 if old_power == controlling_power and old_state == power_state:
-                    log_message("POWER", f"No change needed for {system_name} (already {controlling_power}, {power_state})")
+                    log_message('\033[92m', "POWER-DEBUG", f"No change needed for {system_name}")
                     return  # No change needed
                 
             # Only update if different
@@ -300,36 +331,55 @@ def handle_journal_message(message):
             """, (controlling_power, power_state, system_id64, system_name))
             
             if cur.rowcount > 0:
-                log_message("POWER", f"✓ Updated power status for {system_name}: {controlling_power} ({power_state})")
+                log_message('\033[92m', "POWER-DEBUG", f"✓ Updated power status for {system_name}")
             conn.commit()
     except Exception as e:
-        log_message("ERROR", f"Failed to update power status: {e}")
+        log_message('\033[92m', "POWER-DEBUG", f"Failed to update power status: {e}")
 
 def handle_powers_data(message):
     """Handle powers data from EDDN message and log it for analysis"""
     try:
         # Extract system info and powers array
-        system_id64 = message.get('SystemID64')
-        powers = message.get('Powers', [])  # This should be the array of powers
+        system_id64 = message.get('SystemAddress')
+        powers = message.get('Powers')
         
-        # Log with bright cyan color for visibility
-        log_message('\033[96m', "POWERS-DEBUG", f"System ID64: {system_id64}")
-        log_message('\033[96m', "POWERS-DEBUG", f"Powers Array: {powers}")
+        # Log initial data received
+        log_message('\033[92m', "POWER-DEBUG", f"Processing powers_acquiring data:")
+        log_message('\033[92m', "POWER-DEBUG", f"  System ID64: {system_id64}")
+        log_message('\033[92m', "POWER-DEBUG", f"  Raw Powers data: {powers}")
         
-        if system_id64 and powers:
-            # This would be the actual database update (commented out for now)
-            # sql = """
-            #     UPDATE systems 
-            #     SET powers_acquiring = %s::jsonb
-            #     WHERE id64 = %s
-            # """
-            # params = (json.dumps(powers), system_id64)
-            # cursor.execute(sql, params)
-            # conn.commit()
+        # Validate data
+        if not system_id64:
+            log_message('\033[92m', "POWER-DEBUG", "Missing SystemAddress, skipping")
+            return
             
-            log_message('\033[96m', "POWERS-DEBUG", f"Would update system {system_id64} with powers: {json.dumps(powers)}")
+        if powers is None:
+            log_message('\033[92m', "POWER-DEBUG", "No Powers field found, skipping")
+            return
+            
+        # Validate powers is an array
+        if isinstance(powers, str):
+            powers = [powers]  # Convert single string to array
+            log_message('\033[92m', "POWER-DEBUG", f"Converted single power string to array: {powers}")
+        elif not isinstance(powers, list):
+            log_message('\033[92m', "POWER-DEBUG", f"Powers has unexpected type {type(powers)}, skipping")
+            return
+            
+        # Log what we would update in the database
+        log_message('\033[92m', "POWER-DEBUG", f"Would update system {system_id64} with powers_acquiring: {json.dumps(powers)}")
+        
+        # This would be the actual database update (commented out for now)
+        # sql = """
+        #     UPDATE systems 
+        #     SET powers_acquiring = %s::jsonb
+        #     WHERE id64 = %s
+        # """
+        # params = (json.dumps(powers), system_id64)
+        # cursor.execute(sql, params)
+        # conn.commit()
+            
     except Exception as e:
-        log_message('\033[96m', "POWERS-DEBUG", f"Error processing powers: {str(e)}")
+        log_message('\033[92m', "POWER-DEBUG", f"Error processing powers_acquiring: {str(e)}")
 
 def process_message(message, commodity_map):
     """Process a single EDDN message"""

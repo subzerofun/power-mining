@@ -78,3 +78,10 @@ utils/search_old.py
 utils/mining_data_really_old.py
 utils/search_really_old.py
 utils/search_web.py
+
+# EDDN
+*eddn/*
+eddn/*
+
+json/journal-README.md
+json/journal-v1.0.json
