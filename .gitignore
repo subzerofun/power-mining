@@ -83,3 +83,5 @@ utils/search_web.py
 eddn/*
 
 json/journal-README.md
+utils/old_update_live.py
+utils/old_update_live_web.py

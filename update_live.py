@@ -415,27 +415,29 @@ def process_journal_message(message):
 def process_message(message, commodity_map):
     """Process a single EDDN message"""
     try:
-        # Check if it's a commodity message first
-        schema_id = message.get("id", "")
-        if schema_id == "https://eddn.edcd.io/schemas/commodity/3#":
-            # Skip commodity processing for now
-            return None, None
-            
-        # Check if it's a journal message
-        if schema_id == "https://eddn.edcd.io/schemas/journal/1#":
+        # Check schema type
+        schema_ref = message.get("$schemaRef", "").lower()
+        msg_data = message.get("message", {})
+        
+        # Handle journal messages first
+        if "journal" in schema_ref:
             if process_journal_message(message):
                 return None, None  # Journal messages don't have commodity data
-            
-        # Skip fleet carriers
-        if message.get("stationType") == "FleetCarrier" or \
-           (message.get("economies") and message["economies"][0].get("name") == "Carrier"):
-            log_message("DEBUG", f"Skipped Fleet Carrier Data: {message.get('stationName')}", level=3)
+                
+        # Skip if it's not a commodity message
+        if "commodity" not in schema_ref:
             return None, None
             
-        station_name = message.get("stationName")
-        system_name = message.get("systemName", "Unknown")
-        market_id = message.get("marketId")
-        timestamp = message.get("timestamp")
+        # Skip fleet carriers
+        if msg_data.get("stationType") == "FleetCarrier" or \
+           (msg_data.get("economies") and msg_data["economies"][0].get("name") == "Carrier"):
+            log_message("DEBUG", f"Skipped Fleet Carrier Data: {msg_data.get('stationName')}", level=3)
+            return None, None
+            
+        station_name = msg_data.get("stationName")
+        system_name = msg_data.get("systemName", "Unknown")
+        market_id = msg_data.get("marketId")
+        timestamp = msg_data.get("timestamp")
         
         log_message("DEBUG", f"Processing station {station_name} in {system_name} (timestamp: {timestamp})", level=2)
         
@@ -470,7 +472,7 @@ def process_message(message, commodity_map):
             
         # Process commodities
         station_commodities = {}
-        commodities = message.get("commodities", [])
+        commodities = msg_data.get("commodities", [])
         log_message("DEBUG", f"Found {len(commodities)} commodities", level=3)
         
         for commodity in commodities:
