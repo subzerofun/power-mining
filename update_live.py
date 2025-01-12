@@ -381,18 +381,32 @@ def handle_powers_data(message):
     except Exception as e:
         log_message('\033[92m', "POWER-DEBUG", f"Error processing powers_acquiring: {str(e)}")
 
+def process_journal_message(message):
+    """Process journal messages for power data"""
+    try:
+        # Get the inner message object
+        msg_data = message.get("message", {})
+        
+        # Check for journal events
+        message_type = msg_data.get("event")
+        if message_type in ['Location', 'FSDJump']:
+            log_message('\033[92m', "POWER-DEBUG", f"Found journal event: {message_type}")
+            handle_journal_message(msg_data)
+            handle_powers_data(msg_data)
+            return True
+        return False
+    except Exception as e:
+        log_message('\033[92m', "POWER-DEBUG", f"Error processing journal message: {str(e)}")
+        return False
+
 def process_message(message, commodity_map):
     """Process a single EDDN message"""
     try:
-        # Check for journal events first
-        message_type = message.get("event")
-        if message_type in ['Location', 'FSDJump']:
-            log_message('\033[92m', "POWER-DEBUG", f"Found journal event: {message_type}")
-            handle_journal_message(message)
-            handle_powers_data(message)
+        # First try to process as journal message
+        if process_journal_message(message):
             return None, None  # Journal messages don't have commodity data
             
-        # Skip fleet carriers (commodity messages only)
+        # Skip fleet carriers
         if message.get("stationType") == "FleetCarrier" or \
            (message.get("economies") and message["economies"][0].get("name") == "Carrier"):
             log_message("DEBUG", f"Skipped Fleet Carrier Data: {message.get('stationName')}", level=3)
