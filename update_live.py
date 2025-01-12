@@ -415,9 +415,14 @@ def process_journal_message(message):
 def process_message(message, commodity_map):
     """Process a single EDDN message"""
     try:
-        # Only process journal messages
-        schema_ref = message.get("$schemaRef", "")
-        if schema_ref == "https://eddn.edcd.io/schemas/journal/1":
+        # Check if it's a commodity message first
+        schema_id = message.get("id", "")
+        if schema_id == "https://eddn.edcd.io/schemas/commodity/3#":
+            # Skip commodity processing for now
+            return None, None
+            
+        # Check if it's a journal message
+        if schema_id == "https://eddn.edcd.io/schemas/journal/1#":
             if process_journal_message(message):
                 return None, None  # Journal messages don't have commodity data
             
