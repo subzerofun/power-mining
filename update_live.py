@@ -384,16 +384,19 @@ def handle_powers_data(message):
 def process_message(message, commodity_map):
     """Process a single EDDN message"""
     try:
-        # Skip fleet carriers
+        # Check for journal events first
+        message_type = message.get("event")
+        if message_type in ['Location', 'FSDJump']:
+            log_message('\033[92m', "POWER-DEBUG", f"Found journal event: {message_type}")
+            handle_journal_message(message)
+            handle_powers_data(message)
+            return None, None  # Journal messages don't have commodity data
+            
+        # Skip fleet carriers (commodity messages only)
         if message.get("stationType") == "FleetCarrier" or \
            (message.get("economies") and message["economies"][0].get("name") == "Carrier"):
             log_message("DEBUG", f"Skipped Fleet Carrier Data: {message.get('stationName')}", level=3)
             return None, None
-            
-        # Get message type
-        message_type = message.get("event")
-        if message_type in ['Location', 'FSDJump']:
-            handle_powers_data(message)
             
         station_name = message.get("stationName")
         system_name = message.get("systemName", "Unknown")
