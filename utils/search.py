@@ -43,7 +43,7 @@ def search():
         c = conn.cursor()
 
         # Get reference system coordinates
-        c.execute('SELECT x, y, z FROM systems WHERE name = %s', (ref_system,))
+        c.execute('SELECT x, y, z FROM systems WHERE name ILIKE %s', (ref_system,))
         ref_coords = c.fetchone()
         if not ref_coords:
             conn.close()
@@ -566,7 +566,7 @@ def search_res_hotspots():
             return jsonify({'error': 'Database connection failed'}), 500
         c = conn.cursor()
         
-        c.execute('SELECT x, y, z FROM systems WHERE name = %s', (ref_system,))
+        c.execute('SELECT x, y, z FROM systems WHERE name ILIKE %s', (ref_system,))
         ref_coords = c.fetchone()
         if not ref_coords:
             conn.close()
@@ -581,7 +581,7 @@ def search_res_hotspots():
         results = []
         for e in hotspot_data:
             c.execute('''SELECT s.*, sqrt(power(s.x - %s, 2) + power(s.y - %s, 2) + power(s.z - %s, 2)) as distance
-                        FROM systems s WHERE s.name = %s''', 
+                        FROM systems s WHERE s.name ILIKE %s''', 
                      (rx, ry, rz, e['system']))
             system = c.fetchone()
             if not system:
