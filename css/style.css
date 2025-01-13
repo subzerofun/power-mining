@@ -229,14 +229,14 @@ button:not(:hover) {
 
 .results-table:not(.res-hotspot-table):not(.highest-price-table) th:nth-child(3),
 .results-table:not(.res-hotspot-table):not(.highest-price-table) td:nth-child(3) {
-    width: 350px;
-    min-width: 350px;
+    width: 380px;
+    min-width: 380px;
 }
 
 .results-table:not(.res-hotspot-table):not(.highest-price-table) th:nth-child(4),
 .results-table:not(.res-hotspot-table):not(.highest-price-table) td:nth-child(4) {
-    width: 520px;
-    min-width: 520px;
+    width: 490px;
+    min-width: 490px;
 }
 
 .results-table:not(.res-hotspot-table):not(.highest-price-table) th:nth-child(5),
@@ -1245,4 +1245,27 @@ button:not(:hover) {
 .materials-input-container {
     width: 100%;
     position: relative;
+}
+
+.copy-icon {
+    margin-left: 4px;
+    vertical-align: middle;
+    cursor: pointer;
+    opacity: 1;
+    transition: opacity 0.2s, filter 0.2s;
+    margin-bottom: 0.4em;
+}
+
+.copy-icon:hover {
+    opacity: 1;
+    filter: brightness(0) saturate(100%) invert(73%) sepia(88%) saturate(1095%) hue-rotate(359deg) brightness(105%) contrast(105%);
+}
+
+@keyframes copy-pulse {
+    0% { filter: brightness(0) invert(100%); transform: scale(1.2); }
+    100% { filter: none; transform: scale(1); }
+}
+
+.copy-icon.copied {
+    animation: copy-pulse 0.3s ease-out;
 }

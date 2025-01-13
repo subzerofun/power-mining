@@ -359,17 +359,28 @@ def search():
                 if re not in cur_sys['rings']:
                     cur_sys['rings'].append(re)
 
-            # Add to all_signals if it's a hotspot
+            # Add to all_signals
+            display_ring_name = row['ring_name']
+            if not SYSTEM_IN_RING_NAME and display_ring_name.startswith(row['system_name']):
+                display_ring_name = display_ring_name[len(row['system_name']):].lstrip()
+
+            # For all_signals, always show hotspot icon if it's a mineral signal
             if row['mineral_type']:
-                si = {
-                    'ring_name': row['ring_name'],
-                    'mineral_type': row['mineral_type'],
-                    'signal_count': row['signal_count'] or '',
-                    'reserve_level': row['reserve_level'],
-                    'ring_type': row['ring_type']
-                }
-                if si not in cur_sys['all_signals']:
-                    cur_sys['all_signals'].append(si)
+                hotspot_text = "Hotspot " if row['signal_count'] == 1 else "Hotspots " if row['signal_count'] else ""
+                signal_text = f"<img src='img/icons/hotspot-2.svg' width='11' height='11' class='hotspot-icon'> {row['mineral_type']}: {row['signal_count'] or ''} {hotspot_text}({row['reserve_level']})"
+            else:
+                signal_text = f"{material['name']} ({row['ring_type']}, {row['reserve_level']})"
+
+            si = {
+                'ring_name': display_ring_name,
+                'mineral_type': row['mineral_type'],
+                'signal_count': row['signal_count'] or '',
+                'reserve_level': row['reserve_level'],
+                'ring_type': row['ring_type'],
+                'signal_text': signal_text
+            }
+            if si not in cur_sys['all_signals']:
+                cur_sys['all_signals'].append(si)
 
             # Add station information
             if row['station_name']:

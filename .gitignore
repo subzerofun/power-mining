@@ -3,6 +3,8 @@
 *.db
 *.db-shm
 *.db-wal
+*.psd
+*.ai
 
 # ignore ALL files in ANY directory named *
 backup/

@@ -308,7 +308,17 @@ class MiningSearch {
             const hasAdditionalSignals = system.all_signals.length > system.rings.length;
 
             row.innerHTML = `
-                <td>${system.name}</td>
+                <td>
+                    ${system.name}
+                    <img src="/img/icons/copy.svg" 
+                         class="copy-icon" 
+                         width="12" 
+                         height="12" 
+                         alt="Copy" 
+                         onclick="navigator.clipboard.writeText('${system.name}').then(() => this.classList.add('copied'))"
+                         onanimationend="this.classList.remove('copied')"
+                         title="Copy system name">
+                </td>
                 <td>${this.formatNumber(system.distance)} Ly</td>
                 <td>
                     <ul class="signal-list">
@@ -358,7 +368,16 @@ class MiningSearch {
                                 return signals.map((signal, index) => {
                                     const isFirstInPlanet = index === 0;
                                     const planetIcon = isFirstInPlanet ? '<img src="/img/icons/ringed-planet-2.svg" class="planet-icon" alt="Planet">' : '<span class="planet-icon-space"></span>';
-                                    return `<li>${planetIcon}${signal.ring_name}: ${signal.mineral_type}${signal.signal_count ? ': ' + signal.signal_count : ''} (${signal.ring_type}, ${signal.reserve_level})</li>`;
+                                    
+                                    // If signal_text is undefined, construct it from the individual fields
+                                    let signalText = signal.signal_text;
+                                    if (!signalText && signal.mineral_type) {
+                                        signalText = `${signal.mineral_type}${signal.signal_count ? ': ' + signal.signal_count : ''} (${signal.ring_type}, ${signal.reserve_level})`;
+                                    } else if (!signalText) {
+                                        signalText = `${signal.ring_type}, ${signal.reserve_level}`;
+                                    }
+                                    
+                                    return `<li>${planetIcon}${signal.ring_name}: ${signalText}</li>`;
                                 }).join('');
                             }).join('');
                         
@@ -496,7 +515,7 @@ class MiningSearch {
                     return signals.map((signal, index) => {
                         const isFirstInPlanet = index === 0;
                         const planetIcon = isFirstInPlanet ? '<img src="/img/icons/ringed-planet-2.svg" class="planet-icon" alt="Planet">' : '<span class="planet-icon-space"></span>';
-                        return `<li>${planetIcon}${signal.ring_name}: ${signal.mineral_type}${signal.signal_count ? ': ' + signal.signal_count : ''} (${signal.ring_type}, ${signal.reserve_level})</li>`;
+                        return `<li>${planetIcon}${signal.ring_name}: ${signal.signal_text}</li>`;
                     }).join('');
                 }).join('');
             
