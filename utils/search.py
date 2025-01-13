@@ -22,6 +22,7 @@ def search():
         mining_types = request.args.getlist('mining_types[]')
         min_demand = int(request.args.get('minDemand', '0'))
         max_demand = int(request.args.get('maxDemand', '0'))
+        sel_mats = request.args.getlist('selected_materials[]', type=str)
 
         # Log search parameters
         log_message(BLUE, "SEARCH", f"Search parameters:")
@@ -34,6 +35,7 @@ def search():
         log_message(BLUE, "SEARCH", f"- Mining types: {mining_types}")
         log_message(BLUE, "SEARCH", f"- Min demand: {min_demand}")
         log_message(BLUE, "SEARCH", f"- Max demand: {max_demand}")
+        log_message(BLUE, "SEARCH", f"- Selected materials: {sel_mats}")
 
         # Get database connection
         conn = get_db_connection()
@@ -85,29 +87,47 @@ def search():
             where_params.append(power_states)
 
         # Handle mining types filter
-        if mining_types and 'All' not in mining_types:
-            valid_ring_types = []
+        valid_ring_types = []
+        if mining_types:
             log_message(BLUE, "MINING", f"Processing mining types: {mining_types}")
             for ring_type, data in material['ring_types'].items():
                 log_message(BLUE, "MINING", f"Checking ring type {ring_type} with data: {data}")
-                for mining_type in mining_types:
-                    if (mining_type.lower() == 'laser surface' and data.get('surfaceLaserMining', False)) or \
-                       (mining_type.lower() == 'surface' and data.get('surfaceDeposit', False)) or \
-                       (mining_type.lower() == 'subsurface' and data.get('subSurfaceDeposit', False)) or \
-                       (mining_type.lower() == 'core' and data.get('core', False)):
+                # If "All" is selected, check if the ring type supports any mining method
+                if 'All' in mining_types:
+                    if any([data.get('surfaceLaserMining', False),
+                           data.get('surfaceDeposit', False),
+                           data.get('subSurfaceDeposit', False),
+                           data.get('core', False)]):
                         valid_ring_types.append(ring_type)
-                        log_message(BLUE, "MINING", f"Added valid ring type: {ring_type} for mining type: {mining_type}")
-                        break
+                        log_message(BLUE, "MINING", f"Added valid ring type: {ring_type} for All mining types")
+                else:
+                    # Check specific mining types
+                    for mining_type in mining_types:
+                        if (mining_type.lower() == 'laser surface' and data.get('surfaceLaserMining', False)) or \
+                           (mining_type.lower() == 'surface' and data.get('surfaceDeposit', False)) or \
+                           (mining_type.lower() == 'subsurface' and data.get('subSurfaceDeposit', False)) or \
+                           (mining_type.lower() == 'core' and data.get('core', False)):
+                            valid_ring_types.append(ring_type)
+                            log_message(BLUE, "MINING", f"Added valid ring type: {ring_type} for mining type: {mining_type}")
+                            break
             
-            log_message(BLUE, "MINING", f"Final valid ring types: {valid_ring_types}")
-            if valid_ring_types:
-                # For Core mining, we only want to filter by ring type if not looking for hotspots
-                if not (mining_types == ['Core'] and ring_type_filter == 'Hotspots'):
-                    where_conditions.append("ms.ring_type = ANY(%s::text[])")
-                    where_params.append(valid_ring_types)
-            else:
+            log_message(BLUE, "MINING", f"Valid ring types from mining methods: {valid_ring_types}")
+            if not valid_ring_types:
                 log_message(RED, "MINING", "No valid ring types found for the selected mining types")
                 return jsonify([])
+
+        # Filter by selected ring type if specified
+        if ring_type_filter and ring_type_filter not in ['Hotspots', 'Without Hotspots', 'All']:
+            if ring_type_filter not in valid_ring_types:
+                log_message(RED, "MINING", f"Selected ring type {ring_type_filter} is not valid for this material and mining method")
+                return jsonify([])
+            valid_ring_types = [ring_type_filter]
+            log_message(BLUE, "MINING", f"Filtered to specific ring type: {valid_ring_types}")
+
+        # Add ring type filter to WHERE conditions
+        if valid_ring_types:
+            where_conditions.append("ms.ring_type = ANY(%s::text[])")
+            where_params.append(valid_ring_types)
 
         # Build the JOIN condition based on material type and ring type filter
         join_condition = "s.id64 = ms.system_id64"
@@ -120,23 +140,22 @@ def search():
         elif ring_type_filter == 'Without Hotspots':
             # For non-hotspots, we want rings with NULL mineral type but valid ring types
             join_condition += " AND ms.mineral_type IS NULL AND ms.ring_type = ANY(%s::text[])"
-            valid_ring_types = [rt for rt, data in material['ring_types'].items() 
-                              if any([data.get('surfaceLaserMining', False),
-                                    data.get('surfaceDeposit', False),
-                                    data.get('subSurfaceDeposit', False),
-                                    data.get('core', False)])]
             join_params.append(valid_ring_types)
         else:
             # For 'All', include both hotspots and valid ring types
             join_condition += " AND (ms.mineral_type = %s OR (ms.mineral_type IS NULL AND ms.ring_type = ANY(%s::text[])))"
-            valid_ring_types = [rt for rt, data in material['ring_types'].items() 
-                              if any([data.get('surfaceLaserMining', False),
-                                    data.get('surfaceDeposit', False),
-                                    data.get('subSurfaceDeposit', False),
-                                    data.get('core', False)])]
-            join_params.extend([signal_type, valid_ring_types])  # Use original signal_type for mineral_type comparison
+            join_params.extend([signal_type, valid_ring_types])
 
-        # Build the complete query
+        # Add ring type filter if needed (except for Core mining with hotspots)
+        if valid_ring_types and not (mining_types == ['Core'] and ring_type_filter == 'Hotspots'):
+            where_conditions.append("ms.ring_type = ANY(%s::text[])")
+            where_params.append(valid_ring_types)
+
+        # Get selected materials
+        sel_mats = request.args.getlist('selected_materials[]', type=str)
+        log_message(BLUE, "SEARCH", f"Selected materials: {sel_mats}")
+
+        # Build final query
         query = f"""
         WITH relevant_systems AS (
             SELECT s.*, SQRT(POWER(s.x - %s, 2) + POWER(s.y - %s, 2) + POWER(s.z - %s, 2)) as distance
@@ -176,6 +195,8 @@ def search():
         JOIN mineral_signals ms ON {join_condition}
         LEFT JOIN relevant_stations rs ON s.id64 = rs.system_id64
         LEFT JOIN stations st ON s.id64 = st.system_id64 AND rs.station_name = st.station_name
+        LEFT JOIN station_commodities sc ON s.id64 = sc.system_id64 
+            AND (rs.station_name = sc.station_name OR rs.station_name IS NULL)
         """
 
         # Add WHERE conditions if present
@@ -233,17 +254,25 @@ def search():
             ph = ','.join(['(%s,%s)'] * len(station_pairs))
             ps = [x for pair in station_pairs for x in pair]
             sel_mats = request.args.getlist('selected_materials[]', type=str)
+            log_message(BLUE, "SEARCH", f"Selected materials: {sel_mats}")
 
             if sel_mats and sel_mats != ['Default']:
+                # Convert short names to full names using mining_materials.json
+                with open('data/mining_materials.json', 'r') as f:
+                    mat_data = json.load(f)['materials']
+                # Create mapping of short names to full names
+                short_to_full = {mat['short']: mat['name'] for mat in mat_data.values()}
+                # Convert short names to full names
+                full_names = [short_to_full.get(short, short) for short in sel_mats]
+                log_message(BLUE, "SEARCH", f"Using selected materials filter with full names: {full_names}")
                 oc.execute(f"""
-                    SELECT sc.system_id64, sc.station_name, sc.commodity_name, sc.sell_price, sc.demand,
-                    COUNT(*) OVER (PARTITION BY sc.system_id64, sc.station_name) total_commodities
-                    FROM station_commodities sc
-                    WHERE (sc.system_id64, sc.station_name) IN ({ph})
-                    AND sc.commodity_name = ANY(%s::text[])
-                    AND sc.sell_price > 0 AND sc.demand > 0
-                    ORDER BY sc.system_id64, sc.station_name, sc.sell_price DESC
-                """, ps + [sel_mats])
+                    SELECT system_id64, station_name, commodity_name, sell_price, demand
+                    FROM station_commodities
+                    WHERE (system_id64, station_name) IN ({ph})
+                    AND commodity_name = ANY(%s)
+                    AND sell_price > 0 AND demand > 0
+                    ORDER BY sell_price DESC
+                """, ps + [full_names])
             else:
                 oc.execute(f"""
                     SELECT system_id64, station_name, commodity_name, sell_price, demand
