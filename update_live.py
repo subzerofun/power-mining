@@ -434,7 +434,7 @@ def main():
     parser = argparse.ArgumentParser(description='EDDN Live Update Service')
     parser.add_argument('--auto', action='store_true', help='Automatically commit changes')
     parser.add_argument('--db', help='Database URL (e.g. postgresql://user:pass@host:port/dbname)')
-    parser.add_argument('--debug-level', type=int, choices=[1, 2, 3], default=1, help='Debug level (1=critical, 2=normal, 3=verbose)')
+    parser.add_argument('--debug-level', type=int, choices=[0, 1, 2, 3], default=1, help='Debug level (0=silent, 1=critical, 2=normal, 3=verbose)')
     args = parser.parse_args()
     
     # Set DEBUG_LEVEL from argument
