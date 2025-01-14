@@ -366,7 +366,7 @@ def process_message(message, commodity_map):
         # Continue with existing commodity processing
         if message.get("stationType") == "FleetCarrier" or \
            (message.get("economies") and message["economies"][0].get("name") == "Carrier"):
-            log_message("DEBUG", f"Skipped Fleet Carrier Data: {message.get('stationName')}", level=3)
+            log_message("DEBUG", f"Skipped Fleet Carrier Data: {message.get('stationName')}", level=1)
             return None, None
             
         station_name = message.get("stationName")
