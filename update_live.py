@@ -56,7 +56,7 @@ COMMODITIES_CSV = os.path.join("data", "commodities_mining.csv")
 EDDN_RELAY = "tcp://eddn.edcd.io:9500"
 
 # How often (in seconds) to flush changes to DB
-DB_UPDATE_INTERVAL = 10
+DB_UPDATE_INTERVAL = 20
 
 # Debug flag for detailed commodity changes
 DEBUG = False

@@ -73,19 +73,24 @@ def start_updater():
     global updater_process, current_status
     
     try:
-        # Check if process is already running
-        for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
-            try:
-                if "update_live.py" in " ".join(proc.cmdline()):
-                    updater_process = proc
-                    log_message(GREEN, "MONITOR", f"Found existing update_live.py with PID: {proc.pid}", level=1)
-                    current_status["updater_pid"] = proc.pid
-                    return True
-            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
-                continue
+        # Try to find existing process multiple times with delays
+        for attempt in range(3):  # Try 3 times
+            for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+                try:
+                    if "update_live.py" in " ".join(proc.cmdline()):
+                        updater_process = proc
+                        log_message(GREEN, "MONITOR", f"Found existing update_live.py with PID: {proc.pid}", level=1)
+                        current_status["updater_pid"] = proc.pid
+                        return True
+                except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                    continue
+            
+            if attempt < 2:  # Don't sleep on last attempt
+                log_message(YELLOW, "MONITOR", f"No update_live.py found, waiting 10 seconds (attempt {attempt + 1}/3)...", level=1)
+                time.sleep(10)  # Wait 10 seconds between attempts
         
-        # If not found, start new process
-        log_message(YELLOW, "MONITOR", "No update_live.py found, starting new process...", level=1)
+        # If still not found after retries, start new process
+        log_message(YELLOW, "MONITOR", "No update_live.py found after waiting, starting new process...", level=1)
         updater_process = subprocess.Popen(
             [sys.executable, "update_live.py", "--auto"],
             stdout=subprocess.PIPE,
