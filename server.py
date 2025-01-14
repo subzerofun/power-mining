@@ -85,6 +85,9 @@ status_socket = None
 last_status_time = 0
 shared_status = {"state": "offline", "last_db_update": None}  # Shared across workers
 
+# Debug levels
+DEBUG_LEVEL = 1  # 1 = critical/important, 2 = normal, 3 = verbose/detailed
+
 def monitor_status():
     """Monitor status updates from the daemon"""
     global shared_status, last_status_time, status_socket

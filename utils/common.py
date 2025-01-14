@@ -20,7 +20,7 @@ DEBUG_LEVEL = 1  # 1 = critical/important, 2 = normal, 3 = verbose/detailed
 # Get the absolute path of the directory containing server.py
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-def log_message(color, tag, message, level=2):
+def log_message(color, tag, message, level=1):
     """Log a message with timestamp and PID"""
     # Skip messages with level higher than DEBUG_LEVEL
     if DEBUG_LEVEL == 0 or level > DEBUG_LEVEL:
