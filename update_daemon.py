@@ -74,14 +74,14 @@ def start_updater():
     
     try:
         # Check if process is already running
-        for proc in psutil.Process(1).children(recursive=True):
+        for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
             try:
                 if "update_live.py" in " ".join(proc.cmdline()):
                     updater_process = proc
                     log_message(GREEN, "MONITOR", f"Found existing update_live.py with PID: {proc.pid}", level=1)
                     current_status["updater_pid"] = proc.pid
                     return True
-            except (psutil.NoSuchProcess, psutil.AccessDenied):
+            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
                 continue
         
         # If not found, start new process
