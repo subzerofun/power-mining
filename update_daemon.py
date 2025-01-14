@@ -9,6 +9,7 @@ import subprocess
 import threading
 from datetime import datetime
 import tempfile
+import argparse
 
 # ANSI color codes
 YELLOW = '\033[93m'
@@ -29,7 +30,15 @@ updater_process = None
 current_status = {"state": "offline", "last_db_update": None, "daemon_pid": os.getpid()}
 running = True
 
-def log_message(color, tag, message):
+# Debug levels
+DEBUG_LEVEL = 1  # 0 = silent, 1 = critical/important, 2 = normal, 3 = verbose/detailed
+
+def log_message(color, tag, message, level=1):
+    """Log a message with timestamp and PID"""
+    # Skip messages if debug level is 0 or message level is higher than DEBUG_LEVEL
+    if DEBUG_LEVEL == 0 or level > DEBUG_LEVEL:
+        return
+
     """Log a message with timestamp and PID"""
     timestamp = datetime.now().strftime("%Y:%m:%d-%H:%M:%S")
     print(f"{color}[{timestamp}] [DAEMON-{os.getpid()}] [{tag}] {message}{RESET}", flush=True)
@@ -69,14 +78,14 @@ def start_updater():
             try:
                 if "update_live.py" in " ".join(proc.cmdline()):
                     updater_process = proc
-                    log_message(GREEN, "MONITOR", f"Found existing update_live.py with PID: {proc.pid}")
+                    log_message(GREEN, "MONITOR", f"Found existing update_live.py with PID: {proc.pid}", level=1)
                     current_status["updater_pid"] = proc.pid
                     return True
             except (psutil.NoSuchProcess, psutil.AccessDenied):
                 continue
         
         # If not found, start new process
-        log_message(YELLOW, "MONITOR", "No update_live.py found, starting new process...")
+        log_message(YELLOW, "MONITOR", "No update_live.py found, starting new process...", level=1)
         updater_process = subprocess.Popen(
             [sys.executable, "update_live.py", "--auto"],
             stdout=subprocess.PIPE,
@@ -88,7 +97,7 @@ def start_updater():
         with open(PID_FILE, 'w') as f:
             f.write(str(updater_process.pid))
         
-        log_message(GREEN, "MONITOR", f"Started update_live.py with PID: {updater_process.pid}")
+        log_message(GREEN, "MONITOR", f"Started update_live.py with PID: {updater_process.pid}", level=1)
         current_status["updater_pid"] = updater_process.pid
         
         # Start output handling threads
@@ -98,7 +107,7 @@ def start_updater():
         return True
         
     except Exception as e:
-        log_message(RED, "ERROR", f"Error in start_updater: {e}")
+        log_message(RED, "ERROR", f"Error in start_updater: {e}", level=1)
         current_status["state"] = "error"
         return False
 
@@ -114,9 +123,9 @@ def handle_output(pipe):
                 if decoded:
                     print(f"{ORANGE}{decoded}{RESET}", flush=True)
             except Exception as e:
-                log_message(RED, "ERROR", f"Error decoding output: {e}")
+                log_message(RED, "ERROR", f"Error decoding output: {e}", level=1)
     except Exception as e:
-        log_message(RED, "ERROR", f"Error in output handler: {e}")
+        log_message(RED, "ERROR", f"Error in output handler: {e}", level=1)
 
 def cleanup():
     """Cleanup function for exit"""
@@ -132,12 +141,21 @@ def cleanup():
 
 def signal_handler(signum, frame):
     """Handle shutdown signals"""
-    log_message(YELLOW, "SHUTDOWN", "Received shutdown signal")
+    log_message(YELLOW, "SHUTDOWN", "Received shutdown signal", level=1)
     cleanup()
     sys.exit(0)
 
 def main():
-    global running, current_status
+    global running, current_status, DEBUG_LEVEL
+    
+    # Add argument parsing
+    parser = argparse.ArgumentParser(description='EDDN Update Daemon')
+    parser.add_argument('--debug-level', type=int, choices=[0, 1, 2, 3], default=1, 
+                       help='Debug level (0=silent, 1=critical, 2=normal, 3=verbose)')
+    args = parser.parse_args()
+    
+    # Set DEBUG_LEVEL from argument
+    DEBUG_LEVEL = args.debug_level
     
     # Register signal handlers
     signal.signal(signal.SIGINT, signal_handler)
@@ -164,19 +182,19 @@ def main():
     # Small delay to allow publisher to fully bind
     time.sleep(0.2)
     
-    log_message(RED, "ZMQ-DEBUG", f"Daemon started. PID: {os.getpid()}")
-    log_message(RED, "ZMQ-DEBUG", f"Receiving status on port {STATUS_RECEIVE_PORT}")
-    log_message(RED, "ZMQ-DEBUG", f"Publishing status on port {STATUS_PUBLISH_PORT}")
+    log_message(RED, "ZMQ-DEBUG", f"Daemon started. PID: {os.getpid()}", level=1)
+    log_message(RED, "ZMQ-DEBUG", f"Receiving status on port {STATUS_RECEIVE_PORT}", level=2)
+    log_message(RED, "ZMQ-DEBUG", f"Publishing status on port {STATUS_PUBLISH_PORT}", level=2)
     
     # First try to find existing update process
     if not start_updater():
-        log_message(YELLOW, "MONITOR", "Waiting 3 minutes for Appliku's update process...")
+        log_message(YELLOW, "MONITOR", "Waiting 3 minutes for Appliku's update process...", level=1)
         current_status["state"] = "starting"
     
     # Send initial status to ensure workers get it
     current_status["daemon_pid"] = os.getpid()
     status_publisher.send_string(json.dumps(current_status))
-    log_message(RED, "ZMQ-DEBUG", f"Sent initial status: {current_status['state']}")
+    log_message(RED, "ZMQ-DEBUG", f"Sent initial status: {current_status['state']}", level=1)
     
     last_status_time = time.time()
     startup_time = time.time()
@@ -196,13 +214,13 @@ def main():
                     
                     # Forward status to web workers with daemon info
                     status_publisher.send_string(json.dumps(current_status))
-                    log_message(RED, "ZMQ-DEBUG", f"Received status from updater and forwarded to workers: {current_status['state']}")
+                    log_message(RED, "ZMQ-DEBUG", f"Received status from updater and forwarded to workers: {current_status['state']}", level=2)
                 except Exception as e:
-                    log_message(RED, "ERROR", f"Failed to process status: {e}")
+                    log_message(RED, "ERROR", f"Failed to process status: {e}", level=1)
             
             # Check if we need to start our own update process
             if not has_received_status and time.time() - startup_time > 180:  # 3 minutes
-                log_message(YELLOW, "MONITOR", "No status received for 3 minutes, starting own update process...")
+                log_message(YELLOW, "MONITOR", "No status received for 3 minutes, starting own update process...", level=1)
                 if start_updater():
                     startup_time = time.time()  # Reset timer if process started
             
@@ -210,19 +228,19 @@ def main():
             if time.time() - last_status_time > 5:  # Every 5 seconds
                 # Check if update process is still running
                 if updater_process and not psutil.pid_exists(updater_process.pid):
-                    log_message(RED, "ZMQ-DEBUG", "Update process died, starting new one...")
+                    log_message(RED, "ZMQ-DEBUG", "Update process died, starting new one...", level=1)
                     current_status["state"] = "starting"
                     if start_updater():
                         last_status_time = time.time()
                 
                 status_publisher.send_string(json.dumps(current_status))
-                log_message(RED, "ZMQ-DEBUG", f"Sent periodic status update: {current_status['state']}")
+                log_message(RED, "ZMQ-DEBUG", f"Sent periodic status update: {current_status['state']}", level=2)
                 last_status_time = time.time()
             
             time.sleep(0.1)
             
         except Exception as e:
-            log_message(RED, "ERROR", f"Main loop error: {e}")
+            log_message(RED, "ERROR", f"Main loop error: {e}", level=1)
             time.sleep(1)
     
     # Cleanup

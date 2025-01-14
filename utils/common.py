@@ -23,7 +23,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 def log_message(color, tag, message, level=2):
     """Log a message with timestamp and PID"""
     # Skip messages with level higher than DEBUG_LEVEL
-    if level > DEBUG_LEVEL:
+    if DEBUG_LEVEL == 0 or level > DEBUG_LEVEL:
         return
         
     timestamp = datetime.now().strftime("%Y:%m:%d-%H:%M:%S")
