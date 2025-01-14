@@ -25,6 +25,9 @@ STATUS_PUBLISH_PORT = 5558  # Port to publish status to web workers
 PID_FILE = os.path.join(tempfile.gettempdir(), 'update_live.pid')
 DAEMON_PID_FILE = os.path.join(tempfile.gettempdir(), 'update_daemon.pid')
 
+# ZMQ connection settings
+ZMQ_HOST = os.environ.get('ZMQ_HOST', 'localhost')  # Allow configuration via environment
+
 # Global state
 updater_process = None
 current_status = {"state": "offline", "last_db_update": None, "daemon_pid": os.getpid()}
@@ -188,12 +191,28 @@ def main():
     status_receiver.setsockopt(zmq.RCVTIMEO, 1000)  # 1 second timeout
     status_receiver.setsockopt(zmq.LINGER, 0)       # Don't wait on close
     status_receiver.setsockopt_string(zmq.SUBSCRIBE, "")
-    status_receiver.connect(f"tcp://localhost:{STATUS_RECEIVE_PORT}")
+    
+    # Try multiple connection addresses
+    connection_addresses = [
+        "tcp://127.0.0.1:5557",  # localhost
+        "tcp://0.0.0.0:5557",    # all interfaces
+        "tcp://*:5557"           # wildcard
+    ]
+    
+    for addr in connection_addresses:
+        try:
+            status_receiver.connect(addr)
+            log_message(RED, "ZMQ-DEBUG", f"Connected to {addr}", level=1)
+        except Exception as e:
+            log_message(RED, "ZMQ-DEBUG", f"Failed to connect to {addr}: {e}", level=2)
     
     # Socket to publish status to web workers
     status_publisher = context.socket(zmq.PUB)
     status_publisher.setsockopt(zmq.LINGER, 0)  # Don't wait on close
-    status_publisher.bind(f"tcp://*:{STATUS_PUBLISH_PORT}")
+    status_publisher.bind("tcp://0.0.0.0:5558")  # Bind for web workers to connect to
+    
+    log_message(RED, "ZMQ-DEBUG", f"Connecting to update_live.py on localhost:{STATUS_RECEIVE_PORT}", level=1)
+    log_message(RED, "ZMQ-DEBUG", f"Publishing to web workers on port {STATUS_PUBLISH_PORT}", level=1)
     
     # Small delay to allow publisher to fully bind
     time.sleep(0.2)
