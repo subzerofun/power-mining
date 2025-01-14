@@ -193,36 +193,15 @@ def main():
     status_receiver.setsockopt(zmq.LINGER, 0)       # Don't wait on close
     status_receiver.setsockopt_string(zmq.SUBSCRIBE, "")
     
-    # Try multiple connection addresses
-    connection_addresses = [
-        "tcp://127.0.0.1:5557",      # localhost
-        "tcp://172.17.0.1:5557",     # Docker default bridge
-        "tcp://update:5557",         # Docker service name
-        "tcp://update-1:5557"        # Docker container name
-    ]
-    
-    # Log our own network details
-    hostname = socket.gethostname()
-    try:
-        ip_address = socket.gethostbyname(hostname)
-        log_message(RED, "ZMQ-DEBUG", f"Daemon container hostname: {hostname}, IP: {ip_address}", level=1)
-    except Exception as e:
-        log_message(RED, "ERROR", f"Failed to get IP: {e}", level=1)
-    
-    # Try each address
-    for addr in connection_addresses:
-        try:
-            status_receiver.connect(addr)
-            log_message(RED, "ZMQ-DEBUG", f"Connected to {addr}", level=1)
-        except Exception as e:
-            log_message(RED, "ZMQ-DEBUG", f"Failed to connect to {addr}: {e}", level=2)
+    # Connect to update_live.py on localhost
+    status_receiver.connect("tcp://127.0.0.1:5557")
+    log_message(RED, "ZMQ-DEBUG", f"Connecting to update_live.py on localhost:{STATUS_RECEIVE_PORT}", level=1)
     
     # Socket to publish status to web workers
     status_publisher = context.socket(zmq.PUB)
     status_publisher.setsockopt(zmq.LINGER, 0)  # Don't wait on close
     status_publisher.bind("tcp://0.0.0.0:5558")  # Bind for web workers to connect to
     
-    log_message(RED, "ZMQ-DEBUG", f"Connecting to update_live.py on localhost:{STATUS_RECEIVE_PORT}", level=1)
     log_message(RED, "ZMQ-DEBUG", f"Publishing to web workers on port {STATUS_PUBLISH_PORT}", level=1)
     
     # Small delay to allow publisher to fully bind

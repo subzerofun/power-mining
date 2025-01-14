@@ -99,7 +99,7 @@ def publish_status(state, last_db_update=None):
             "pid": os.getpid()  # Add PID to status messages
         }
         status_json = json.dumps(status)
-        log_message("STATUS", f"Publishing state: {state} (message size: {len(status_json)} bytes)", level=1)
+        log_message("STATUS", f"Publishing state: {state} (message size: {len(status_json)} bytes)", level=2)
         status_publisher.send_string(status_json)
         log_message("STATUS", f"Successfully published state: {state}", level=2)
     except Exception as e:
