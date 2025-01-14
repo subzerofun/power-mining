@@ -10,6 +10,7 @@ import threading
 from datetime import datetime
 import tempfile
 import argparse
+import socket
 
 # ANSI color codes
 YELLOW = '\033[93m'
@@ -191,7 +192,30 @@ def main():
     status_receiver.setsockopt(zmq.RCVTIMEO, 1000)  # 1 second timeout
     status_receiver.setsockopt(zmq.LINGER, 0)       # Don't wait on close
     status_receiver.setsockopt_string(zmq.SUBSCRIBE, "")
-    status_receiver.connect("tcp://127.0.0.1:5557")  # Connect to update_live.py publisher
+    
+    # Try multiple connection addresses
+    connection_addresses = [
+        "tcp://127.0.0.1:5557",      # localhost
+        "tcp://172.17.0.1:5557",     # Docker default bridge
+        "tcp://update:5557",         # Docker service name
+        "tcp://update-1:5557"        # Docker container name
+    ]
+    
+    # Log our own network details
+    hostname = socket.gethostname()
+    try:
+        ip_address = socket.gethostbyname(hostname)
+        log_message(RED, "ZMQ-DEBUG", f"Daemon container hostname: {hostname}, IP: {ip_address}", level=1)
+    except Exception as e:
+        log_message(RED, "ERROR", f"Failed to get IP: {e}", level=1)
+    
+    # Try each address
+    for addr in connection_addresses:
+        try:
+            status_receiver.connect(addr)
+            log_message(RED, "ZMQ-DEBUG", f"Connected to {addr}", level=1)
+        except Exception as e:
+            log_message(RED, "ZMQ-DEBUG", f"Failed to connect to {addr}: {e}", level=2)
     
     # Socket to publish status to web workers
     status_publisher = context.socket(zmq.PUB)

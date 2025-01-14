@@ -76,6 +76,16 @@ try:
     bind_address = f"tcp://0.0.0.0:{STATUS_PORT}"
     status_publisher.bind(bind_address)
     log_message("STATUS", f"Successfully bound ZMQ publisher to {bind_address}", level=1)
+    
+    # Get actual endpoint details
+    endpoint = status_publisher.getsockopt(zmq.LAST_ENDPOINT).decode()
+    log_message("STATUS", f"Actual ZMQ endpoint: {endpoint}", level=1)
+    
+    # Log network interfaces for debugging
+    import socket
+    hostname = socket.gethostname()
+    ip_address = socket.gethostbyname(hostname)
+    log_message("STATUS", f"Container hostname: {hostname}, IP: {ip_address}", level=1)
 except Exception as e:
     log_message("ERROR", f"Failed to bind to status port {bind_address}: {e}", level=1)
     # Don't exit, just continue without status updates
