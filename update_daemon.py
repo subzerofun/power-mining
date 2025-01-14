@@ -77,9 +77,11 @@ def start_updater():
         for attempt in range(3):  # Try 3 times
             for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
                 try:
-                    if "update_live.py" in " ".join(proc.cmdline()):
+                    cmdline = " ".join(proc.cmdline())
+                    # Check for both relative and absolute paths
+                    if "update_live.py" in cmdline.replace("\\", "/"):
                         updater_process = proc
-                        log_message(GREEN, "MONITOR", f"Found existing update_live.py with PID: {proc.pid}", level=1)
+                        log_message(GREEN, "MONITOR", f"Found existing update_live.py with PID: {proc.pid} (cmdline: {cmdline})", level=1)
                         current_status["updater_pid"] = proc.pid
                         return True
                 except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
@@ -124,9 +126,11 @@ def handle_output(pipe):
             if not line:
                 break
             try:
-                decoded = line.decode('utf-8', errors='replace').strip()
-                if decoded:
-                    print(f"{ORANGE}{decoded}{RESET}", flush=True)
+                # Only show update_live.py output in debug level 3
+                if DEBUG_LEVEL >= 3:
+                    decoded = line.decode('utf-8', errors='replace').strip()
+                    if decoded:
+                        print(f"{ORANGE}{decoded}{RESET}", flush=True)
             except Exception as e:
                 log_message(RED, "ERROR", f"Error decoding output: {e}", level=1)
     except Exception as e:
