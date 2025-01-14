@@ -202,10 +202,32 @@ def main():
     log_message(RED, "ZMQ-DEBUG", f"Receiving status on port {STATUS_RECEIVE_PORT}", level=2)
     log_message(RED, "ZMQ-DEBUG", f"Publishing status on port {STATUS_PUBLISH_PORT}", level=2)
     
-    # First try to find existing update process
-    if not start_updater():
-        log_message(YELLOW, "MONITOR", "Waiting 3 minutes for Appliku's update process...", level=1)
-        current_status["state"] = "starting"
+    # Wait for ZMQ messages first
+    log_message(YELLOW, "MONITOR", "Waiting for ZMQ messages from existing update process...", level=1)
+    zmq_wait_start = time.time()
+    has_received_status = False
+    
+    while time.time() - zmq_wait_start < 60:  # Wait up to 30 seconds for ZMQ messages
+        if status_receiver.poll(1000):  # Check every second
+            try:
+                message = status_receiver.recv_string()
+                status = json.loads(message)
+                current_status.update(status)
+                current_status["daemon_pid"] = os.getpid()
+                has_received_status = True
+                log_message(GREEN, "MONITOR", f"Received ZMQ message from existing update process: {status.get('state')}", level=1)
+                break
+            except Exception as e:
+                log_message(RED, "ERROR", f"Error receiving ZMQ message: {e}", level=1)
+        
+        log_message(YELLOW, "MONITOR", "No ZMQ messages yet, still waiting...", level=2)
+    
+    # Only try to start our own process if we haven't received any ZMQ messages
+    if not has_received_status:
+        log_message(YELLOW, "MONITOR", "No ZMQ messages received, checking for existing process...", level=1)
+        if not start_updater():
+            log_message(YELLOW, "MONITOR", "No existing process found, will start new one in 3 minutes...", level=1)
+            current_status["state"] = "starting"
     
     # Send initial status to ensure workers get it
     current_status["daemon_pid"] = os.getpid()
@@ -214,7 +236,6 @@ def main():
     
     last_status_time = time.time()
     startup_time = time.time()
-    has_received_status = False
     
     while running:
         try:
@@ -234,21 +255,14 @@ def main():
                 except Exception as e:
                     log_message(RED, "ERROR", f"Failed to process status: {e}", level=1)
             
-            # Check if we need to start our own update process
+            # Only try to start process if we haven't received any status for a while
             if not has_received_status and time.time() - startup_time > 180:  # 3 minutes
-                log_message(YELLOW, "MONITOR", "No status received for 3 minutes, starting own update process...", level=1)
+                log_message(YELLOW, "MONITOR", "No status received for 3 minutes, checking for existing process...", level=1)
                 if start_updater():
                     startup_time = time.time()  # Reset timer if process started
             
             # Periodically resend status even if no updates
             if time.time() - last_status_time > 5:  # Every 5 seconds
-                # Check if update process is still running
-                if updater_process and not psutil.pid_exists(updater_process.pid):
-                    log_message(RED, "ZMQ-DEBUG", "Update process died, starting new one...", level=1)
-                    current_status["state"] = "starting"
-                    if start_updater():
-                        last_status_time = time.time()
-                
                 status_publisher.send_string(json.dumps(current_status))
                 log_message(RED, "ZMQ-DEBUG", f"Sent periodic status update: {current_status['state']}", level=2)
                 last_status_time = time.time()
