@@ -75,20 +75,27 @@ def start_updater():
     try:
         # Try to find existing process multiple times with delays
         for attempt in range(3):  # Try 3 times
+            log_message(YELLOW, "MONITOR", f"Searching for update processes (attempt {attempt + 1}/3)...", level=1)
             for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
                 try:
                     cmdline = " ".join(proc.cmdline())
-                    # Check for both relative and absolute paths
-                    if "update_live.py" in cmdline.replace("\\", "/"):
+                    name = proc.name()
+                    
+                    # Log any process containing "update"
+                    if "update" in name.lower() or "update" in cmdline.lower():
+                        log_message(BLUE, "MONITOR", f"Found process: PID={proc.pid}, Name={name}, Cmdline={cmdline}", level=1)
+                    
+                    # Check for our specific process
+                    if "update_live.py" in cmdline.replace("\\", "/") or name in ["update", "update-1"]:
                         updater_process = proc
-                        log_message(GREEN, "MONITOR", f"Found existing update_live.py with PID: {proc.pid} (cmdline: {cmdline})", level=1)
+                        log_message(GREEN, "MONITOR", f"Found existing update process with PID: {proc.pid} (name: {name}, cmdline: {cmdline})", level=1)
                         current_status["updater_pid"] = proc.pid
                         return True
                 except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
                     continue
             
             if attempt < 2:  # Don't sleep on last attempt
-                log_message(YELLOW, "MONITOR", f"No update_live.py found, waiting 10 seconds (attempt {attempt + 1}/3)...", level=1)
+                log_message(YELLOW, "MONITOR", f"No suitable update process found, waiting 10 seconds...", level=1)
                 time.sleep(10)  # Wait 10 seconds between attempts
         
         # If still not found after retries, start new process
