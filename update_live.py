@@ -189,7 +189,7 @@ def flush_commodities_to_db(conn, commodity_buffer, auto_commit=False):
                     """, [(system_id64, station_id, station_name, commodity_name, data[0], data[1]) 
                           for commodity_name, data in new_map.items()])
                     rows_affected = cursor.rowcount
-                    log_message("DATABASE", f"Inserted/Updated {rows_affected} commodities for {station_name} (expected {len(new_map)})", level=2)
+                    log_message("DATABASE", f"Inserted/Updated {rows_affected} commodities for {station_name} (expected {len(new_map)})", level=1)
                 except Exception as e:
                     log_message("ERROR", f"Failed to insert commodities for {station_name}: {str(e)}", level=1)
                     continue
@@ -257,13 +257,13 @@ def handle_power_data(message):
         return
 
     # Log that we found a FSDJump event
-    log_message("POWER-DEBUG", ORANGE + f"Processing {event} event", level=1)
+    log_message("POWER-DEBUG", ORANGE + f"Processing {event} event", level=2)
 
     # Get system info
     system_name = message.get("StarSystem", "")
     system_id64 = message.get("SystemAddress")
     if not system_name or not system_id64:
-        log_message("POWER-DEBUG", GREEN + f"Missing system info - Name: {system_name}, ID64: {system_id64}", level=1)
+        log_message("POWER-DEBUG", GREEN + f"Missing system info - Name: {system_name}, ID64: {system_id64}", level=2)
         return
 
     # Get power data
@@ -275,15 +275,15 @@ def handle_power_data(message):
     if isinstance(powers, str):
         powers = [powers]
     elif not isinstance(powers, list):
-        log_message("POWER-DEBUG", GREEN + f"Powers has unexpected type: {type(powers)}", level=1)
+        log_message("POWER-DEBUG", GREEN + f"Powers has unexpected type: {type(powers)}", level=2)
         return
 
     # Log the power data we found
-    log_message("POWER-DEBUG", GREEN + "Power data found:", level=1)
-    log_message("POWER-DEBUG", GREEN + f"  System: {system_name} (ID64: {system_id64})", level=1)
-    log_message("POWER-DEBUG", GREEN + f"  Controlling Power: {controlling_power}", level=1)
-    log_message("POWER-DEBUG", GREEN + f"  Power State: {power_state}", level=1)
-    log_message("POWER-DEBUG", GREEN + f"  All Powers: {powers}", level=1)
+    log_message("POWER-DEBUG", GREEN + "Power data found:", level=2)
+    log_message("POWER-DEBUG", GREEN + f"  System: {system_name} (ID64: {system_id64})", level=2)
+    log_message("POWER-DEBUG", GREEN + f"  Controlling Power: {controlling_power}", level=2)
+    log_message("POWER-DEBUG", GREEN + f"  Power State: {power_state}", level=2)
+    log_message("POWER-DEBUG", GREEN + f"  All Powers: {powers}", level=2)
 
     # Database updates commented out until we validate the data format
     # try:

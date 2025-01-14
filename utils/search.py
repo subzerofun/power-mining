@@ -129,6 +129,15 @@ def search():
             where_conditions.append("ms.ring_type = ANY(%s::text[])")
             where_params.append(valid_ring_types)
 
+        # Get reserve level filter
+        reserve_level = request.args.get('reserve_level', 'All')
+        log_message(BLUE, "SEARCH", f"Reserve level filter: {reserve_level}")
+
+        # Add reserve level filter if not set to 'All'
+        if reserve_level != 'All':
+            where_conditions.append("ms.reserve_level = %s")
+            where_params.append(reserve_level)
+
         # Build the JOIN condition based on material type and ring type filter
         join_condition = "s.id64 = ms.system_id64"
         join_params = []

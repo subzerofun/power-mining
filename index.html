@@ -29,11 +29,18 @@
                 </div>
                 <div class="form-group inline-group">
                     <label for="distance">Max Distance (LY):</label>
-                    <input type="number" id="distance" name="distance" value="200" min="1">
+                    <input type="number" id="distance" name="distance" value="200" min="1" class="distance-input">
                 </div>
                 <div class="form-group inline-group">
                     <label for="limit">Search results:</label>
-                    <input type="number" id="limit" name="limit" value="30" min="1">
+                    <input type="number" id="limit" name="limit" value="30" min="1" class="limit-input">
+                </div>
+                <div class="form-group inline-group compare-group">
+                    <label class="compare-label">Price<br>comparison:</label>
+                    <div class="toggle-switch" onclick="togglePriceReference()">
+                        <span id="avgPriceToggle" class="active">Avg</span>
+                        <span id="maxPriceToggle">Max</span>
+                    </div>
                 </div>
             </div>
             
@@ -141,11 +148,16 @@
                     </select>
                 </div>
                 <div class="form-group inline-group">
-                    <label class="compare-label">Price comparison:</label>
-                    <div class="toggle-switch" onclick="togglePriceReference()">
-                        <span id="avgPriceToggle" class="active">Average Price</span>
-                        <span id="maxPriceToggle">Max Price</span>
-                    </div>
+                    <label for="reserve_level">Reserve Level:</label>
+                    <select id="reserve_level" name="reserve_level">
+                        <option value="All">All</option>
+                        <option value="Pristine">Pristine</option>
+                        <option value="Major">Major</option>
+                        <option value="Common">Common</option>
+                        <option value="Low">Low</option>
+                        <option value="Depleted">Depleted</option>
+                        <option value="Unknown">Unknown</option>
+                    </select>
                 </div>
             </div>
             
@@ -206,7 +218,7 @@
             <div style="padding-top: 100px;">Searching systems...</div>
         </div>
         
-        <table class="results-table" id="resultsTable" style="display: none;">
+        <table class="results-table" id="resultsTable" style="display: none; border-color: black;">
             <thead>
                 <tr>
                     <th>System</th>

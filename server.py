@@ -88,7 +88,7 @@ shared_status = {"state": "offline", "last_db_update": None}  # Shared across wo
 def monitor_status():
     """Monitor status updates from the daemon"""
     global shared_status, last_status_time, status_socket
-    log_message(RED, "ZMQ-DEBUG", f"Starting monitor_status thread in worker {os.getpid()}")
+    log_message(RED, "ZMQ-DEBUG", f"Starting monitor_status thread in worker {os.getpid()}", level=2)
     
     consecutive_errors = 0
     while True:
@@ -101,38 +101,38 @@ def monitor_status():
                     shared_status.update(status_data)
                     log_message(RED, "ZMQ-DEBUG", 
                         f"Worker {os.getpid()} received status: {status_data.get('state')} "
-                        f"from daemon PID: {status_data.get('daemon_pid')}")
+                        f"from daemon PID: {status_data.get('daemon_pid')}", level=3)
                     consecutive_errors = 0  # Reset error counter on successful receive
                 except zmq.ZMQError as e:
                     consecutive_errors += 1
-                    log_message(RED, "ZMQ-DEBUG", f"ZMQ error in monitor thread: {e}")
+                    log_message(RED, "ZMQ-DEBUG", f"ZMQ error in monitor thread: {e}", level=1)
                     if consecutive_errors > 3:
-                        log_message(RED, "ZMQ-DEBUG", "Too many consecutive errors, recreating socket...")
+                        log_message(RED, "ZMQ-DEBUG", "Too many consecutive errors, recreating socket...", level=1)
                         setup_zmq()  # Recreate the socket
                         consecutive_errors = 0
                     time.sleep(1)
                 except json.JSONDecodeError as e:
-                    log_message(RED, "ERROR", f"Failed to decode status message: {e}")
+                    log_message(RED, "ERROR", f"Failed to decode status message: {e}", level=1)
                 except Exception as e:
-                    log_message(RED, "ERROR", f"Error in monitor thread: {e}")
-            
+                    log_message(RED, "ERROR", f"Error in monitor thread: {e}", level=1)
+
             # Check if we haven't received status updates for a while
             if time.time() - last_status_time > 60:
                 if shared_status["state"] == "connecting":
-                    log_message(RED, "ZMQ-DEBUG", f"Worker {os.getpid()} - Still trying to connect to daemon...")
+                    log_message(RED, "ZMQ-DEBUG", f"Worker {os.getpid()} - Still trying to connect to daemon...", level=2)
                 else:
                     shared_status["state"] = "offline"
-                    log_message(RED, "ZMQ-DEBUG", f"Worker {os.getpid()} - No status updates for 60s, marking offline")
+                    log_message(RED, "ZMQ-DEBUG", f"Worker {os.getpid()} - No status updates for 60s, marking offline", level=2)
                 # Try to reconnect if we haven't received updates for a while
                 if consecutive_errors == 0:  # Only try once to avoid spam
-                    log_message(RED, "ZMQ-DEBUG", "Attempting to reconnect to daemon...")
+                    log_message(RED, "ZMQ-DEBUG", "Attempting to reconnect to daemon...", level=2)
                     setup_zmq()
                     consecutive_errors += 1
             
             time.sleep(0.1)
             
         except Exception as e:
-            log_message(RED, "ERROR", f"Error in monitor thread: {e}")
+            log_message(RED, "ERROR", f"Error in monitor thread: {e}", level=1)
             time.sleep(1)
 
 def setup_zmq():
@@ -166,7 +166,7 @@ def setup_zmq():
         # Connect to daemon's publish port using service name
         endpoint = f"tcp://daemon:5558"
         status_socket.connect(endpoint)
-        log_message(RED, "ZMQ-DEBUG", f"Worker {os.getpid()} connecting to daemon at {endpoint}")
+        log_message(RED, "ZMQ-DEBUG", f"Worker {os.getpid()} connecting to daemon at {endpoint}", level=2)
         
         # Try to get initial status
         if status_socket.poll(1000):  # Wait up to 1 second for initial status
@@ -175,24 +175,24 @@ def setup_zmq():
                 status_data = json.loads(message)
                 shared_status.update(status_data)
                 last_status_time = time.time()
-                log_message(RED, "ZMQ-DEBUG", f"Worker {os.getpid()} received initial status: {shared_status['state']}")
+                log_message(RED, "ZMQ-DEBUG", f"Worker {os.getpid()} received initial status: {shared_status['state']}", level=2)
             except Exception as e:
-                log_message(RED, "ZMQ-DEBUG", f"Worker {os.getpid()} - Failed to get initial status: {e}")
+                log_message(RED, "ZMQ-DEBUG", f"Worker {os.getpid()} - Failed to get initial status: {e}", level=2)
         else:
-            log_message(RED, "ZMQ-DEBUG", f"Worker {os.getpid()} - No initial status received after 1s")
+            log_message(RED, "ZMQ-DEBUG", f"Worker {os.getpid()} - No initial status received after 1s", level=2)
         
         # Start status monitoring thread
         status_thread = threading.Thread(target=monitor_status, daemon=True)
         status_thread.start()
         
     except zmq.error.ZMQError as e:
-        log_message(RED, f"ZMQ-DEBUG", f"Worker {os.getpid()} could not connect to daemon: {e}")
+        log_message(RED, f"ZMQ-DEBUG", f"Worker {os.getpid()} could not connect to daemon: {e}", level=1)
         shared_status = {"state": "connecting", "last_db_update": None}  # Keep as "connecting" on error
     except Exception as e:
-        log_message(RED, f"ZMQ-DEBUG", f"Worker {os.getpid()} setup error: {e}")
+        log_message(RED, f"ZMQ-DEBUG", f"Worker {os.getpid()} setup error: {e}", level=1)
         shared_status = {"state": "connecting", "last_db_update": None}  # Keep as "connecting" on error
 
-def log_message(color, tag, message):
+def log_message(color, tag, message, level=0):
     """Log a message with timestamp and PID"""
     timestamp = datetime.now().strftime("%Y:%m:%d-%H:%M:%S")
     worker_id = os.environ.get('GUNICORN_WORKER_ID', 'MAIN')
@@ -203,8 +203,8 @@ def handle_websocket(ws):
     """Handle WebSocket connections and send status updates to clients"""
     try:
         # Send initial status
-        log_message(RED, "WS-DEBUG", f"New WebSocket client connected to worker {os.getpid()}")
-        log_message(RED, "WS-DEBUG", f"Sending initial status: {shared_status}")
+        log_message(RED, "WS-DEBUG", f"New WebSocket client connected to worker {os.getpid()}", level=2)
+        log_message(RED, "WS-DEBUG", f"Sending initial status: {shared_status}", level=3)
         ws.send(json.dumps(shared_status))
         
         while True:
@@ -214,36 +214,36 @@ def handle_websocket(ws):
                     message = status_socket.recv_string()
                     try:
                         status_data = json.loads(message)
-                        log_message(RED, "WS-DEBUG", f"Worker {os.getpid()} forwarding status to client: {status_data}")
+                        log_message(RED, "WS-DEBUG", f"Worker {os.getpid()} forwarding status to client: {status_data}", level=3)
                         ws.send(message)
                     except json.JSONDecodeError:
-                        log_message(RED, "WS-DEBUG", "Failed to decode status message")
+                        log_message(RED, "WS-DEBUG", "Failed to decode status message", level=1)
                         continue
                 else:
                     if DEV_MODE==False:
-                        log_message(RED, "WS-DEBUG", f"Worker {os.getpid()} - No ZMQ message to forward to WebSocket")
+                        log_message(RED, "WS-DEBUG", f"Worker {os.getpid()} - No ZMQ message to forward to WebSocket", level=3)
             except zmq.ZMQError as e:
-                log_message(RED, "WS-DEBUG", f"ZMQ error in WebSocket handler: {e}")
+                log_message(RED, "WS-DEBUG", f"ZMQ error in WebSocket handler: {e}", level=1)
                 continue
             except Exception as e:
-                log_message(RED, "WS-DEBUG", f"Error in WebSocket handler: {e}")
+                log_message(RED, "WS-DEBUG", f"Error in WebSocket handler: {e}", level=1)
                 break
             
             # Send periodic status updates even if no new messages
             try:
                 ws.send(json.dumps(shared_status))
                 if DEV_MODE==False:
-                    log_message(RED, "WS-DEBUG", f"Worker {os.getpid()} sent periodic status: {shared_status}")
+                    log_message(RED, "WS-DEBUG", f"Worker {os.getpid()} sent periodic status: {shared_status}", level=3)
             except Exception as e:
-                log_message(RED, "WS-DEBUG", f"Failed to send periodic update: {e}")
+                log_message(RED, "WS-DEBUG", f"Failed to send periodic update: {e}", level=1)
                 break
                 
             time.sleep(1)  # Send update every second
-            
+
     except Exception as e:
-        log_message(RED, "WS-DEBUG", f"WebSocket connection error: {e}")
+        log_message(RED, "WS-DEBUG", f"WebSocket connection error: {e}", level=1)
     finally:
-        log_message(RED, "WS-DEBUG", f"WebSocket client disconnected from worker {os.getpid()}")
+        log_message(RED, "WS-DEBUG", f"WebSocket client disconnected from worker {os.getpid()}", level=2)
 
 @app.route('/favicon.ico')
 def favicon():

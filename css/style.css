@@ -96,6 +96,7 @@ h1 {
     display: flex;
     align-items: center;
     gap: 10px;
+    justify-content: flex-end;
 }
 
 .form-group label {
@@ -116,7 +117,7 @@ select {
     padding: 8px;
     border-radius: 4px;
     font-size: 16px;
-    width: 300px;
+    width: 240px;
 }
 
 input[type="number"] {
@@ -126,7 +127,7 @@ input[type="number"] {
     padding: 8px;
     border-radius: 4px;
     font-size: 16px;
-    width: 100px;
+    width: 80px;
 }
 
 .power-states {
@@ -492,9 +493,8 @@ button:not(:hover) {
     cursor: pointer;
     user-select: none;
     height: 40px;
-    width: 280px;
+    width: 140px;
     vertical-align: top;
-    margin-right: 15px;
     overflow: hidden;
 }
 
@@ -526,6 +526,7 @@ button:not(:hover) {
     color: var(--table-darker);
     font-weight: bold;
     z-index: 1;
+    font-size: 0.9em;
 }
 
 .toggle-switch span:not(.active) {
@@ -534,6 +535,16 @@ button:not(:hover) {
 
 .compare-label {
     margin-right: 15px !important;
+    width: 85px !important;
+    min-width: 85px !important;
+    line-height: 1.2em !important;
+    font-size: 0.95em;
+}
+
+.compare-group {
+    margin-left: auto;
+    display: flex;
+    align-items: flex-start;
 }
 
 .station-details .other-commodities {
@@ -1023,7 +1034,7 @@ button:not(:hover) {
     opacity: 1;
 }
 
-#ring_type_filter {
+#ring_type_filter, #reserve_level {
     max-width: 180px;
 }
 
@@ -1212,7 +1223,7 @@ button:not(:hover) {
 }
 
 .mining-type-group {
-    flex: 0.66;  /* Takes 60% of the available space */
+    flex: 0.66;  /* Takes 66% of the available space */
 }
 
 .demand-group {
@@ -1230,6 +1241,7 @@ button:not(:hover) {
 
 .demand-group label {
     min-width: auto;  /* Override default min-width */
+    width: 80px;
     margin-right: 5px;  /* Smaller space between label and input */
 }
 
@@ -1239,6 +1251,7 @@ button:not(:hover) {
     border: 1px solid var(--main-color);
     border-radius: 4px;
     font-size: 14px;
+    text-align: right;
 }
 
 /* Adjust materials input container for new width */
@@ -1269,3 +1282,48 @@ button:not(:hover) {
 .copy-icon.copied {
     animation: copy-pulse 0.3s ease-out;
 }
+
+.demand-group label {
+    line-height: 1.2em;
+}
+
+/* Add new styles for the price comparison group positioning */
+.form-row:first-child {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+}
+
+.price-comparison-group {
+    display: flex;
+    align-items: flex-start;
+    margin-left: auto;  /* Push to the right */
+}
+
+.compare-label {
+    margin-right: 15px !important;
+    width: 85px !important;  /* Increased from 70px */
+    min-width: 85px !important;  /* Increased from 70px */
+    line-height: 1.2em !important;
+    font-size: 0.95em;
+}
+
+.compare-group {
+    margin-left: auto;  /* Push to the right edge */
+    display: flex;
+    align-items: flex-start;
+    margin-right: 0 !important;
+}
+
+/* Ensure the first form row uses flex layout */
+.form-row:first-child {
+    display: flex;
+    align-items: flex-start;
+    gap: 15px;  /* Add consistent spacing between groups */
+}
+
+.distance-input, .limit-input {
+    width: 80px !important;  /* Less wide but not smaller overall */
+    text-align: center;
+}
+

@@ -49,16 +49,12 @@ Adds special search option for res hotspots and high yield platinum hotspots (ba
 - Changed the complete search logic for PostgreSQL
 
 - Added update_live.py - which connects to the EDDN network and constantly updates the database (daemon watches updater and sends updates to website)
-  
-  
 
 ---
 
 ## 2025-01 Release
 
 - Initial release of local webserver tool with manual database download and conversion into sqlite - without update functionality
-
-
 
 ---- 
 
