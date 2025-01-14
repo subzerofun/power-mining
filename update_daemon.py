@@ -191,20 +191,7 @@ def main():
     status_receiver.setsockopt(zmq.RCVTIMEO, 1000)  # 1 second timeout
     status_receiver.setsockopt(zmq.LINGER, 0)       # Don't wait on close
     status_receiver.setsockopt_string(zmq.SUBSCRIBE, "")
-    
-    # Try multiple connection addresses
-    connection_addresses = [
-        "tcp://127.0.0.1:5557",  # localhost
-        "tcp://0.0.0.0:5557",    # all interfaces
-        "tcp://*:5557"           # wildcard
-    ]
-    
-    for addr in connection_addresses:
-        try:
-            status_receiver.connect(addr)
-            log_message(RED, "ZMQ-DEBUG", f"Connected to {addr}", level=1)
-        except Exception as e:
-            log_message(RED, "ZMQ-DEBUG", f"Failed to connect to {addr}: {e}", level=2)
+    status_receiver.connect("tcp://127.0.0.1:5557")  # Connect to update_live.py publisher
     
     # Socket to publish status to web workers
     status_publisher = context.socket(zmq.PUB)

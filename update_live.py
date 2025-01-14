@@ -70,10 +70,14 @@ reverse_map = {}
 # ZMQ setup
 zmq_context = zmq.Context()
 status_publisher = zmq_context.socket(zmq.PUB)
+
+# Bind to all interfaces and log the actual binding address
 try:
-    status_publisher.bind(f"tcp://*:{STATUS_PORT}")
+    bind_address = f"tcp://0.0.0.0:{STATUS_PORT}"
+    status_publisher.bind(bind_address)
+    log_message("STATUS", f"Successfully bound ZMQ publisher to {bind_address}", level=1)
 except Exception as e:
-    log_message("ERROR", f"Failed to bind to status port: {e}")
+    log_message("ERROR", f"Failed to bind to status port {bind_address}: {e}", level=1)
     # Don't exit, just continue without status updates
 
 def publish_status(state, last_db_update=None):
@@ -84,12 +88,14 @@ def publish_status(state, last_db_update=None):
             "last_db_update": last_db_update.isoformat() if last_db_update else None,
             "pid": os.getpid()  # Add PID to status messages
         }
-        log_message("STATUS", f"Publishing state: {state}")
-        status_publisher.send_string(json.dumps(status))
+        status_json = json.dumps(status)
+        log_message("STATUS", f"Publishing state: {state} (message size: {len(status_json)} bytes)", level=1)
+        status_publisher.send_string(status_json)
+        log_message("STATUS", f"Successfully published state: {state}", level=2)
     except Exception as e:
-        log_message("ERROR", f"Failed to publish status: {e}")
+        log_message("ERROR", f"Failed to publish status: {e}", level=1)
         import traceback
-        log_message("ERROR", f"Status traceback: {traceback.format_exc()}")
+        log_message("ERROR", f"Status traceback: {traceback.format_exc()}", level=1)
 
 def cleanup():
     """Cleanup function to be called on exit"""
