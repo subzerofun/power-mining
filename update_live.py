@@ -205,7 +205,7 @@ def flush_commodities_to_db(conn, commodity_buffer, auto_commit=False):
                     """, [(system_id64, station_id, station_name, commodity_name, data[0], data[1]) 
                           for commodity_name, data in new_map.items()])
                     rows_affected = cursor.rowcount
-                    log_message("DATABASE", f"Inserted/Updated {rows_affected} commodities for {station_name} (expected {len(new_map)})", level=1)
+                    log_message("DATABASE", f"Inserted/Updated {rows_affected} commodities for {station_name} (expected {len(new_map)})", level=2)
                 except Exception as e:
                     log_message("ERROR", f"Failed to insert commodities for {station_name}: {str(e)}", level=1)
                     continue
@@ -366,7 +366,7 @@ def process_message(message, commodity_map):
         # Continue with existing commodity processing
         if message.get("stationType") == "FleetCarrier" or \
            (message.get("economies") and message["economies"][0].get("name") == "Carrier"):
-            log_message("DEBUG", f"Skipped Fleet Carrier Data: {message.get('stationName')}", level=1)
+            log_message("DEBUG", f"Skipped Fleet Carrier Data: {message.get('stationName')}", level=2)
             return None, None
             
         station_name = message.get("stationName")
@@ -588,7 +588,7 @@ def main():
                     if current_time - last_flush >= DB_UPDATE_INTERVAL:
                         log_message("DEBUG", f"Time since last flush: {current_time - last_flush:.1f}s", level=2)
                         if commodity_buffer:
-                            log_message("DATABASE", f"Writing to Database starting... ({len(commodity_buffer)} stations in buffer)", level=1)
+                            log_message("DATABASE", f"Writing to Database starting... ({len(commodity_buffer)} stations in buffer)", level=2)
                             for station, commodities in commodity_buffer.items():
                                 log_message("DATABASE", f"Station {station}: {len(commodities)} commodities buffered", level=2)
                             publish_status("updating", datetime.now(timezone.utc))
@@ -611,7 +611,7 @@ def main():
                     
         # Final flush on exit
         if commodity_buffer:
-            log_message("DATABASE", "Writing to Database starting...", level=1)
+            log_message("DATABASE", "Writing to Database starting...", level=2)
             publish_status("updating", datetime.now(timezone.utc))
             stations, commodities = flush_commodities_to_db(conn, commodity_buffer)
             if stations > 0:
