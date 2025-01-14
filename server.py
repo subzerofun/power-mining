@@ -10,7 +10,7 @@ import tempfile
 import io
 from utils import mining_data, res_data
 from utils.common import (
-    get_db_connection, log_message, 
+    get_db_connection,
     BLUE, RED, YELLOW, GREEN, CYAN, ORANGE, RESET,
     BASE_DIR
 )
@@ -86,7 +86,17 @@ last_status_time = 0
 shared_status = {"state": "offline", "last_db_update": None}  # Shared across workers
 
 # Debug levels
-DEBUG_LEVEL = 1  # 1 = critical/important, 2 = normal, 3 = verbose/detailed
+DEBUG_LEVEL = 1  # 0 = silent, 1 = critical/important, 2 = normal, 3 = verbose/detailed
+
+def log_message(color, tag, message, level=1):
+    """Log a message with timestamp and PID"""
+    # Skip messages if debug level is 0 or message level is higher than DEBUG_LEVEL
+    if DEBUG_LEVEL == 0 or level > DEBUG_LEVEL:
+        return
+        
+    timestamp = datetime.now().strftime("%Y:%m:%d-%H:%M:%S")
+    worker_id = os.environ.get('GUNICORN_WORKER_ID', 'MAIN')
+    print(f"{color}[{timestamp}] [{tag}-{os.getpid()}] {message}{RESET}", flush=True)
 
 def monitor_status():
     """Monitor status updates from the daemon"""
@@ -194,12 +204,6 @@ def setup_zmq():
     except Exception as e:
         log_message(RED, f"ZMQ-DEBUG", f"Worker {os.getpid()} setup error: {e}", level=1)
         shared_status = {"state": "connecting", "last_db_update": None}  # Keep as "connecting" on error
-
-def log_message(color, tag, message, level=0):
-    """Log a message with timestamp and PID"""
-    timestamp = datetime.now().strftime("%Y:%m:%d-%H:%M:%S")
-    worker_id = os.environ.get('GUNICORN_WORKER_ID', 'MAIN')
-    print(f"{color}[{timestamp}] [{tag}-{os.getpid()}] {message}{RESET}", flush=True)
 
 @sock.route('/ws')
 def handle_websocket(ws):
@@ -369,7 +373,13 @@ async def main():
     parser.add_argument('--live-update', action='store_true', help='Enable live EDDN updates')
     parser.add_argument('--db', help='Database URL (e.g. postgresql://user:pass@host:port/dbname)')
     parser.add_argument('--dev', action='store_true', help='Run in development mode without WebSocket functionality')
+    parser.add_argument('--debug-level', type=int, choices=[0, 1, 2, 3], default=1,
+                       help='Debug level (0=silent, 1=critical, 2=normal, 3=verbose)')
     args = parser.parse_args()
+
+    # Set DEBUG_LEVEL from argument
+    global DEBUG_LEVEL
+    DEBUG_LEVEL = args.debug_level
 
     # Set DATABASE_URL from argument or environment variable
     global DATABASE_URL, DEV_MODE
