@@ -312,16 +312,34 @@ def handle_power_data(message):
             cur = conn.cursor()
             # First check if power or state has changed
             cur.execute("""
-                SELECT controlling_power, power_state
+                SELECT controlling_power, power_state, powers_acquiring
                 FROM systems
                 WHERE id64 = %s AND name = %s
             """, (system_id64, system_name))
             row = cur.fetchone()
+            
             if row:
-                old_power, old_state = row
-                if old_power == controlling_power and old_state == power_state:
-                    log_message("POWER-DEBUG", GREEN + f"No change needed for {system_name}", level=1)
-                    return  # No change needed
+                old_power, old_state, old_powers = row
+                # Convert old_powers from JSONB to list if not None, otherwise empty list
+                old_powers = old_powers if old_powers else []
+                
+                # Check if there are actual changes, considering NULL values
+                power_changed = (old_power != controlling_power) and not (old_power is None and controlling_power is None)
+                state_changed = (old_state != power_state) and not (old_state is None and power_state is None)
+                powers_changed = sorted(old_powers) != sorted(powers)
+                
+                if not (power_changed or state_changed or powers_changed):
+                    log_message("POWER-DEBUG", GREEN + f"No power status changes detected for {system_name}", level=2)
+                    return
+                
+                # Log what changed
+                changes = []
+                if power_changed:
+                    changes.append(f"controlling_power: {old_power} -> {controlling_power}")
+                if state_changed:
+                    changes.append(f"power_state: {old_state} -> {power_state}")
+                if powers_changed:
+                    changes.append(f"powers_acquiring: {old_powers} -> {powers}")
                 
             # Update controlling power and state
             cur.execute("""
@@ -332,8 +350,8 @@ def handle_power_data(message):
                 WHERE id64 = %s AND name = %s
             """, (controlling_power, power_state, json.dumps(powers), system_id64, system_name))
 
-            if cur.rowcount > 0:
-                log_message("POWER-DEBUG", GREEN + f"✓ Updated power status for {system_name}", level=1)
+            if cur.rowcount > 0 and changes:
+                log_message("POWER-DEBUG", GREEN + f"✓ Updated power status for {system_name}: {', '.join(changes)}", level=1)
             conn.commit()
     except Exception as e:
         log_message("POWER-DEBUG", GREEN + f"Failed to update power status: {e}", level=1)
