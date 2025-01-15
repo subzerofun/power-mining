@@ -85,7 +85,6 @@ class PriceHistoryManager:
                     # First create hypertable
                     cur.execute("""
                         SELECT create_hypertable('price_history', 'timestamp',
-                            -- CHANGE: you can set chunk_time_interval to 5 minutes if you want:
                             chunk_time_interval => INTERVAL '1 hour',
                             if_not_exists => TRUE,
                             migrate_data => TRUE
@@ -105,7 +104,6 @@ class PriceHistoryManager:
                     cur.execute("""
                         SELECT remove_compression_policy('price_history', if_exists => true);
                         SELECT add_compression_policy('price_history', 
-                            -- CHANGE: you can set compress_after => '5 minutes' if you want:
                             compress_after => INTERVAL '1 millisecond',
                             if_not_exists => true
                         );
@@ -229,15 +227,46 @@ class PriceHistoryManager:
             log_message(RED, "ERROR", f"Database setup failed: {e}", level=1)
             raise
 
+    # CHANGE: parse the timescale interval, including 'HH:MM:SS' logic
+    def parse_interval_str(self, interval_str):
+        """Parse TimescaleDB interval (e.g. '1:00:00', '1 hour', '10 minutes') to integer minutes."""
+        interval_str = interval_str.strip().lower()
+        if ':' in interval_str:
+            # e.g. '01:00:00' => 60
+            parts = interval_str.split(':')
+            if len(parts) == 3:
+                try:
+                    hh = int(parts[0])
+                    mm = int(parts[1])
+                    # ignoring seconds
+                    return hh * 60 + mm
+                except:
+                    return None
+        elif 'hour' in interval_str:
+            # e.g. '1 hour', '2 hours'
+            try:
+                parts = interval_str.split()
+                # '1 hour' => parts[0] = '1'
+                hrs = int(parts[0])
+                return hrs * 60
+            except:
+                return None
+        elif 'minute' in interval_str:
+            # e.g. '10 minutes', '1 minute'
+            try:
+                parts = interval_str.split()
+                mins = int(parts[0])
+                return mins
+            except:
+                return None
+        return None
+
     def get_current_job_interval(self):
         """Get current snapshot interval in minutes."""
         try:
             with psycopg2.connect(self.db_history) as conn:
                 with conn.cursor() as cur:
-                    # -----------------------------------------------------------
-                    # CHANGE: Remove the LIMIT 1 and gather all jobs, then pick the first.
-                    #         Also parse 'HH:MM:SS' format if returned by Timescale.
-                    # -----------------------------------------------------------
+                    # CHANGE: gather all jobs, no LIMIT 1
                     cur.execute("""
                         SELECT job_id, schedule_interval, next_start
                         FROM timescaledb_information.jobs
@@ -251,47 +280,13 @@ class PriceHistoryManager:
                     # We'll just consider the first job
                     job_id, schedule_interval, next_start = jobs[0]
                     interval_str = str(schedule_interval)
-
-                    # ---------------------------------------------------------
-                    # CHANGE: Add logic to parse 'HH:MM:SS' or '1 hour' or '10 minutes'
-                    # ---------------------------------------------------------
-                    minutes = None
-                    if ':' in interval_str:
-                        # e.g. '00:10:00'
-                        parts = interval_str.split(':')
-                        if len(parts) == 3:
-                            # HH:MM:SS
-                            try:
-                                hh = int(parts[0])
-                                mm = int(parts[1])
-                                # ignoring seconds (parts[2]) or parse if needed
-                                minutes = hh * 60 + mm
-                            except:
-                                minutes = None
-                    elif 'hour' in interval_str.lower():
-                        # e.g. '1 hour' or '2 hours'
-                        try:
-                            parts = interval_str.split()
-                            # parts[0] = '1', parts[1] = 'hour' or 'hours'
-                            hrs = int(parts[0])
-                            minutes = hrs * 60
-                        except:
-                            minutes = None
-                    elif 'minute' in interval_str.lower():
-                        # e.g. '10 minutes' or '1 minute'
-                        try:
-                            parts = interval_str.split()
-                            mins = int(parts[0])
-                            minutes = mins
-                        except:
-                            minutes = None
+                    minutes = self.parse_interval_str(interval_str)
 
                     return {
                         'minutes': minutes,
                         'next_start': next_start,
-                        'status': 'Unknown',  
+                        'status': 'Unknown',
                         'last_success': None,
-                        # Also store raw interval string for debugging
                         'interval_str': interval_str,
                         'job_id': job_id
                     }
@@ -304,9 +299,7 @@ class PriceHistoryManager:
         try:
             with psycopg2.connect(self.db_history) as conn:
                 with conn.cursor() as cur:
-                    # -----------------------------------------------------------
-                    # CHANGE: get all jobs, pick the first; or create if none exist
-                    # -----------------------------------------------------------
+                    # CHANGE: gather all jobs, no LIMIT 1
                     cur.execute("""
                         SELECT job_id 
                         FROM timescaledb_information.jobs 
@@ -344,9 +337,7 @@ class PriceHistoryManager:
         try:
             with psycopg2.connect(self.db_history) as conn:
                 with conn.cursor() as cur:
-                    # -----------------------------------------------------------
-                    # CHANGE: remove the LIMIT 1, delete all matching jobs 
-                    # -----------------------------------------------------------
+                    # CHANGE: remove LIMIT 1, delete all matching jobs
                     cur.execute("""
                         SELECT job_id 
                         FROM timescaledb_information.jobs 
@@ -819,35 +810,27 @@ def main():
     manager = PriceHistoryManager(args.db_in, args.db_history, randomize=args.rand)
     
     try:
-        # Test connections first
+        # 1) Test connections first
         if not manager.test_connection():
             log_message(RED, "FATAL", "Database connection test failed", level=1)
             sys.exit(1)
 
-        # Handle stop request
+        # 2) Stop job if requested
         if args.stop:
             manager.stop_job()
             return
 
-        # Setup if requested and table doesn't exist
+        # 3) Setup if requested and table doesn't exist
         if args.setup_only:
             manager.setup_database()
 
-        # Take immediate snapshot if requested
-        if args.start_early:
-            manager.take_snapshot_now()
+        # CHANGE: Move the interval update BEFORE retrieving current job info.
+        #    This ensures that if you do --interval 10, we actually set it
+        #    before printing "Current snapshot interval".
+        if args.interval:
+            manager.update_job_interval(args.interval)
 
-        # Show current data timespan
-        timespan = manager.get_data_timespan()
-        if timespan:
-            log_message(BLUE, "INFO", f"Current data timespan:", level=1)
-            log_message(BLUE, "INFO", f"  Oldest record: {timespan['oldest']}", level=1)
-            log_message(BLUE, "INFO", f"  Newest record: {timespan['newest']}", level=1)
-            log_message(BLUE, "INFO", f"  Total duration: {timespan['timespan']}", level=1)
-            log_message(BLUE, "INFO", f"  Database size: {timespan['size']}", level=1)
-            log_message(BLUE, "INFO", f"  Total records: {timespan['total_rows']:,}", level=1)
-
-        # Show current snapshot interval and status
+        # Now get current job interval *after* the update
         job_info = manager.get_current_job_interval()
         if job_info:
             mins = job_info['minutes']
@@ -861,14 +844,22 @@ def main():
         else:
             log_message(YELLOW, "INFO", "No take_price_snapshot job found at all.", level=1)
 
-        # Update interval if requested
-        if args.interval:
-            if not job_info or (job_info['minutes'] != args.interval):
-                manager.update_job_interval(args.interval)
-            else:
-                log_message(BLUE, "INFO", f"Snapshot interval already set to {args.interval} minutes", level=1)
+        # 4) If requested, take immediate snapshot
+        if args.start_early:
+            rows_inserted = manager.take_snapshot_now()
+            log_message(BLUE, "INFO", f"Snapshot inserted rows: {rows_inserted}", level=1)
 
-        # Monitor mode
+        # 5) Show current data timespan
+        timespan = manager.get_data_timespan()
+        if timespan:
+            log_message(BLUE, "INFO", f"Current data timespan:", level=1)
+            log_message(BLUE, "INFO", f"  Oldest record: {timespan['oldest']}", level=1)
+            log_message(BLUE, "INFO", f"  Newest record: {timespan['newest']}", level=1)
+            log_message(BLUE, "INFO", f"  Total duration: {timespan['timespan']}", level=1)
+            log_message(BLUE, "INFO", f"  Database size: {timespan['size']}", level=1)
+            log_message(BLUE, "INFO", f"  Total records: {timespan['total_rows']:,}", level=1)
+
+        # 6) Monitor mode
         if args.monitor:
             log_message(BLUE, "MONITOR", "Starting snapshot monitor (Ctrl+C to stop)...", level=1)
             try:

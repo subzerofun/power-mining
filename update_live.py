@@ -282,35 +282,10 @@ def handle_power_data(message):
         log_message("POWER-DEBUG", GREEN + f"Missing system info - Name: {system_name}, ID64: {system_id64}", level=2)
         return
 
-    # Get power data
-    controlling_power = message.get("ControllingPower")
-    power_state = message.get("PowerplayState", "")
-    powers = message.get("Powers", [])
-
-    # Validate powers is a list
-    if isinstance(powers, str):
-        powers = [powers]
-    elif not isinstance(powers, list):
-        log_message("POWER-DEBUG", GREEN + f"Powers has unexpected type: {type(powers)}", level=2)
-        return
-
-    # Filter out controlling power from powers array if it exists there
-    if controlling_power and controlling_power in powers:
-        powers = [p for p in powers if p != controlling_power]
-        log_message("POWER-DEBUG", GREEN + f"Removed controlling power {controlling_power} from powers_acquiring array", level=2)
-
-    # Log the power data we found
-    log_message("POWER-DEBUG", GREEN + "Power data found:", level=2)
-    log_message("POWER-DEBUG", GREEN + f"  System: {system_name} (ID64: {system_id64})", level=2)
-    log_message("POWER-DEBUG", GREEN + f"  Controlling Power: {controlling_power}", level=2)
-    log_message("POWER-DEBUG", GREEN + f"  Power State: {power_state}", level=2)
-    log_message("POWER-DEBUG", GREEN + f"  Powers Acquiring: {powers}", level=2)
-
-    # Database updates
+    # Get current values from database first
     try:
         with psycopg2.connect(DATABASE_URL) as conn:
             cur = conn.cursor()
-            # First check if power or state has changed
             cur.execute("""
                 SELECT controlling_power, power_state, powers_acquiring
                 FROM systems
@@ -318,41 +293,87 @@ def handle_power_data(message):
             """, (system_id64, system_name))
             row = cur.fetchone()
             
-            if row:
-                old_power, old_state, old_powers = row
-                # Convert old_powers from JSONB to list if not None, otherwise empty list
-                old_powers = old_powers if old_powers else []
+            if not row:
+                log_message("POWER-DEBUG", GREEN + f"System not found in database: {system_name}", level=2)
+                return
                 
-                # Check if there are actual changes, considering NULL values
-                power_changed = (old_power != controlling_power) and not (old_power is None and controlling_power is None)
-                state_changed = (old_state != power_state) and not (old_state is None and power_state is None)
-                powers_changed = sorted(old_powers) != sorted(powers)
-                
-                if not (power_changed or state_changed or powers_changed):
-                    log_message("POWER-DEBUG", GREEN + f"No power status changes detected for {system_name}", level=2)
-                    return
-                
-                # Log what changed
-                changes = []
-                if power_changed:
-                    changes.append(f"controlling_power: {old_power} -> {controlling_power}")
-                if state_changed:
-                    changes.append(f"power_state: {old_state} -> {power_state}")
-                if powers_changed:
-                    changes.append(f"powers_acquiring: {old_powers} -> {powers}")
-                
-            # Update controlling power and state
-            cur.execute("""
-                UPDATE systems 
-                SET controlling_power = %s,
-                    power_state = %s,
-                    powers_acquiring = %s::jsonb
-                WHERE id64 = %s AND name = %s
-            """, (controlling_power, power_state, json.dumps(powers), system_id64, system_name))
+            current_power, current_state, current_powers = row
+            # Convert current_powers from JSONB to list if not None, otherwise empty list
+            current_powers = current_powers if current_powers else []
+            
+            # Only update fields that are actually present in the message
+            has_controlling_power = "ControllingPower" in message
+            has_power_state = "PowerplayState" in message
+            has_powers = "Powers" in message
+            
+            # Use current values if fields are not in message
+            controlling_power = message.get("ControllingPower", current_power)
+            power_state = message.get("PowerplayState", current_state)
+            powers = message.get("Powers", current_powers)
+            
+            # Validate powers is a list
+            if isinstance(powers, str):
+                powers = [powers]
+            elif not isinstance(powers, list):
+                log_message("POWER-DEBUG", GREEN + f"Powers has unexpected type: {type(powers)}", level=2)
+                powers = current_powers
 
-            if cur.rowcount > 0 and changes:
-                log_message("POWER-DEBUG", GREEN + f"✓ Updated power status for {system_name}: {', '.join(changes)}", level=1)
-            conn.commit()
+            # Filter out controlling power from powers array if it exists there
+            if controlling_power and controlling_power in powers:
+                powers = [p for p in powers if p != controlling_power]
+                log_message("POWER-DEBUG", GREEN + f"Removed controlling power {controlling_power} from powers_acquiring array", level=2)
+
+            # Log the power data we found
+            log_message("POWER-DEBUG", GREEN + "Power data found:", level=2)
+            log_message("POWER-DEBUG", GREEN + f"  System: {system_name} (ID64: {system_id64})", level=2)
+            log_message("POWER-DEBUG", GREEN + f"  Controlling Power: {controlling_power} {'(from message)' if has_controlling_power else '(unchanged)'}", level=2)
+            log_message("POWER-DEBUG", GREEN + f"  Power State: {power_state} {'(from message)' if has_power_state else '(unchanged)'}", level=2)
+            log_message("POWER-DEBUG", GREEN + f"  Powers Acquiring: {powers} {'(from message)' if has_powers else '(unchanged)'}", level=2)
+
+            # Check if there are actual changes, considering NULL values
+            power_changed = has_controlling_power and current_power != controlling_power and not (current_power is None and controlling_power is None)
+            state_changed = has_power_state and current_state != power_state and not (current_state is None and power_state is None)
+            powers_changed = has_powers and sorted(current_powers) != sorted(powers)
+            
+            if not (power_changed or state_changed or powers_changed):
+                log_message("POWER-DEBUG", GREEN + f"No power status changes detected for {system_name}", level=2)
+                return
+            
+            # Log what changed
+            changes = []
+            if power_changed:
+                changes.append(f"controlling_power: {current_power} -> {controlling_power}")
+            if state_changed:
+                changes.append(f"power_state: {current_state} -> {power_state}")
+            if powers_changed:
+                changes.append(f"powers_acquiring: {current_powers} -> {powers}")
+            
+            # Build UPDATE query dynamically based on what fields changed
+            update_fields = []
+            params = []
+            if power_changed:
+                update_fields.append("controlling_power = %s")
+                params.append(controlling_power)
+            if state_changed:
+                update_fields.append("power_state = %s")
+                params.append(power_state)
+            if powers_changed:
+                update_fields.append("powers_acquiring = %s::jsonb")
+                params.append(json.dumps(powers))
+                
+            if update_fields:  # Only update if there are fields to update
+                query = f"""
+                    UPDATE systems 
+                    SET {', '.join(update_fields)}
+                    WHERE id64 = %s AND name = %s
+                """
+                params.extend([system_id64, system_name])
+                cur.execute(query, params)
+
+                if cur.rowcount > 0 and changes:
+                    log_message("POWER-DEBUG", GREEN + f"✓ Updated power status for {system_name}: {', '.join(changes)}", level=1)
+                conn.commit()
+                
     except Exception as e:
         log_message("POWER-DEBUG", GREEN + f"Failed to update power status: {e}", level=1)
 
