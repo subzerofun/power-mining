@@ -227,35 +227,34 @@ class PriceHistoryManager:
             log_message(RED, "ERROR", f"Database setup failed: {e}", level=1)
             raise
 
-    # CHANGE: parse the timescale interval, including 'HH:MM:SS' logic
-    def parse_interval_str(self, interval_str):
-        """Parse TimescaleDB interval (e.g. '1:00:00', '1 hour', '10 minutes') to integer minutes."""
+    # -------------------------------------------------------------------
+    # parse_timescale_interval_str
+    # 
+    # parse things like '00:10:00', '1 hour', '10 minutes', etc.
+    # -------------------------------------------------------------------
+    def parse_timescale_interval_str(self, interval_str):
         interval_str = interval_str.strip().lower()
-        if ':' in interval_str:
-            # e.g. '01:00:00' => 60
+        if ':' in interval_str:  
+            # e.g. '00:10:00'
             parts = interval_str.split(':')
             if len(parts) == 3:
                 try:
                     hh = int(parts[0])
                     mm = int(parts[1])
-                    # ignoring seconds
                     return hh * 60 + mm
                 except:
                     return None
         elif 'hour' in interval_str:
             # e.g. '1 hour', '2 hours'
             try:
-                parts = interval_str.split()
-                # '1 hour' => parts[0] = '1'
-                hrs = int(parts[0])
+                hrs = int(interval_str.split()[0])
                 return hrs * 60
             except:
                 return None
         elif 'minute' in interval_str:
             # e.g. '10 minutes', '1 minute'
             try:
-                parts = interval_str.split()
-                mins = int(parts[0])
+                mins = int(interval_str.split()[0])
                 return mins
             except:
                 return None
@@ -266,7 +265,7 @@ class PriceHistoryManager:
         try:
             with psycopg2.connect(self.db_history) as conn:
                 with conn.cursor() as cur:
-                    # CHANGE: gather all jobs, no LIMIT 1
+                    # gather all jobs for take_price_snapshot
                     cur.execute("""
                         SELECT job_id, schedule_interval, next_start
                         FROM timescaledb_information.jobs
@@ -280,14 +279,14 @@ class PriceHistoryManager:
                     # We'll just consider the first job
                     job_id, schedule_interval, next_start = jobs[0]
                     interval_str = str(schedule_interval)
-                    minutes = self.parse_interval_str(interval_str)
+                    parsed_minutes = self.parse_timescale_interval_str(interval_str)
 
                     return {
-                        'minutes': minutes,
-                        'next_start': next_start,
-                        'status': 'Unknown',
-                        'last_success': None,
+                        'minutes': parsed_minutes,
                         'interval_str': interval_str,
+                        'next_start': next_start,
+                        'status': 'Unknown',  
+                        'last_success': None,
                         'job_id': job_id
                     }
         except Exception as e:
@@ -299,7 +298,6 @@ class PriceHistoryManager:
         try:
             with psycopg2.connect(self.db_history) as conn:
                 with conn.cursor() as cur:
-                    # CHANGE: gather all jobs, no LIMIT 1
                     cur.execute("""
                         SELECT job_id 
                         FROM timescaledb_information.jobs 
@@ -337,7 +335,7 @@ class PriceHistoryManager:
         try:
             with psycopg2.connect(self.db_history) as conn:
                 with conn.cursor() as cur:
-                    # CHANGE: remove LIMIT 1, delete all matching jobs
+                    # remove limit 1, delete all matching jobs
                     cur.execute("""
                         SELECT job_id 
                         FROM timescaledb_information.jobs 
@@ -429,7 +427,7 @@ class PriceHistoryManager:
             return None
 
     def monitor_new_records(self):
-        """Monitor new records being added"""
+        """Monitor new records being added, but do NOT forcibly create new snapshots."""
         last_timestamp = None
         try:
             with psycopg2.connect(self.db_history) as conn:
@@ -466,10 +464,13 @@ class PriceHistoryManager:
                                       f"Records: {count:,}, Size: {raw_size}\n"
                                       f"Total database size: {total_size}", level=1)
                             last_timestamp = timestamp
-                            
-                            # If randomization is enabled, create a new randomized snapshot
-                            if self.randomize:
-                                self.randomize_last_snapshot()
+
+                            # CHANGE: We do NOT call randomize_last_snapshot() here, 
+                            # so that no new snapshots are forcibly created by the monitor loop.
+                            #
+                            # if self.randomize:
+                            #     self.randomize_last_snapshot()
+
                     return result
         except Exception as e:
             log_message(RED, "ERROR", f"Failed to monitor records: {e}", level=1)
@@ -541,12 +542,10 @@ class PriceHistoryManager:
                             ph.station_id,
                             ph.price,
                             ph.demand,
-                            -- Calculate price changes
                             ph.price - LAG(ph.price) OVER (
                                 PARTITION BY ph.station_id, ph.commodity_id 
                                 ORDER BY ph.timestamp
                             ) as price_change,
-                            -- Calculate time since last update
                             ph.timestamp - LAG(ph.timestamp) OVER (
                                 PARTITION BY ph.station_id, ph.commodity_id 
                                 ORDER BY ph.timestamp
@@ -621,8 +620,8 @@ class PriceHistoryManager:
                                         sc.station_id,
                                         sc.sell_price as price,
                                         CASE 
-                                            WHEN random() < {rand_percent / 100.0} THEN  -- Random % chance to modify
-                                                floor(random() * 20001)::integer  -- Random value between 0-20000
+                                            WHEN random() < {rand_percent / 100.0} THEN
+                                                floor(random() * 20001)::integer
                                             ELSE sc.demand
                                         END as demand
                                     FROM dblink('temp_conn',
@@ -824,13 +823,11 @@ def main():
         if args.setup_only:
             manager.setup_database()
 
-        # CHANGE: Move the interval update BEFORE retrieving current job info.
-        #    This ensures that if you do --interval 10, we actually set it
-        #    before printing "Current snapshot interval".
+        # CHANGE: If user specified --interval, we update the job schedule BEFORE retrieving it for logging
         if args.interval:
             manager.update_job_interval(args.interval)
 
-        # Now get current job interval *after* the update
+        # Now show the current job interval
         job_info = manager.get_current_job_interval()
         if job_info:
             mins = job_info['minutes']
@@ -844,10 +841,10 @@ def main():
         else:
             log_message(YELLOW, "INFO", "No take_price_snapshot job found at all.", level=1)
 
-        # 4) If requested, take immediate snapshot
+        # 4) If requested, take an immediate snapshot
         if args.start_early:
-            rows_inserted = manager.take_snapshot_now()
-            log_message(BLUE, "INFO", f"Snapshot inserted rows: {rows_inserted}", level=1)
+            inserted_rows = manager.take_snapshot_now()
+            log_message(BLUE, "INFO", f"Snapshot inserted rows: {inserted_rows}", level=1)
 
         # 5) Show current data timespan
         timespan = manager.get_data_timespan()

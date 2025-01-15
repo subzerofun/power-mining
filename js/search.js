@@ -482,6 +482,11 @@ class MiningSearch {
             return `Updated: ${hours} hours ago`;
         } else {
             const days = Math.floor(diffMinutes / (24 * 60));
+            if (days >= 365) {
+                const years = Math.floor(days / 365);
+                const remainingDays = days % 365;
+                return `Updated: ${years}y, ${remainingDays} days ago`;
+            }
             return `Updated: ${days} days ago`;
         }
     }
