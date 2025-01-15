@@ -905,7 +905,7 @@ async function searchHighest() {
             row.insertCell().textContent = item.controlling_power || '-';
             row.insertCell().textContent = item.power_state || '-';
             const updateCell = row.insertCell();
-            updateCell.innerHTML = item.update_time ? this.formatUpdateTime(item.update_time) : '-';
+            updateCell.innerHTML = item.update_time ? search.formatUpdateTime(item.update_time) : '-';
         });
         
         table.style.display = 'table';
