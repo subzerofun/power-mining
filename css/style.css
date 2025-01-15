@@ -397,7 +397,7 @@ button:not(:hover) {
     position: absolute;
     left: 0;
     top: 0;
-    height: calc(100% - 15px);
+    height: calc(100% - 14px);
     width: 1px;
     background-color: var(--main-color);
 }
@@ -412,7 +412,7 @@ button:not(:hover) {
     content: "";
     position: absolute;
     left: -10px;
-    top: 50%;
+    top: 51%;
     width: 10px;
     height: 1px;
     background-color: var(--main-color);

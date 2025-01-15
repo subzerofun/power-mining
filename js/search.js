@@ -240,7 +240,7 @@ class MiningSearch {
                                 <div>Price: ${priceSpan.outerHTML}</div>
                                 <div>Demand: ${this.getDemandIcon(station.demand)} ${station.demand.toLocaleString()}</div>
                                 <div>Distance: ${Math.floor(station.distance).toLocaleString()} Ls</div>
-                                <div class="update-time">Updated: ${station.update_time ? station.update_time.split(' ')[0] : ''}</div>
+                                <div class="update-time">${this.formatUpdateTime(station.update_time)}</div>
                             </div>
                         </div>
                         ${station.other_commodities.length > 0 ? `
@@ -353,12 +353,17 @@ class MiningSearch {
                         // Group signals by body_name
                         const signalsByPlanet = {};
                         system.all_signals.forEach(signal => {
-                            if (!signal.mineral_type) return;  // Skip null mineral types
-                            const bodyName = signal.ring_name.split(' Ring')[0];
+                            // Format ring name - remove system name if it appears at the start
+                            let displayRingName = signal.ring_name;
+                            if (displayRingName.startsWith(system.name)) {
+                                displayRingName = displayRingName.slice(system.name.length).trim();
+                            }
+                            
+                            const bodyName = displayRingName.split(' Ring')[0];
                             if (!signalsByPlanet[bodyName]) {
                                 signalsByPlanet[bodyName] = [];
                             }
-                            signalsByPlanet[bodyName].push(signal);
+                            signalsByPlanet[bodyName].push({...signal, ring_name: displayRingName});
                         });
 
                         // Create HTML for all signals, grouped by planet
@@ -371,10 +376,13 @@ class MiningSearch {
                                     
                                     // If signal_text is undefined, construct it from the individual fields
                                     let signalText = signal.signal_text;
-                                    if (!signalText && signal.mineral_type) {
-                                        signalText = `${signal.mineral_type}${signal.signal_count ? ': ' + signal.signal_count : ''} (${signal.ring_type}, ${signal.reserve_level})`;
-                                    } else if (!signalText) {
-                                        signalText = `${signal.ring_type}, ${signal.reserve_level}`;
+                                    if (!signalText) {
+                                        if (signal.mineral_type) {
+                                            const hotspotText = signal.signal_count === 1 ? "Hotspot " : signal.signal_count ? "Hotspots " : "";
+                                            signalText = `<img src='img/icons/hotspot-2.svg' width='11' height='11' class='hotspot-icon'> ${signal.mineral_type}: ${signal.signal_count || ''} ${hotspotText}(${signal.reserve_level})`;
+                                        } else {
+                                            signalText = `${signal.ring_type}, ${signal.reserve_level}`;
+                                        }
                                     }
                                     
                                     return `<li>${planetIcon}${signal.ring_name}: ${signalText}</li>`;
@@ -440,6 +448,42 @@ class MiningSearch {
 
     formatNumber(number) {
         return Math.floor(number).toLocaleString();
+    }
+
+    formatUpdateTime(updateTimeStr) {
+        if (!updateTimeStr) return '';
+
+        // Parse the input time string
+        let dateTime;
+        if (updateTimeStr.includes('T')) {
+            // Handle ISO format with optional timezone
+            dateTime = new Date(updateTimeStr);
+        } else {
+            // Handle "YYYY-MM-DD HH:mm:ss" format
+            dateTime = new Date(updateTimeStr.replace(' ', 'T'));
+        }
+
+        // Add 1 hour to the time as per requirement
+        dateTime.setHours(dateTime.getHours() + 1);
+
+        // Calculate time difference in minutes
+        const now = new Date();
+        const diffMinutes = Math.floor((now - dateTime) / (1000 * 60));
+
+        // Format based on time difference
+        if (diffMinutes < 60) {
+            return `Updated: ${diffMinutes} min ago`;
+        } else if (diffMinutes < 24 * 60) {
+            const hours = Math.floor(diffMinutes / 60);
+            const mins = diffMinutes % 60;
+            return `Updated: ${hours}h ${mins}m ago`;
+        } else if (diffMinutes < 48 * 60) {
+            const hours = Math.floor(diffMinutes / 60);
+            return `Updated: ${hours} hours ago`;
+        } else {
+            const days = Math.floor(diffMinutes / (24 * 60));
+            return `Updated: ${days} days ago`;
+        }
     }
 
     getCommodityCode(name) {
@@ -764,6 +808,20 @@ class MiningSearch {
         const height = isOtherCommodity ? '8' : '12';
         return `<svg class="demand-icon" width="13" height="${height}" style="margin-right: 2px;"><use href="img/icons/demand.svg#${iconId}"></use></svg>`;
     }
+
+    showAllSignals(system) {
+        const signalList = document.createElement('ul');
+        signalList.className = 'signal-list';
+        
+        system.all_signals.forEach(signal => {
+            const li = document.createElement('li');
+            li.innerHTML = `<img src="/img/icons/planet.svg" width="11" height="11"> ${signal.ring_name}: ${signal.signal_text}`;
+            signalList.appendChild(li);
+        });
+        
+        const title = `All signals in ${system.name}`;
+        this.showPopup(title, signalList);
+    }
 }
 
 // Initialize search when DOM is loaded
@@ -847,12 +905,7 @@ async function searchHighest() {
             row.insertCell().textContent = item.controlling_power || '-';
             row.insertCell().textContent = item.power_state || '-';
             const updateCell = row.insertCell();
-            if (item.update_time) {
-                const [date, time] = item.update_time.split('T');
-                updateCell.innerHTML = `${date}<br/>${time}`;
-            } else {
-                updateCell.textContent = '-';
-            }
+            updateCell.innerHTML = item.update_time ? this.formatUpdateTime(item.update_time) : '-';
         });
         
         table.style.display = 'table';

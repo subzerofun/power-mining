@@ -88,3 +88,4 @@ json/journal-README.md
 utils/old_update_live.py
 utils/old_update_live_web.py
 utils/search_notOK.py
+timescaledb

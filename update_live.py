@@ -294,44 +294,49 @@ def handle_power_data(message):
         log_message("POWER-DEBUG", GREEN + f"Powers has unexpected type: {type(powers)}", level=2)
         return
 
+    # Filter out controlling power from powers array to avoid duplication
+    if controlling_power and controlling_power in powers:
+        powers = [p for p in powers if p != controlling_power]
+        log_message("POWER-DEBUG", GREEN + f"Removed controlling power {controlling_power} from powers array", level=2)
+
     # Log the power data we found
     log_message("POWER-DEBUG", GREEN + "Power data found:", level=2)
     log_message("POWER-DEBUG", GREEN + f"  System: {system_name} (ID64: {system_id64})", level=2)
     log_message("POWER-DEBUG", GREEN + f"  Controlling Power: {controlling_power}", level=2)
     log_message("POWER-DEBUG", GREEN + f"  Power State: {power_state}", level=2)
-    log_message("POWER-DEBUG", GREEN + f"  All Powers: {powers}", level=2)
+    log_message("POWER-DEBUG", GREEN + f"  All Powers (filtered): {powers}", level=2)
 
-    # Database updates commented out until we validate the data format
-    # try:
-    #     with psycopg2.connect(DATABASE_URL) as conn:
-    #         cur = conn.cursor()
-    #         # First check if power or state has changed
-    #         cur.execute("""
-    #             SELECT controlling_power, power_state
-    #             FROM systems
-    #             WHERE id64 = %s AND name = %s
-    #         """, (system_id64, system_name))
-    #         row = cur.fetchone()
-    #         if row:
-    #             old_power, old_state = row
-    #             if old_power == controlling_power and old_state == power_state:
-    #                 log_message("POWER-DEBUG", GREEN + f"No change needed for {system_name}", level=1)
-    #                 return  # No change needed
+    # Database updates
+    try:
+        with psycopg2.connect(DATABASE_URL) as conn:
+            cur = conn.cursor()
+            # First check if power or state has changed
+            cur.execute("""
+                SELECT controlling_power, power_state
+                FROM systems
+                WHERE id64 = %s AND name = %s
+            """, (system_id64, system_name))
+            row = cur.fetchone()
+            if row:
+                old_power, old_state = row
+                if old_power == controlling_power and old_state == power_state:
+                    log_message("POWER-DEBUG", GREEN + f"No change needed for {system_name}", level=1)
+                    return  # No change needed
                 
-    #         # Update controlling power and state
-    #         cur.execute("""
-    #             UPDATE systems 
-    #             SET controlling_power = %s,
-    #                 power_state = %s,
-    #                 powers_acquiring = %s::jsonb
-    #             WHERE id64 = %s AND name = %s
-    #         """, (controlling_power, power_state, json.dumps(powers), system_id64, system_name))
-            
-    #         if cur.rowcount > 0:
-    #             log_message("POWER-DEBUG", GREEN + f"✓ Updated power status for {system_name}", level=1)
-    #         conn.commit()
-    # except Exception as e:
-    #     log_message("POWER-DEBUG", GREEN + f"Failed to update power status: {e}", level=1)
+            # Update controlling power and state
+            cur.execute("""
+                UPDATE systems 
+                SET controlling_power = %s,
+                    power_state = %s,
+                    powers_acquiring = %s::jsonb
+                WHERE id64 = %s AND name = %s
+            """, (controlling_power, power_state, json.dumps(powers), system_id64, system_name))
+
+            if cur.rowcount > 0:
+                log_message("POWER-DEBUG", GREEN + f"✓ Updated power status for {system_name}", level=1)
+            conn.commit()
+    except Exception as e:
+        log_message("POWER-DEBUG", GREEN + f"Failed to update power status: {e}", level=1)
 
 def process_journal_message(message):
     """Process journal messages for power data"""
