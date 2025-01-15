@@ -294,17 +294,12 @@ def handle_power_data(message):
         log_message("POWER-DEBUG", GREEN + f"Powers has unexpected type: {type(powers)}", level=2)
         return
 
-    # Filter out controlling power from powers array to avoid duplication
-    if controlling_power and controlling_power in powers:
-        powers = [p for p in powers if p != controlling_power]
-        log_message("POWER-DEBUG", GREEN + f"Removed controlling power {controlling_power} from powers array", level=2)
-
     # Log the power data we found
     log_message("POWER-DEBUG", GREEN + "Power data found:", level=2)
     log_message("POWER-DEBUG", GREEN + f"  System: {system_name} (ID64: {system_id64})", level=2)
     log_message("POWER-DEBUG", GREEN + f"  Controlling Power: {controlling_power}", level=2)
     log_message("POWER-DEBUG", GREEN + f"  Power State: {power_state}", level=2)
-    log_message("POWER-DEBUG", GREEN + f"  All Powers (filtered): {powers}", level=2)
+    log_message("POWER-DEBUG", GREEN + f"  Powers Acquiring: {powers}", level=2)
 
     # Database updates
     try:
