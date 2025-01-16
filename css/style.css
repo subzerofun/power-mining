@@ -1246,7 +1246,7 @@ button:not(:hover) {
 }
 
 .demand-input {
-    width: 50px;  /* Smaller width for input */
+    width: 90px !important;  /* Smaller width for input */
     padding: 5px;
     border: 1px solid var(--main-color);
     border-radius: 4px;
