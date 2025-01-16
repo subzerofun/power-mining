@@ -21,6 +21,7 @@ from utils.search import (
     search_res_hotspots,
     search_high_yield_platinum
 )
+from utils.map import map_bp
 
 # Custom JSON encoder to handle datetime objects
 class CustomJSONEncoder(JSONEncoder):
@@ -86,7 +87,7 @@ last_status_time = 0
 shared_status = {"state": "offline", "last_db_update": None}  # Shared across workers
 
 # Debug levels
-DEBUG_LEVEL = 1  # 0 = silent, 1 = critical/important, 2 = normal, 3 = verbose/detailed
+DEBUG_LEVEL = 0  # 0 = silent, 1 = critical/important, 2 = normal, 3 = verbose/detailed
 
 def log_message(color, tag, message, level=1):
     """Log a message with timestamp and PID"""
@@ -447,6 +448,8 @@ app.add_url_rule('/search_highest', 'search_highest', search_highest)
 app.add_url_rule('/get_price_comparison', 'get_price_comparison', get_price_comparison_endpoint, methods=['POST'])
 app.add_url_rule('/search_res_hotspots', 'search_res_hotspots', search_res_hotspots, methods=['POST'])
 app.add_url_rule('/search_high_yield_platinum', 'search_high_yield_platinum', search_high_yield_platinum, methods=['POST'])
+
+app.register_blueprint(map_bp)
 
 if __name__ == '__main__':
     if DEV_MODE:

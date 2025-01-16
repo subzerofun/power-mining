@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>3D Map</title>
+    <style>
+        body { margin: 0; background-color: black; overflow: hidden; }
+
+        @font-face {
+            font-family: 'ChakraPetch';
+            src: url('../fonts/ChakraPetch-Regular.woff2') format('woff2'),
+                url('../fonts/ChakraPetch-Regular.woff') format('woff'),
+                url('../fonts/ChakraPetch-Regular.ttf') format('truetype');
+            font-weight: normal;
+            font-display: swap;
+        }
+        @font-face {
+            font-family: 'ChakraPetch';
+            src: url('../fonts/ChakraPetch-Bold.woff2') format('woff2'),
+                url('../fonts/ChakraPetch-Bold.woff') format('woff'),
+                url('../fonts/ChakraPetch-Bold.ttf') format('truetype');
+            font-weight: bold;
+            font-display: swap;
+        }
+
+        canvas { display: block; }
+        #controls {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            font-family: 'ChakraPetch', sans-serif;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        #systemInput { padding: 5px; }
+        #findButton, #gridDownButton, #gridUpButton, #resetGridButton { padding: 5px; }
+    </style>
+</head>
+<body>
+<div id="controls">
+    <input id="systemInput" type="text" placeholder="Enter system name">
+    <button id="findButton">Find System</button>
+    <button id="gridDownButton">Move Grid Down</button>
+    <button id="gridUpButton">Move Grid Up</button>
+    <button id="resetGridButton">Reset Grid</button>
+    <label for="nameRadius">System Names Radius:</label>
+    <input type="range" id="nameRadius" min="25" max="300" value="150" step="1">
+</div>
+
+<script src="/js/threejs/gsap.min.js"></script>
+<script type="module">
+    import * as THREE from '/js/threejs/three.module.js';
+    import { OrbitControls } from '/js/threejs/jsm/controls/OrbitControls.js';
+    import { FontLoader } from '/js/threejs/jsm/loaders/FontLoader.js';
+    import { TextGeometry } from '/js/threejs/jsm/geometries/TextGeometry.js';
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 10000);
+    camera.position.set(200, 500, 500);
+
+    const renderer = new THREE.WebGLRenderer({ 
+        antialias: true,
+        powerPreference: "high-performance"
+    });
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+    let controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.25;
+
+    const systems = {};
+    const textObjects = [];
+    const circleObjects = [];
+    const gridGroup = new THREE.Group();
+    scene.add(gridGroup);
+
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+    scene.add(ambientLight);
+
+    const fontLoader = new FontLoader();
+    fontLoader.load('/fonts/eurostile_regular.json', font => {
+        fetch('/js/threejs/rares.json')
+            .then(response => response.json())
+            .then(data => {
+                for (const systemKey in data) {
+                    const system = data[systemKey];
+                    systems[system.system.toLowerCase()] = {
+                        name: system.system,
+                        x: parseFloat(system.x),
+                        y: parseFloat(system.y),
+                        z: parseFloat(system.z)
+                    };
+                    addSystemPoint(system.system, system.x, system.y, system.z, font);
+                }
+                createCustomGrid();
+            })
+            .catch(error => console.error("Error loading JSON:", error));
+    });
+
+    function addSystemPoint(name, x, y, z, font) {
+        const circleGeometry = new THREE.CircleGeometry(1.5, 32);
+        const circleMaterial = new THREE.MeshBasicMaterial({ color: 0xffa500, side: THREE.DoubleSide });
+        const circle = new THREE.Mesh(circleGeometry, circleMaterial);
+        circle.position.set(x, y, z);
+        scene.add(circle);
+        circle.renderOrder = 3; // Set a higher renderOrder for the circle
+        circleObjects.push(circle);
+
+        const textMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff, depthTest: false });
+        const textGeometry = new TextGeometry("  " + name.toUpperCase(), {
+            font: font,
+            size: 5,
+            depth: 0.1,
+        });
+        const textMesh = new THREE.Mesh(textGeometry, textMaterial);
+
+        textGeometry.computeBoundingBox();
+        const textHeight = textGeometry.boundingBox.max.y - textGeometry.boundingBox.min.y;
+        textMesh.position.set(x + 10, y - textHeight / 2, z);
+        textMesh.renderOrder = 3; // Ensure text has the highest render order
+
+        scene.add(textMesh);
+        textMesh.renderOrder = 3;
+        textObjects.push({ mesh: textMesh, position: circle.position, textHeight });
+    }
+
+    const lineObjects = []; // Array to hold cyan lines
+    const circleMarkers = []; // Array to hold cyan circles at intersections
+
+    const nameRadiusSlider = document.getElementById('nameRadius');
+    let systemNameRadius = 150; // Default radius for system names and cyan lines
+    const visibleStarsRadius = 1000; // Larger fixed radius for orange points
+
+    // Update system name radius dynamically based on slider
+    nameRadiusSlider.addEventListener('input', () => {
+        systemNameRadius = parseInt(nameRadiusSlider.value);
+        createDynamicLinesAndCircles();
+        updateObjectOrientation();
+    });
+
+    let lastCameraPosition = null;
+
+    function createDynamicLinesAndCircles() {
+        const cameraDirection = new THREE.Vector3();
+        camera.getWorldDirection(cameraDirection);
+        const cameraTarget = camera.position.clone().add(cameraDirection.multiplyScalar(70));
+
+        // Only update objects if camera has moved significantly
+        const cameraMoved = lastCameraPosition ? camera.position.distanceTo(lastCameraPosition) > 1 : true;
+        if (!cameraMoved) return;
+
+        if (lastCameraPosition) lastCameraPosition.copy(camera.position);
+        else lastCameraPosition = camera.position.clone();
+
+        Object.values(systems).forEach((system, index) => {
+            const systemPosition = new THREE.Vector3(system.x, system.y, system.z);
+            const distanceToCenter = cameraTarget.distanceTo(systemPosition);
+
+            // Reuse existing objects instead of creating new ones
+            let line = lineObjects[index];
+            let marker = circleMarkers[index];
+
+            if (distanceToCenter <= systemNameRadius) {
+                const gridYPosition = gridGroup.position.y;
+                const endPosition = new THREE.Vector3(system.x, gridYPosition, system.z);
+                const midPoint = new THREE.Vector3().addVectors(systemPosition, endPosition).multiplyScalar(0.5);
+                const length = systemPosition.distanceTo(endPosition);
+                const opacity = THREE.MathUtils.mapLinear(distanceToCenter, 0, systemNameRadius, 1, 0.2);
+
+                if (!line) {
+                    const cylinderGeometry = new THREE.CylinderGeometry(0.3, 0.3, 1, 8);
+                    const cylinderMaterial = new THREE.MeshBasicMaterial({ 
+                        color: 0x00ffff, 
+                        transparent: true,
+                        depthWrite: false 
+                    });
+                    line = new THREE.Mesh(cylinderGeometry, cylinderMaterial);
+                    lineObjects[index] = line;
+                    scene.add(line);
+                }
+
+                line.visible = true;
+                line.scale.y = length;
+                line.position.copy(midPoint);
+                line.lookAt(systemPosition);
+                line.rotateX(Math.PI / 2);
+                line.material.opacity = opacity;
+
+                if (!marker) {
+                    const circleGeometry = new THREE.CircleGeometry(3, 32);
+                    const circleMaterial = new THREE.MeshBasicMaterial({ 
+                        color: 0x00ffff, 
+                        transparent: true, 
+                        side: THREE.DoubleSide,
+                        depthWrite: false 
+                    });
+                    marker = new THREE.Mesh(circleGeometry, circleMaterial);
+                    marker.renderOrder = 2;
+                    circleMarkers[index] = marker;
+                    scene.add(marker);
+                }
+
+                const circleYPosition = system.y > gridYPosition ? gridYPosition + 0.1 : gridYPosition;
+                marker.visible = true;
+                marker.position.set(system.x, circleYPosition, system.z);
+                marker.rotation.x = Math.PI / 2;
+                marker.material.opacity = opacity;
+            } else {
+                if (line) line.visible = false;
+                if (marker) marker.visible = false;
+            }
+        });
+    }
+
+
+    function createCustomGrid() {
+        const size = 5000;
+        const divisions100 = size / 100;
+        const divisions50 = size / 50;
+        const divisions25 = size / 25;
+
+        createThickGridLines(25, divisions25, 0xbfffff, 1);
+        createThickGridLines(50, divisions50, 0xbfffff, 2);
+        createThickGridLines(100, divisions100, 0xbfffff, 12);
+    }
+
+    function createThickGridLines(interval, divisions, color, thickness) {
+        const halfSize = divisions * interval / 2;
+        const positions = [];
+
+        for (let i = -halfSize; i <= halfSize; i += interval) {
+            positions.push(new THREE.Vector3(-halfSize, 0, i), new THREE.Vector3(halfSize, 0, i));
+            positions.push(new THREE.Vector3(i, 0, -halfSize), new THREE.Vector3(i, 0, halfSize));
+        }
+
+        const geometry = new THREE.BufferGeometry().setFromPoints(positions);
+        const material = new THREE.LineBasicMaterial({
+            color: color,
+            linewidth: thickness,
+            transparent: true,
+            opacity: 0.05,
+            depthWrite: false // Prevent grid from affecting depth buffer
+        });
+        const line = new THREE.LineSegments(geometry, material);
+        line.renderOrder = 0; // Set a lower renderOrder for the grid
+        gridGroup.add(line);
+        scene.add(gridGroup);
+    }
+
+    let gridYOffset = 0;
+
+    document.getElementById('gridUpButton').addEventListener('click', () => {
+        animateGridPosition(12.5);
+    });
+
+    document.getElementById('gridDownButton').addEventListener('click', () => {
+        animateGridPosition(-12.5);
+    });
+
+    document.getElementById('resetGridButton').addEventListener('click', () => {
+        animateGridPosition(-gridYOffset);
+    });
+
+    document.getElementById('systemInput').addEventListener('keypress', (event) => {
+        if (event.key === 'Enter') {
+            findSystem();
+        }
+    });
+    document.getElementById('findButton').addEventListener('click', findSystem);
+
+    function animateGridPosition(targetY) {
+        gsap.to(gridGroup.position, {
+            y: targetY,
+            duration: 1,
+            ease: 'power2.inOut',
+            onUpdate: createDynamicLinesAndCircles // Recalculate lines and circles during the animation
+        });
+    }
+
+    function findSystem() {
+        const systemName = document.getElementById('systemInput').value.toLowerCase();
+        if (systemName in systems) {
+            const target = systems[systemName];
+
+            // Temporarily disable OrbitControls
+            controls.enabled = false;
+
+            // Calculate end position for the camera to center the target in the viewport
+            const distance = 100;
+            const targetVector = new THREE.Vector3(target.x, target.y, target.z);
+            const direction = camera.getWorldDirection(new THREE.Vector3());
+            const endPosition = targetVector.clone().sub(direction.multiplyScalar(distance));
+
+            // Animate the camera to the calculated end position
+            gsap.to(camera.position, {
+                x: endPosition.x,
+                y: endPosition.y,
+                z: endPosition.z,
+                duration: 2,
+                ease: 'power2.inOut',
+                onComplete: () => {
+                    camera.position.copy(endPosition);
+                    controls.target.copy(targetVector);
+                    controls.update();
+                    controls.enabled = true;
+                }
+            });
+
+            // Animate the grid's Y position to align with the target's Y coordinate
+            gsap.to(gridGroup.position, {
+                y: target.y,
+                duration: 2,
+                ease: 'power2.inOut',
+                onUpdate: createDynamicLinesAndCircles // Update lines and circles during animation
+            });
+        } else {
+            alert("System not found.");
+        }
+    }
+
+
+
+    function updateObjectOrientation() {
+        textObjects.forEach(({ mesh, position, textHeight }) => {
+            const distanceToCamera = camera.position.distanceTo(position);
+
+            // Set visibility based on system name radius
+            if (distanceToCamera <= systemNameRadius) {
+                const maxFontSize = 2;
+                const minFontSize = 0.5;
+                const scaleFactor = THREE.MathUtils.clamp((distanceToCamera + 80) / 400, minFontSize, maxFontSize);
+
+                mesh.scale.set(scaleFactor, scaleFactor, scaleFactor);
+                const maxOpacity = 1;
+                const minOpacity = 0.3;
+                const opacity = THREE.MathUtils.clamp(1 - ((distanceToCamera - 100) / 150), minOpacity, maxOpacity);
+                mesh.material.opacity = opacity;
+                mesh.visible = true; // Show text
+
+                mesh.quaternion.copy(camera.quaternion);
+                const verticalCenterOffset = (textHeight * scaleFactor) / 2;
+                mesh.position.set(position.x + 10, position.y - verticalCenterOffset, position.z);
+            } else {
+                mesh.visible = false; // Hide text if outside system name radius
+            }
+        });
+
+        circleObjects.forEach(circle => {
+            const distanceToCamera = camera.position.distanceTo(circle.position);
+
+            // Set visibility based on the larger visible stars radius for orange points
+            if (distanceToCamera <= visibleStarsRadius) {
+                const maxOpacity = 1;
+                const minOpacity = 0.4;
+                const opacity = THREE.MathUtils.clamp(1 - ((distanceToCamera - 40) / 400), minOpacity, maxOpacity);
+                circle.material.opacity = opacity;
+                const scaleFactor = THREE.MathUtils.clamp(distanceToCamera / 200, 0.5, 0.75);
+                circle.scale.set(scaleFactor, scaleFactor, scaleFactor);
+                circle.visible = true; // Show orange point
+            } else {
+                circle.visible = false; // Hide orange point if outside visible stars radius
+            }
+
+            circle.quaternion.copy(camera.quaternion);
+        });
+    }
+
+
+    function animate() {
+        requestAnimationFrame(animate);
+        if (controls.enabled) {
+            controls.update();
+            createDynamicLinesAndCircles(); // Now only creates objects when needed
+        }
+        updateObjectOrientation();
+        renderer.render(scene, camera);
+    }
+
+    animate();
+
+    window.addEventListener('resize', () => {
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+    });
+</script>
+</body>
+</html>
