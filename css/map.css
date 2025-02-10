@@ -1,0 +1,155 @@
+/* Existing styles */
+
+/* Beta Warning Dialog */
+.beta-warning {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.8);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+}
+
+.beta-content {
+    background-color: #391800;
+    border: 2px solid var(--main-color);
+    border-radius: 8px;
+    width: 90%;
+    max-width: 40%;
+    max-height: 90vh;
+    overflow-y: auto;
+    padding: 20px;
+    color: var(--main-color);
+    font-family: 'ChakraPetch', sans-serif;
+}
+
+.beta-content .flex-columns {
+    display: flex;
+    justify-content: space-between;
+    align-items: left;
+    flex-direction: row;
+    gap: 30px;
+}
+
+.beta-content .flex-columns li {
+    flex: 1;
+    display: block;
+    align-self: baseline;
+    width: 50%;
+    margin: 0;
+}
+
+.beta-header {
+    display: flex;
+
+
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.beta-header h2 {
+    margin: 0;
+    color: var(--main-color);
+}
+
+.close-beta {
+    background: none;
+    border: none;
+    color: var(--main-color);
+    font-size: 24px;
+    cursor: pointer;
+    padding: 0 8px;
+    transition: color 0.2s;
+    background: none !important;
+}
+
+.close-beta:hover {
+    color: #ff9500;
+}
+
+.beta-body {
+    line-height: 1.4;
+    font-size: 0.95em;
+}
+
+.beta-body h3 {
+    color: var(--main-color);
+    margin: 20px 0 10px;
+}
+
+.beta-body ul {
+    list-style: none;
+    padding-left: 0;
+    margin: 10px 0;
+}
+
+.beta-body li {
+    margin: 5px 0;
+    padding-left: 20px;
+    position: relative;
+}
+
+.beta-body li:before {
+    content: '•';
+    color: var(--main-color);
+    position: absolute;
+    left: 0;
+}
+
+.beta-footer {
+    margin-top: 30px;
+    padding-top: 15px;
+    border-top: 1px solid rgba(255, 158, 4, 0.3);
+    font-style: italic;
+    color: #ff9500;
+    opacity: 0.8;
+}
+
+#camera-infos {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: #00ffff;
+    font-family: ChakraPetch;
+    font-size: 14px;
+    z-index: 1000;
+    display: flex;
+}
+
+
+.coords {
+    flex-grow: 0;
+    /* Prevents column from growing */
+    flex-shrink: 0;
+    /* Prevents column from shrinking */
+    text-align: left;
+    align-items: flex-start;
+    display: inline-block;
+    width: 600px;  /* Fixed width for each coordinate field */
+    font-family: monospace;  /* Use monospace font for fixed-width characters */
+}
+
+/* Specific widths for each coordinate type */
+#coordinates {
+    width: 280px;
+}
+
+#cameraCoords {
+    width: 400px;
+}
+
+#zoomLevel {
+    width: 150px;
+}
+
+#fpsCounter {
+    width: 150px;
+    font-family: monospace;
+    color: #00ff00;  /* Green color for FPS */
+}

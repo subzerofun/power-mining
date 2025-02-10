@@ -1,0 +1,348 @@
+<style>
+        .icon-container {
+                display: flex;
+                justify-content: center;
+                align-items: center;
+        }
+
+
+        .filterit{
+                filter: invert(56%) sepia(35%) saturate(4820%) hue-rotate(354deg) brightness(97%) contrast(98%);
+                width: 100px;
+        }
+
+        .ht p {
+                font: 1em;
+                color: white;
+                margin-bottom: 0.3em;
+        }
+
+        h1 { font-size: 2em; }
+        h2 { font-size: 1.7em; margin-bottom: 0.6em; }
+        h3 { font-size: 1.4em; margin-bottom: 0.4em; }
+        h4 { font-size: 1.2em; margin-bottom: 0.2em; }
+
+        .box-container {
+                
+        }
+
+        .box {
+                max-width: 700px;
+                display: block;
+                position: relative;
+                float: left;
+        }
+
+        .picture {
+                display: block;
+                position: relative;
+                float: left;
+                width: 100%;
+                min-width: 200px;
+                max-height: 300px;
+                background-color: #211d1c;
+        }
+
+        .ht ul {
+                list-style-position: inside;
+                list-style: none;
+        }
+
+        .ht li b, .tag {
+                color: var(--main-color);
+                /*margin-left: -10px;*/
+                border: 0px solid var(--main-color);
+                background-color: #451d0c;
+                border-radius: 5px;
+                padding: 1px 7px;
+                display: inline-block;
+                margin-bottom: 5px;
+                text-align: center;
+                font-style: bold;
+                max-height: fit-content;
+                font-size: 1.1em;
+        }
+
+
+        .ht li::marker {
+                color: var(--main-color);
+                margin-right: -0.5em;
+        }
+
+        .ht li {
+                color: white;
+
+        }
+        
+        .sub-list-entry {
+                display: block;
+                position: relative;
+                float: left;
+        }
+        ul li b.sub-list-entry, ul li b  {
+                margin-right: 10px;
+        }
+
+        .power-goal-entry {
+                display: flex;
+                flex-direction: row;
+                gap: 20px;
+        }
+
+        .power-goal-entry b {
+
+        }
+
+        .ht a {
+                color: var(--main-color);
+                text-decoration: none;
+        }
+
+        .two-column-container {
+                display: flex;
+                flex-direction: row;
+                gap: 40px;
+                margin-bottom: 20px;
+        }
+
+        .two-column-left {
+                flex: 1;
+                width: 50%;
+        }
+
+        .two-column-right {
+                flex: 1;
+                width: 50%;
+        }
+
+        .three-column-container {
+                display: flex;
+                flex-direction: row;
+                gap: 20px;
+                margin-bottom: 20px;
+        }
+
+        .column {
+                flex: 1;
+        }      
+        .three-column-container ul {
+                display: flex;
+                flex-direction: row;
+                gap: 10px;
+        }
+        .three-column-container li {
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+                width: 33%;
+        }
+
+        br {
+                margin-bottom: 0.5em;
+        }
+        /* Three-column layout for list items */
+        .three-column-container div ul {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 40px 20px;
+                width: 100%;
+                align-items: baseline;
+        }
+
+        .three-column-container div ul li {
+                flex: 1 1 calc(33.333% - 20px);
+                min-width: 200px;
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+                display: flex;
+                flex-direction: column;
+                flex-flow: inherit;
+                gap: 5px;
+        }
+        .illustration {
+                width: 100%;
+                height: auto;
+                margin: 10px 0;
+        }
+        .two-column-container ul li p { margin-bottom: 1.2em !important; }
+        .orange {
+                color: white;
+                background-color: #ffa500;
+                padding: 0 20px;
+        }
+
+
+</style>
+<div class="box-container ht">
+<div class="two-column-container">
+        <div class="two-column-left">        
+                <h1>Search Guide</h1>
+                <p>This site is a tool to help you find the best prices for mining & earning merits for your power play faction. It offers a variety of features that help you gain influence over the control of systems in the Powerplay 2.0 game feature. The act of selling your mined goods in a specific system raises the control points for your faction in that system. But it is important where the minerals/metals are mined (see the Acquire and Reinforce/Undermine section). The higher the selling price → the more merits you get per ton sold → the more control points your power faction gains. The search is split into multiple sections, each for a different purpose.</p>
+                <br>
+        </div>
+        <div class="two-column-right">
+                <img src="/img/how-to/how-to-intro.jpg" width="600px" height="auto" />
+        </div>
+</div>
+
+<div class="two-column-container">
+        <div class="two-column-left">
+                <h2>Mining for Merits</h2>
+                <div>
+                        <div style="display: flex; flex-direction: row; gap: 20px;">
+                                <div>
+                                        <img width="100px" height="100px" src="/img/icons/menu/7-merits.svg" class="filterit" alt="Mine for Merits">
+                                </div>  
+                                <div>
+                                        <p>This is the main search. It will show you the best prices for either simply gathering the most merits per commodity, for helping you gain influence and control over a system owned by your power, or for undermining other factions.</p>
+                                </div>
+                        </div>
+                        <div>
+                                <br><span class="tag orange"><b>Search</b></span> <br>
+                                <p>The main search with detailed station information. Multiple stations per system and display of demand for up to 5 different commodities.</p>
+                                <br><span class="tag orange"><b>Overview</b></span> <br>
+                                <p>A shorter table with only the top paying station per system.</p>
+                        </div>
+                </div>
+        </div>
+        <div class="two-column-right">
+                <h2>Powerplay System states</h2>
+                <div>
+                <div style="display: flex; flex-direction: row; gap: 20px;">
+                        <div>
+                            <ul>
+                                <li><b>Unoccupied</b><p>These systems are not controlled by any power and are candidates for expansion – they are considered Acquisition systems if a powers system is within a 20-30ly radius.</p></li>
+                                <li><b>Exploited</b><b>Fortified</b><b>Stronghold</b><b>Stronghold*</b><b>Capital</b>
+                                <p>From left to right, these indicate the ascending levels of control that a power has over a system. *System with a Stronghold Carrier.</p></li>
+                                <li><b>Contested</b><p>Systems in which multiple powers are attempting to expand and have reached the expansion threshold. A conflict will ensue during the next cycle, with the victor expanding into the system as an exploited system.</p></li>
+                            </ul>
+                        </div>
+                </div>
+
+                </div>
+        </div>
+</div>
+
+
+<h3>Main search filter:</h3>
+
+<div class="two-column-container">
+        <div class="two-column-left">
+                <span class="tag"><b>Power Goal:</b></span> <span class="tag"><b>1) Acquire</b></span><br>
+                <img class="illustration" src="/img/how-to/how-to-acquisition.png" width="100%" height="auto" />
+
+                <p>Searches for systems that are in reach for your power to take control of. It might not be the only faction doing so. The prerequisites for earning merits here are as follows: you must sell in an "Unoccupied" system, and the mining goods must have been extracted from a system located within a 20 ly radius <a href="https://elite-dangerous.fandom.com/wiki/Powerplay#Reinforcement:~:text=5-,Fortified,-These%20systems%20are">(Fortified)</a> or within a 30 ly radius <a href="https://elite-dangerous.fandom.com/wiki/Powerplay#Reinforcement:~:text=6-,Stronghold,-These%20systems%20are">(Stronghold)</a> radius of that <a href="https://elite-dangerous.fandom.com/wiki/Powerplay#Acquisition_system:~:text=1-,Uncontrolled,-These%20are%20systems">Unoccupied</a> system.</p>
+                <p> The search is ordered first by the specified filters and then by highest price. The result table will show you potential "Unoccupied" systems on the left and the systems you can mine in on the right. </p>
+        </div>
+        <div class="two-column-right">
+                <span class="tag"><b>Power Goal:</b></span> <span class="tag"><b>2) Reinforce</b></span><br>
+                <img class="illustration" src="/img/how-to/how-to-reinforce-undermine.png" width="100%" height="auto" />
+                <p>By mining and selling in the same system, you can reinforce your power's control. The search result table will display all relevant information, such as mining hotspots and station buying prices.</p><br>
+
+                <span class="tag"><b>Power Goal:</b></span> <span class="tag"><b>3) Undermine</b></span><br>
+                <p>The same mining rules apply as for the 'Reinforce' goal, but instead of strengthening your own power's grasp on the system, you are trying to undermine the control of your target power. The filter "Opposing Power" will show you all systems controlled by that target power, where your own faction is trying to undermine the control.</p>
+        </div>
+</div>
+
+
+<div class="three-column-container">
+        <div class="column">
+                <h3>Other search filters:</h3>
+                <ul>
+                        <li><b>Reference System:</b> This is the origin system from which the search will be calculated.</li>
+                        <li><b>Distance:</b> A filter showing only systems within a specific distance.</li>
+                        <li><b>Search Results:</b> Number of displayed search results.<br></li>
+                        <li><b>Your Power:</b> A filter only showing systems controlled by your faction. If you want to see the best prices systemwide, you need to select "Any".</li>
+                        <li><b>Power Goal:</b> The main goal of the search. You can select between Acquire, Reinforce and Undermine.</li>                       
+                        <li><b>Opposing Power:</b> A filter that shows power factions attempting to exploit systems controlled by your faction. When 'Undermine' is selected as the power goal, this filter will display all systems controlled by the opposing power.</li>
+                        <li><b>Mineral/Metal:</b> The mining good you want to search and sell. All minerals and metals have different mining conditions. </li>    
+                        <li><b>Ring Types:</b> Filters for different types of rings. The 'Hotspots' filter shows only systems with hotspots, while the other filters search for rings that exhibit both hotspot signals and general availability.</li>
+                        <li><b>Reserve Level:</b> A filter showing only rings with a specific reserve level. This filter is important for laser mining and can be ignored for core mining.</li>
+                        <li><b>Mining Type:</b>The tools you bring for mining. The two primary distinctions are 'Core' and 'Laser Surface'. 'Core' asteroids must be blown up first to release their valuables, whereas 'Laser Surface' asteroids can be directly extracted using a mining lase.</li>
+                        <li><b>Min. Demand:</b> Filtering for minimum demand for the selected mineral/metal in the buying stations. Can be set to 0.</li>
+                        <li><b>Max. Demand:</b> Filtering for maximum demand for the selected mineral/metal in the buying stations. Can be set to 0.</li>
+                        <li><b>Add Mineral/Metal:</b> Add a new mineral/metal to the search, which will be displayed in the stations "Other commodity" column. Up to 5 different minerals/metals will be shown.</li>
+                        <li><b>Landing Pad Size:</b> A filter showing only systems with a specific landing pad size.</li>
+                        <li><b>System state:</b>Select a specific state for the system. The most important state for obtaining good prices is 'Boom'; selecting 'Any' will, by default, show all systems.</li>
+                </ul>
+
+        </div>
+</div>
+
+<div class="spacer" style="height: 20px;"></div>
+
+<div class="spacer" style="height: 1px; border-top: 1px solid var(--main-color); width: 100%; margin: 30px 0;"></div>
+
+
+<div class="two-column-container">
+        <div class="two-column-left">
+                <div style="display: flex; flex-direction: row; gap: 20px;">
+                        <div>
+                                <img width="80px" height="80px" src="/img/icons/menu/2-system.svg" class="filterit" alt="Mine for Merits">
+                        </div>  
+                        <div>
+                        <h2>System Finder BETA</h2>
+                                <p>This is a reconstruction of the original galaxy map from the game, focusing exclusively on powerplay systems. I plan to add more features in the future, such as improved system information displays and some distance visualizations.
+
+                                The source data for the map will be regenerated after each server tick on Thursday evening. I do not plan to add auto-updates between weekly data refreshes, although I might implement that feature later.
+                                
+                                For now, it is a barebones map with functional display, search, and navigation.
+                                </p>
+                        </div>
+                </div>
+
+        </div>
+        <div class="two-column-right">
+                <img src="/img/how-to/how-to-system-finder.jpg" width="100%" height="auto" />
+        </div>
+</div>
+
+<div class="spacer" style="height: 1px; border-top: 1px solid var(--main-color); width: 100%; margin: 30px 0;"></div>
+
+
+<div class="two-column-container">
+        <div class="two-column-left">
+                <h2>Res Hotspots</h2>
+                <div style="display: flex; flex-direction: row; gap: 20px;">
+                        <div>
+                                <img width="80px" height="80px" src="/img/icons/menu/4-res.svg" class="filterit" alt="Mine for Merits">
+                        </div>  
+                        <div>
+                                <p>Res Hotspots: This feature shows the overlaps between resource extraction sites and hotspots. Data is taken from: <a href="https://edtools.cc/list?ord=243">https://edtools.cc/?ord=24</a></p>
+                        </div>
+                </div>
+        </div>
+        <div class="two-column-right">
+                <h2>Platinum Spots++</h2>
+                <div style="display: flex; flex-direction: row; gap: 20px;">
+                        <div>
+                                <img width="80px" height="80px" src="/img/icons/menu/5-platinum.svg" class="filterit" alt="Mine for Merits">
+                        </div>  
+                        <div>
+                                <p>Platinum Spots++: This feature shows high-yield platinum hotspots. Data is taken from: <a href="https://edtools.cc/list?ord=23">https://edtools.cc/?ord=23</a> and <a href="https://edtools.cc/list?ord=25">https://edtools.cc/?ord=25</a> </p>
+                                <p>More Info:<br> <a href="https://redd.it/l6cgc3/">PSA: The list of known RES/hotspot combinations</a><br> <a href="http://redd.it/wi5c5n">Platinum hotspots and RES combinations: survey results.
+
+                                </a></p>
+                        </div>
+                </div>               
+        </div>
+</div>
+
+<div class="spacer" style="height: 40px;"></div>
+
+<div class="spacer" style="height: 1px; border-top: 1px solid var(--main-color); width: 100%; margin: 30px 0;"></div>
+
+<div class="two-column-container">
+        <div class="two-column-left">
+                <h2>Fonts, Icons and other assets</h2>
+                        <p>Most of the icons were created by me, the game specific icons were taken from:
+                                <a href="https://edassets.org">https://edassets.org</a><br>
+                        </p>
+                        <p>The fonts used on this site are "Chakra Petch" from Google Fonts and "Eurostile" from edassets.org.</p>
+        </div>
+        <div class="two-column-right">             
+        </div>
+</div>
+
+</div>

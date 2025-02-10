@@ -1,0 +1,45 @@
+# Add directories or file patterns to ignore during indexing (e.g. foo/ or *.csv)
+
+# ignore ALL .log and db files
+*.log
+*.db
+*.db-shm
+*.db-wal
+*.psd
+*.ai
+
+
+# Python
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+
+json/galaxy_stations*.*
+json/stations.json
+json/systemsPopulated.json
+json/systemsWithCoordinates.json
+json/powerPlay.json
+json/old/*
+img/*.psd
+img/*.ai
+__pycache__/
+json/Commodity-2025-01-04.jsonl
+json/galaxy_populated.json
+json/galaxy_populated.json.gz
+/dumps

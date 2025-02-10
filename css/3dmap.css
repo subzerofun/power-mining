@@ -1,0 +1,501 @@
+html, body, canvas {
+    overflow: hidden;
+}
+
+body { margin: 0; background-color: black; overflow: hidden; }
+
+canvas { 
+    display: block; 
+    position: fixed;
+    top: 0;  /* Take up bottom 80% of screen */
+    left: 0;
+    width: 100%;
+    height: 100%;  /* Take up 80% of screen height */
+    z-index: 1;
+    overflow: hidden;
+    user-select: none;
+    -moz-user-select: none;
+    -khtml-user-select: none;
+    -webkit-user-select: none;
+    -o-user-select: none;
+}
+
+.container {
+    position: relative;  /* Make sure container is positioned */
+    pointer-events: none;  /* Allow clicks to pass through to canvas */
+    z-index: 2;         /* Higher z-index to draw over canvas */
+    overflow: visible;
+    width: 100%;
+    /*height: 100vh;*/
+    padding: 0 0;    /* Add padding to create inner margins */
+    box-sizing: border-box;
+    overflow: hidden;
+}
+
+/* Re-enable pointer events for specific interactive elements */
+.search-container,
+#controls,
+.system-info {
+    pointer-events: auto;
+}
+
+@font-face {
+    font-family: 'ChakraPetch';
+    src: url('../fonts/ChakraPetch-Regular.woff2') format('woff2'),
+        url('../fonts/ChakraPetch-Regular.woff') format('woff'),
+        url('../fonts/ChakraPetch-Regular.ttf') format('truetype');
+    font-weight: normal;
+    font-display: swap;
+}
+@font-face {
+    font-family: 'ChakraPetch';
+    src: url('../fonts/ChakraPetch-Bold.woff2') format('woff2'),
+        url('../fonts/ChakraPetch-Bold.woff') format('woff'),
+        url('../fonts/ChakraPetch-Bold.ttf') format('truetype');
+    font-weight: bold;
+    font-display: swap;
+}
+
+.autocomplete-results {
+    background-color: var(--bg-dark);
+    border: 1px solid var(--main-color);
+    color: var(--main-color);
+    z-index: 1000;
+    position: absolute;
+    width: 100%;
+}
+
+.autocomplete-item {
+    padding: 8px;
+    cursor: pointer;
+    color: var(--main-color);
+}
+
+.autocomplete-item:hover {
+    background-color: var(--table-dark);
+}
+
+#systemAutocomplete {
+    position: relative;
+    z-index: 1000;
+}
+
+#systemAutocomplete input {
+    background-color: var(--bg-dark);
+    border: 1px solid var(--main-color);
+    color: var(--main-color);
+    width: 240px;
+}
+
+canvas:focus {
+    outline: none !important;
+}
+canvas:active {
+    outline: none !important;
+}
+.text-objects-status {
+    margin-top: 10px;
+    font-size: 0.9em;
+    color: #00ffff;
+    text-align: left;
+}
+.system-info {
+    position: absolute;
+    right: 0;
+    width: 490px;
+    max-height: 70vh;
+    background-color: rgba(18, 8, 2, 0.8);
+    color: white;
+    display: block;
+    z-index: 1000;
+    font-family: 'ChakraPetch', sans-serif;
+    padding: 20px;
+    padding-right: 32px;  /* Base padding */
+    margin-right: auto;   /* Space for scrollbar */
+    border-radius: 5px 0 0 5px;
+    backdrop-filter: blur(14px);
+    pointer-events: auto;
+    overflow-y: overlay;  /* Changed to overlay to prevent content shift */
+    overflow-x: hidden;
+    box-shadow: 0 0 10px 0 rgba(0, 0, 0, 0.5);
+    display: none;
+}
+
+/* Webkit Scrollbar Base */
+.system-info::-webkit-scrollbar {
+    width: 12px;  /* Fixed width */
+    max-width: 12px;
+    position: absolute;
+    right: 0;
+}
+
+/* Track */
+.system-info::-webkit-scrollbar-track {
+    background: #2f1f09;
+    border-radius: 4px;
+    margin: 4px;  /* Inner padding */
+}
+
+/* Thumb */
+.system-info::-webkit-scrollbar-thumb {
+    background: #f5730d;
+    border-radius: 4px;
+    border: none;
+    min-height: 40px;
+}
+
+/* Remove all buttons */
+.system-info::-webkit-scrollbar-button {
+    display: none;
+}
+
+/* Firefox */
+@-moz-document url-prefix() {
+    .system-info {
+        scrollbar-width: thin;
+        scrollbar-color: #f5730d #2f1f09;
+    }
+}
+
+.system-info-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    border-bottom: 1px solid #4b2511;
+    margin-bottom: 10px;
+    padding: 0;
+    max-height: 42px;
+}
+
+.system-info-header h3 {
+    margin: 0;
+    color: var(--sysview);
+    font-size: 1.4em;
+    padding-bottom: 0.5em;
+    line-height: 1;
+}
+
+.close-button {
+    background: none;
+    border: none;
+    color: var(--main-color);
+    font-size: 32px;
+    font-weight: lighter;
+    cursor: pointer;
+    padding: 0;
+    margin-top: -8px;
+    line-height: 1;
+    height: 32px;
+}
+
+.close-button:hover {
+    color: var(--main-color);
+    background: none;
+}
+
+.close-button:not(:hover) {
+    color: #595959;
+    background: none;
+}
+
+.system-info-content {
+    overflow-y: auto;
+    height: calc(100% - 40px);
+    /*padding: 5px;*/
+    font-size: 15px;
+    line-height: 1.4;
+    overflow-x: hidden;
+}
+
+/* Common label width for all left-side labels */
+.label {
+    width: 170px;
+    color: var(--main-color);
+    text-align: right;
+    padding-right: 25px;
+    flex-shrink: 0;
+}
+
+/* Power Information */
+.info-row {
+    display: flex;
+    align-items: flex-start;
+    margin-bottom: 10px;
+    font-size: 1.1em;
+    font-weight: normal;
+}
+
+.value, .value-list {
+    flex: 1;
+    min-width: 250px;
+}
+
+.value-list > div {
+    margin-bottom: 5px;
+}
+
+.dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 5px;
+}
+
+.dot.red { background: #ff0000; }
+.dot.yellow { background: #ffff00; }
+.dot.orange { background: #ff8000; }
+.dot.brown { background: #8b4513; }
+
+
+.system-info-power-state {
+    padding: 10px 0;
+    border-top: 1px solid #4b2511;
+    border-bottom: 1px solid #4b2511;
+}
+
+/* Remove top border when it's the first or only child */
+.system-info-power-state:first-child,
+.system-info-power-state:only-child {
+    border-top: none;
+    padding-top: 0;
+}
+
+.system-info-power-state .power-state-tag {
+    margin-bottom: 0;
+}
+
+/* System State */
+.system-info-state {
+    padding: 10px 0;
+    border-bottom: 1px solid #4b2511;
+}
+
+.system-info-state .info-row, .system-info-power-state .info-row {
+    margin-bottom: 0;
+}
+
+.system-info-state .value {
+    color: #00bfff;
+}
+
+.system-info-state .state-icon, .icon-boom {
+    width: 12px;
+    height: 12px;
+    margin-right: 5px;
+    display: inline-block;
+}
+
+/* Two-column layout */
+.system-info-columns {
+    display: flex;
+    margin-top: 15px;
+}
+
+.system-info-hotspots {
+    width: 170px;
+    padding-right: 25px;
+}
+
+.system-info-stations {
+    flex: 1;
+    min-width: 250px;
+}
+
+/* Section headers */
+.system-info-hotspots h4,
+.system-info-stations h4 {
+    color: var(--main-color);
+    margin: 0 0 10px 0;
+    font-size: 16px;
+    font-weight: normal;
+}
+
+.system-info .cleft {
+    width: 200px;
+    text-align: right;
+}
+
+.system-info .cright {
+    width: 250px;
+    text-align: left;
+    color: white;
+    clear: both;
+}
+
+form.map {
+    background: rgba(43, 11, 4, 0.6);
+    backdrop-filter: blur(10px);
+}
+
+.search-menu {
+    backdrop-filter: blur(10px);
+    overflow: visible;
+}
+
+.search-menu-button:nth-child(2) {
+    height: 40px !important;
+    backdrop-filter: blur(10px);
+}
+.container {
+    overflow: visible;
+}
+
+.search-form {
+    min-height:108px !important;
+}
+
+.system-info-hotspots,
+.system-info-stations {
+    margin-top: 0;
+}
+
+.hotspot-list,
+.commodity-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.hotspot-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 8px;
+    color: #fff;
+    font-size: 14px;
+    font-weight: normal;
+}
+
+.hotspot-item .body {
+    min-width: 20px;
+}
+
+.hotspot-icon {
+    width: 12px;
+    height: 12px;
+    margin-top: -0.1em !important;
+}
+
+.mineral {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.station {
+    margin-bottom: 40px;
+}
+
+.station-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 0;
+    color: #fff;
+    font-size: 14px;
+    font-weight: normal;
+    border-bottom: 1px solid #4b2511;
+    min-height: 30px;
+    justify-content: space-between;
+}
+
+.station-item .name {
+    min-width: 80px;
+}
+
+.station-item .price {
+    min-width: 80px;
+    text-align: right;
+}
+
+.demand-icon {
+    width: 10px;
+    height: 10px;
+}
+
+.demand {
+    color: #00ff00;
+    text-align: right;
+    min-width: 36px;
+    font-size: 14px;
+    margin-right: 0;
+}
+
+.station-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.station-name-systemview {
+    color: var(--main-color);
+    font-weight: normal;
+    margin-bottom: 5px;
+    font-size: 18px;
+    color: white;
+}
+
+.station-icon-systemview {
+    width: 30px;
+    height: 30px;
+    margin-right: 5px;
+    margin-bottom: 5px;
+}
+
+.station-pad {
+    color: #888;
+    font-size: 0.9em;
+    margin-bottom: 10px;
+}
+
+.commodities h5 {
+    color: var(--main-color);
+    margin: 10px 0 0 0;
+    font-size: 16px;
+    font-weight: normal;
+    border-bottom: 1px solid #4b2511;
+    padding-bottom: 3px;
+}
+
+.commodity-buttons {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0;
+    width: 100%;
+    margin-top: 10px;
+}
+
+button.cmdt-btn {
+    background: transparent !important;
+    color: var(--main-color);
+    border:1px solid var(--main-color);
+    border-radius: 0 !important;
+    font-size: 14px;
+    font-weight: normal;
+    padding: 4px 8px;
+    width: 80px;
+    text-align: center !important;
+}
+
+button.cmdt-btn:hover {
+    background: var(--main-color) !important;
+    color: white;
+}
+
+button.active {
+    background: var(--main-color) !important;
+    color: white;
+}
+
+.hotspot-entry .body {
+    color: transparent;
+}
+
+.ring-type-entry:nth-child(n+2) {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid #4b2511;
+}

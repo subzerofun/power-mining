@@ -14,14 +14,14 @@ from utils.common import (
     BLUE, RED, YELLOW, GREEN, CYAN, ORANGE, RESET,
     BASE_DIR
 )
-from utils.search import (
-    search,
-    search_highest,
-    get_price_comparison_endpoint,
+from utils.search_reinforce import search as search_reinforce
+from utils.res_data import (
     search_res_hotspots,
     search_high_yield_platinum
 )
 from utils.map import map_bp
+from utils.search_acquisition import search as search_acquisition
+from utils.search_undermine import search as search_undermine
 
 # Custom JSON encoder to handle datetime objects
 class CustomJSONEncoder(JSONEncoder):
@@ -45,6 +45,8 @@ def calculate_distance(x1, y1, z1, x2, y2, z2):
 
 def create_app(*args, **kwargs):
     global app_wsgi, DATABASE_URL
+    
+    # If we've never set up app_wsgi before, do the initial config...
     if app_wsgi is None:
         app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
         
@@ -57,12 +59,30 @@ def create_app(*args, **kwargs):
         # Set DATABASE_URL in app config
         app.config['DATABASE_URL'] = DATABASE_URL
         
+        # -----------------------------------------------------------------
+        # NEW: Call init_engine_and_session() for the master/first call
+        # -----------------------------------------------------------------
+        #with app.app_context():
+        #    init_engine_and_session()
+
         app_wsgi = app
-        
+
         # Setup ZMQ in each worker to receive status
         setup_zmq()
-    
+
+    else:
+        # -----------------------------------------------------------------
+        # NEW: Also call init_engine_and_session() for subsequent calls
+        #     (e.g., Gunicorn workers)
+        # -----------------------------------------------------------------
+        #with app.app_context():
+        #    init_engine_and_session()
+
+        # You might also want to re-setup ZMQ in workers if needed
+        setup_zmq()
+
     return app_wsgi
+
 
 # Global flag for development mode
 DEV_MODE = False  # Will be set from args in main()
@@ -335,16 +355,32 @@ def autocomplete():
         return jsonify({'error': 'Error during autocomplete'}), 500
 
 @app.route('/search')
-def search_route():
-    return search()
+def search():
+    """Main search route that handles all power goals"""
+    power_goal = request.args.get('power_goal', 'Reinforce')
+    
+    if power_goal == 'Reinforce':
+        return search_reinforce()
+    elif power_goal == 'Undermine':
+        return search_undermine()
+    elif power_goal == 'Acquire':
+        return search_acquisition()
+    else:
+        return jsonify({'error': 'Invalid power goal'}), 400
 
 @app.route('/search_highest')
-def search_highest_route():
-    return search_highest()
-
-@app.route('/get_price_comparison', methods=['POST'])
-def get_price_comparison_route():
-    return get_price_comparison_endpoint()
+def search_highest():
+    """Route for highest prices search"""
+    power_goal = request.args.get('power_goal', 'Reinforce')
+    
+    if power_goal == 'Reinforce':
+        return search_reinforce(display_format='highest')
+    elif power_goal == 'Undermine':
+        return search_undermine(display_format='highest')
+    elif power_goal == 'Acquire':
+        return search_acquisition(display_format='highest')
+    else:
+        return jsonify({'error': 'Invalid power goal'}), 400
 
 @app.route('/search_res_hotspots', methods=['POST'])
 def search_res_hotspots_route():
@@ -392,6 +428,11 @@ async def main():
 
     # Set DATABASE_URL in app config
     app.config['DATABASE_URL'] = DATABASE_URL
+
+    # ------------------- MINIMAL FIX: dev mode also init session ---------------
+    #with app.app_context():
+    #    init_engine_and_session()
+    # ---------------------------------------------------------------------------
 
     # Bind websocket to all interfaces but web server to specified host
     ws_server = None
@@ -442,14 +483,15 @@ def cleanup_zmq():
 
 atexit.register(cleanup_zmq)
 
-# Register routes from search.py
-app.add_url_rule('/search', 'search', search)
-app.add_url_rule('/search_highest', 'search_highest', search_highest)
-app.add_url_rule('/get_price_comparison', 'get_price_comparison', get_price_comparison_endpoint, methods=['POST'])
-app.add_url_rule('/search_res_hotspots', 'search_res_hotspots', search_res_hotspots, methods=['POST'])
-app.add_url_rule('/search_high_yield_platinum', 'search_high_yield_platinum', search_high_yield_platinum, methods=['POST'])
+# Configure app before registering blueprints
+app.config['DATABASE_URL'] = DATABASE_URL
 
 app.register_blueprint(map_bp)
+
+@app.route('/map')
+def show_map():
+    """Serve the complete map.html page."""
+    return send_from_directory(BASE_DIR, 'map.html')
 
 if __name__ == '__main__':
     if DEV_MODE:

@@ -1,64 +1,53 @@
-import { showLoading, hideLoading } from './search.js';
-
-// Make functions globally available for onclick handlers
-document.addEventListener('DOMContentLoaded', () => {
-    window.searchResHotspots = searchResHotspots;
-    window.searchHighYieldPlatinum = searchHighYieldPlatinum;
-});
-
-function getCommodityCode(commodityName) {
-    const codeMap = {
-        'Platinum': 'PLA',
-        'Painite': 'PAI',
-        'Osmium': 'OSM',
-        'Gold': 'GLD',
-        'Silver': 'SLV',
-        'Tritium': 'TRI',
-        'Low Temperature Diamonds': 'LTD',
-        'Void Opals': 'VOP',
-        'Grandidierite': 'GND',
-        'Alexandrite': 'ALX',
-        'Musgravite': 'MSG',
-        'Benitoite': 'BEN',
-        'Serendibite': 'SER',
-        'Monazite': 'MON',
-        'Rhodplumsite': 'RHO',
-        'Bromellite': 'BRM'
-    };
-    return codeMap[commodityName] || commodityName.substring(0, 3).toUpperCase();
-}
-
-function getStationIcon(stationType) {
-    const iconMap = {
-        'Coriolis Starport': 'Coriolis_sm.svg',
-        'Orbis Starport': 'Orbis_sm.svg',
-        'Ocellus Starport': 'Ocellus_sm.svg',
-        'Asteroid base': 'Asteroid_Station.svg',
-        'Outpost': 'Outpost_sm.svg',
-        'Surface Port': 'surface_port_sm.svg',
-        'Planetary Outpost': 'surface_port_sm.svg',
-        'Settlement': 'settlement_sm.svg'
-    };
-    const icon = iconMap[stationType] || 'Outpost_sm.svg';
-    return `<img src="/img/icons/${icon}" alt="${stationType}" class="station-icon">`;
-}
+import { 
+    getStationIcon, 
+    formatPrices, 
+    formatPriceSpan, 
+    formatNumber, 
+    formatUpdateTime,
+    getCommodityCode, 
+    toggleAllSignals, 
+    getDemandIcon, 
+    showAllSignals, 
+    formatStations,
+    formatAcquisitionStation,
+    getPowerStateIcon,
+    formatSystemState,
+    formatControllingPower,
+    formatPowerInfo,
+    formatSystemName,
+    shortenStationName,
+    filterAndSortStations,
+    formatCommodityPrice,
+    POWER_COLORS
+} from './search_format.js';
 
 async function searchResHotspots() {
     const search = window.miningSearch;
     search.showLoading();
     try {
-        // Get the current reference system
-        const refSystem = document.getElementById('system').value;
-        const database = document.getElementById('database').value;
+        // Get the required DOM elements
+        const systemElement = document.getElementById('system');
+        const distanceElement = document.getElementById('distance');
+        const limitElement = document.getElementById('limit');
+        const controllingPowerElement = document.getElementById('controlling_power');
+        const opposingPowerElement = document.getElementById('opposing_power');
         
-        const response = await fetch(`/search_res_hotspots?system=${encodeURIComponent(refSystem)}`, {
+        if (!systemElement) {
+            throw new Error('Required form elements not found. Please ensure the page is fully loaded.');
+        }
+
+        // Get the current values
+        const refSystem = systemElement.value;
+        const distance = distanceElement ? distanceElement.value : 100;
+        const limit = limitElement ? limitElement.value : 10;
+        const controllingPower = controllingPowerElement ? controllingPowerElement.value : 'Any';
+        const opposingPower = opposingPowerElement ? opposingPowerElement.value : 'Any';
+        
+        const response = await fetch(`/search_res_hotspots?system=${encodeURIComponent(refSystem)}&distance=${distance}&limit=${limit}&controlling_power=${controllingPower}&opposing_power=${opposingPower}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                database: database
-            })
+            }
         });
 
         if (!response.ok) {
@@ -69,6 +58,28 @@ async function searchResHotspots() {
         if (data.error) {
             alert('Search error: ' + data.error);
             return;
+        }
+
+        // Collect all price items up front
+        const allPriceItems = [];
+        data.forEach(result => {
+            if (result.stations) {
+                result.stations.forEach(station => {
+                    if (station.other_commodities) {
+                        station.priceItemsStartIndex = allPriceItems.length;
+                        allPriceItems.push(...station.other_commodities.map(commodity => ({
+                            price: commodity.sell_price,
+                            commodity: commodity.name
+                        })));
+                    }
+                });
+            }
+        });
+
+        // Get all price comparisons in one request
+        let allPriceData = [];
+        if (allPriceItems.length > 0) {
+            allPriceData = await formatPrices(allPriceItems, search.useMaxPrice);
         }
 
         const table = document.getElementById('resultsTable');
@@ -83,7 +94,6 @@ async function searchResHotspots() {
             <th>Ring Details</th>
             <th>Ls</th>
             <th>RES Zone</th>
-            <th>Comment</th>
             <th>Stations</th>
         `;
         
@@ -98,11 +108,11 @@ async function searchResHotspots() {
             
             // System
             const systemCell = row.insertCell();
-            systemCell.textContent = result.system;
+            systemCell.innerHTML = formatSystemName(result.system);
 
             // Power
             const powerCell = row.insertCell();
-            powerCell.textContent = result.power || '';
+            powerCell.innerHTML = formatPowerInfo(result.controlling_power, result.power_state, result.powers_acquiring);
 
             // DST
             const dstCell = row.insertCell();
@@ -116,97 +126,78 @@ async function searchResHotspots() {
             const lsCell = row.insertCell();
             lsCell.textContent = result.ls || '';
 
-            // RES Zone
+            // RES Zone + Comment
             const resCell = row.insertCell();
-            resCell.textContent = result.res_zone || '';
-
-            // Comment
-            const commentCell = row.insertCell();
-            commentCell.textContent = result.comment || '';
+            resCell.innerHTML = result.res_zone + (result.comment ? `<br><br>${result.comment}` : '');
 
             // Stations
             const stationsCell = row.insertCell();
             if (result.stations && result.stations.length > 0) {
-                const stationList = document.createElement('ul');
-                stationList.className = 'station-list';
+                const topStations = filterAndSortStations(result.stations);
+                if (topStations.length > 0) {
+                    const stationList = document.createElement('ul');
+                    stationList.className = 'station-list';
                 
-                result.stations.forEach(station => {
-                    const li = document.createElement('li');
-                    const stationEntry = document.createElement('div');
-                    stationEntry.className = 'station-entry';
-                    
-                    // Station main section
-                    const stationMain = document.createElement('div');
-                    stationMain.className = 'station-main';
-                    
-                    // Station name with icon
-                    stationMain.innerHTML = `${getStationIcon(station.station_type)}${station.name} (${station.pad_size})`;
-                    
-                    // Station details
-                    const details = document.createElement('div');
-                    details.className = 'station-details';
-                    details.innerHTML = `
-                        <div>Distance: ${Math.floor(station.distance).toLocaleString()} Ls</div>
-                        <div class="update-time">Updated: ${station.update_time ? station.update_time.split(' ')[0] : ''}</div>
-                    `;
-                    stationMain.appendChild(details);
-                    stationEntry.appendChild(stationMain);
-                    
-                    // Commodities block
-                    if (station.other_commodities && station.other_commodities.length > 0) {
-                        const commoditiesBlock = document.createElement('div');
-                        commoditiesBlock.className = 'other-commodities';
+                    topStations.forEach(async (station) => {
+                        const li = document.createElement('li');
+                        const stationEntry = document.createElement('div');
+                        stationEntry.className = 'station-entry';
                         
-                        const commoditiesHeader = document.createElement('div');
-                        commoditiesHeader.className = 'other-commodities-title';
-                        commoditiesHeader.textContent = 'Commodities:';
-                        commoditiesBlock.appendChild(commoditiesHeader);
+                        // Station main section
+                        const stationMain = document.createElement('div');
+                        stationMain.className = 'station-main';
                         
-                        const commoditiesList = document.createElement('div');
-                        commoditiesList.className = 'other-commodities-list';
+                        // Station name with icon
+                        stationMain.innerHTML = `${getStationIcon(station.station_type)}${shortenStationName(station.name)} (${station.pad_size})`;
+                        
+                        // Station details
+                        const details = document.createElement('div');
+                        details.className = 'station-details';
+                        const updateTime = station.update_time ? station.update_time.split(' ')[0] : null;
+                        details.innerHTML = `
+                            <div>Distance: ${Math.floor(station.distance).toLocaleString()} Ls</div>
+                            <div class="update-time">${formatUpdateTime(updateTime)}</div>
+                        `;
+                        stationMain.appendChild(details);
+                        stationEntry.appendChild(stationMain);
+                        
+                        // Commodities block
+                        if (station.other_commodities && station.other_commodities.length > 0) {
+                            const commoditiesBlock = document.createElement('div');
+                            commoditiesBlock.className = 'other-commodities';
+                            
+                            const commoditiesHeader = document.createElement('div');
+                            commoditiesHeader.className = 'other-commodities-title';
+                            commoditiesHeader.textContent = 'Commodities:';
+                            commoditiesBlock.appendChild(commoditiesHeader);
+                            
+                            const commoditiesList = document.createElement('div');
+                            commoditiesList.className = 'other-commodities-list';
 
-                        // Get price comparisons for all commodities
-                        const priceItems = station.other_commodities.map(commodity => ({
-                            price: commodity.sell_price,
-                            commodity: commodity.name
-                        }));
-
-                        fetch('/get_price_comparison', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                            },
-                            body: JSON.stringify({
-                                items: priceItems,
-                                use_max: search.useMaxPrice
-                            })
-                        })
-                        .then(r => r.json())
-                        .then(priceData => {
-                            station.other_commodities.forEach((commodity, index) => {
-                                const commodityItem = document.createElement('div');
-                                commodityItem.className = 'commodity-item';
+                            for (const commodity of station.other_commodities) {
+                                const { color, indicator } = await formatCommodityPrice(commodity.sell_price, commodity.name, search.useMaxPrice);
                                 const code = getCommodityCode(commodity.name);
-                                const priceSpan = document.createElement('span');
-                                if (priceData[index] && priceData[index].color) {
-                                    priceSpan.style.color = priceData[index].color;
-                                }
-                                priceSpan.textContent = `${commodity.sell_price.toLocaleString()} CR${priceData[index]?.indicator || ''}`;
-                                commodityItem.innerHTML = `<span class="commodity-code">${code}</span>`;
-                                commodityItem.appendChild(priceSpan);
-                                commodityItem.innerHTML += ` | ${search.getDemandIcon(commodity.demand)} ${commodity.demand.toLocaleString()} Demand`;
-                                commoditiesList.appendChild(commodityItem);
-                            });
-                        });
+                                
+                                commoditiesList.innerHTML += `
+                                    <div class="commodity-item">
+                                        <span class="commodity-code">${code}</span>
+                                        <span style="color: ${color || ''}">${commodity.sell_price.toLocaleString()} CR${indicator}</span>
+                                        | ${getDemandIcon(commodity.demand)} ${commodity.demand.toLocaleString()} Demand
+                                    </div>
+                                `;
+                            }
+                            
+                            commoditiesBlock.appendChild(commoditiesList);
+                            stationEntry.appendChild(commoditiesBlock);
+                        }
                         
-                        commoditiesBlock.appendChild(commoditiesList);
-                        stationEntry.appendChild(commoditiesBlock);
-                    }
-                    
-                    li.appendChild(stationEntry);
-                    stationList.appendChild(li);
-                });
-                stationsCell.appendChild(stationList);
+                        li.appendChild(stationEntry);
+                        stationList.appendChild(li);
+                    });
+                    stationsCell.appendChild(stationList);
+                } else {
+                    stationsCell.textContent = 'No stations with priority minerals & metals';
+                }
             } else {
                 stationsCell.textContent = 'No stations in system';
             }
@@ -225,18 +216,29 @@ async function searchHighYieldPlatinum() {
     const search = window.miningSearch;
     search.showLoading();
     try {
-        // Get the current reference system and database
-        const refSystem = document.getElementById('system').value;
-        const database = document.getElementById('database').value;
+        // Get the required DOM elements
+        const systemElement = document.getElementById('system');
+        const distanceElement = document.getElementById('distance');
+        const limitElement = document.getElementById('limit');
+        const controllingPowerElement = document.getElementById('controlling_power');
+        const opposingPowerElement = document.getElementById('opposing_power');
         
-        const response = await fetch(`/search_high_yield_platinum?system=${encodeURIComponent(refSystem)}`, {
+        if (!systemElement) {
+            throw new Error('Required form elements not found. Please ensure the page is fully loaded.');
+        }
+
+        // Get the current values
+        const refSystem = systemElement.value;
+        const distance = distanceElement ? distanceElement.value : 100;
+        const limit = limitElement ? limitElement.value : 10;
+        const controllingPower = controllingPowerElement ? controllingPowerElement.value : 'Any';
+        const opposingPower = opposingPowerElement ? opposingPowerElement.value : 'Any';
+        
+        const response = await fetch(`/search_high_yield_platinum?system=${encodeURIComponent(refSystem)}&distance=${distance}&limit=${limit}&controlling_power=${controllingPower}&opposing_power=${opposingPower}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                database: database
-            })
+            }
         });
 
         if (!response.ok) {
@@ -250,7 +252,7 @@ async function searchHighYieldPlatinum() {
         }
 
         const table = document.getElementById('resultsTable');
-        table.className = 'results-table res-hotspot-table';
+        table.className = 'results-table high-yield-table';
         
         // Update table headers
         const thead = table.querySelector('thead tr');
@@ -260,7 +262,6 @@ async function searchHighYieldPlatinum() {
             <th>DST</th>
             <th>Ring Details</th>
             <th>Percentage</th>
-            <th>Comment</th>
             <th>Stations</th>
         `;
         
@@ -279,7 +280,7 @@ async function searchHighYieldPlatinum() {
 
             // Power
             const powerCell = row.insertCell();
-            powerCell.textContent = result.power || '';
+            powerCell.innerHTML = formatPowerInfo(result.controlling_power, result.power_state, result.powers_acquiring);
 
             // DST
             const dstCell = row.insertCell();
@@ -293,93 +294,74 @@ async function searchHighYieldPlatinum() {
             const percentageCell = row.insertCell();
             percentageCell.textContent = result.percentage || '';
 
-            // Comment
-            const commentCell = row.insertCell();
-            commentCell.textContent = result.comment || '';
-
             // Stations
             const stationsCell = row.insertCell();
             if (result.stations && result.stations.length > 0) {
-                const stationList = document.createElement('ul');
-                stationList.className = 'station-list';
+                const topStations = filterAndSortStations(result.stations);
+                if (topStations.length > 0) {
+                    const stationList = document.createElement('ul');
+                    stationList.className = 'station-list';
                 
-                result.stations.forEach(station => {
-                    const li = document.createElement('li');
-                    const stationEntry = document.createElement('div');
-                    stationEntry.className = 'station-entry';
-                    
-                    // Station main section
-                    const stationMain = document.createElement('div');
-                    stationMain.className = 'station-main';
-                    
-                    // Station name with icon
-                    stationMain.innerHTML = `${getStationIcon(station.station_type)}${station.name} (${station.pad_size})`;
-                    
-                    // Station details
-                    const details = document.createElement('div');
-                    details.className = 'station-details';
-                    details.innerHTML = `
-                        <div>Distance: ${Math.floor(station.distance).toLocaleString()} Ls</div>
-                        <div class="update-time">Updated: ${station.update_time ? station.update_time.split(' ')[0] : ''}</div>
-                    `;
-                    stationMain.appendChild(details);
-                    stationEntry.appendChild(stationMain);
-                    
-                    // Commodities block
-                    if (station.other_commodities && station.other_commodities.length > 0) {
-                        const commoditiesBlock = document.createElement('div');
-                        commoditiesBlock.className = 'other-commodities';
+                    topStations.forEach(async (station) => {
+                        const li = document.createElement('li');
+                        const stationEntry = document.createElement('div');
+                        stationEntry.className = 'station-entry';
                         
-                        const commoditiesHeader = document.createElement('div');
-                        commoditiesHeader.className = 'other-commodities-title';
-                        commoditiesHeader.textContent = 'Commodities:';
-                        commoditiesBlock.appendChild(commoditiesHeader);
+                        // Station main section
+                        const stationMain = document.createElement('div');
+                        stationMain.className = 'station-main';
                         
-                        const commoditiesList = document.createElement('div');
-                        commoditiesList.className = 'other-commodities-list';
+                        // Station name with icon
+                        stationMain.innerHTML = `${getStationIcon(station.station_type)}${shortenStationName(station.name)} (${station.pad_size})`;
+                        
+                        // Station details
+                        const details = document.createElement('div');
+                        details.className = 'station-details';
+                        const updateTime = station.update_time ? station.update_time.split(' ')[0] : null;
+                        details.innerHTML = `
+                            <div>Distance: ${Math.floor(station.distance).toLocaleString()} Ls</div>
+                            <div class="update-time">${formatUpdateTime(updateTime)}</div>
+                        `;
+                        stationMain.appendChild(details);
+                        stationEntry.appendChild(stationMain);
+                        
+                        // Commodities block
+                        if (station.other_commodities && station.other_commodities.length > 0) {
+                            const commoditiesBlock = document.createElement('div');
+                            commoditiesBlock.className = 'other-commodities';
+                            
+                            const commoditiesHeader = document.createElement('div');
+                            commoditiesHeader.className = 'other-commodities-title';
+                            commoditiesHeader.textContent = 'Commodities:';
+                            commoditiesBlock.appendChild(commoditiesHeader);
+                            
+                            const commoditiesList = document.createElement('div');
+                            commoditiesList.className = 'other-commodities-list';
 
-                        // Get price comparisons for all commodities
-                        const priceItems = station.other_commodities.map(commodity => ({
-                            price: commodity.sell_price,
-                            commodity: commodity.name
-                        }));
-
-                        fetch('/get_price_comparison', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                            },
-                            body: JSON.stringify({
-                                items: priceItems,
-                                use_max: search.useMaxPrice
-                            })
-                        })
-                        .then(r => r.json())
-                        .then(priceData => {
-                            station.other_commodities.forEach((commodity, index) => {
-                                const commodityItem = document.createElement('div');
-                                commodityItem.className = 'commodity-item';
+                            for (const commodity of station.other_commodities) {
+                                const { color, indicator } = await formatCommodityPrice(commodity.sell_price, commodity.name, search.useMaxPrice);
                                 const code = getCommodityCode(commodity.name);
-                                const priceSpan = document.createElement('span');
-                                if (priceData[index] && priceData[index].color) {
-                                    priceSpan.style.color = priceData[index].color;
-                                }
-                                priceSpan.textContent = `${commodity.sell_price.toLocaleString()} CR${priceData[index]?.indicator || ''}`;
-                                commodityItem.innerHTML = `<span class="commodity-code">${code}</span>`;
-                                commodityItem.appendChild(priceSpan);
-                                commodityItem.innerHTML += ` | ${search.getDemandIcon(commodity.demand)} ${commodity.demand.toLocaleString()} Demand`;
-                                commoditiesList.appendChild(commodityItem);
-                            });
-                        });
+                                
+                                commoditiesList.innerHTML += `
+                                    <div class="commodity-item">
+                                        <span class="commodity-code">${code}</span>
+                                        <span style="color: ${color || ''}">${commodity.sell_price.toLocaleString()} CR${indicator}</span>
+                                        | ${getDemandIcon(commodity.demand)} ${commodity.demand.toLocaleString()} Demand
+                                    </div>
+                                `;
+                            }
+                            
+                            commoditiesBlock.appendChild(commoditiesList);
+                            stationEntry.appendChild(commoditiesBlock);
+                        }
                         
-                        commoditiesBlock.appendChild(commoditiesList);
-                        stationEntry.appendChild(commoditiesBlock);
-                    }
-                    
-                    li.appendChild(stationEntry);
-                    stationList.appendChild(li);
-                });
-                stationsCell.appendChild(stationList);
+                        li.appendChild(stationEntry);
+                        stationList.appendChild(li);
+                    });
+                    stationsCell.appendChild(stationList);
+                } else {
+                    stationsCell.textContent = 'No stations with priority minerals & metals';
+                }
             } else {
                 stationsCell.textContent = 'No stations in system';
             }
@@ -392,4 +374,24 @@ async function searchHighYieldPlatinum() {
     } finally {
         search.hideLoading();
     }
-} 
+}
+
+// Make functions globally available after they're defined
+document.addEventListener('DOMContentLoaded', () => {
+    // Wait for miningSearch to be available
+    const checkMiningSearch = () => {
+        if (window.miningSearch) {
+            // Make functions available globally for onclick attributes
+            window.searchResHotspots = searchResHotspots;
+            window.searchHighYieldPlatinum = searchHighYieldPlatinum;
+            console.log('search_special.js loaded and initialized');
+        } else {
+            console.log('Waiting for miningSearch to be available...');
+            setTimeout(checkMiningSearch, 100);
+        }
+    };
+    checkMiningSearch();
+});
+
+// Export all functions
+export { searchResHotspots, searchHighYieldPlatinum };

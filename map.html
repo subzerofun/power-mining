@@ -2,63 +2,459 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>3D Map</title>
-    <style>
-        body { margin: 0; background-color: black; overflow: hidden; }
-
-        @font-face {
-            font-family: 'ChakraPetch';
-            src: url('../fonts/ChakraPetch-Regular.woff2') format('woff2'),
-                url('../fonts/ChakraPetch-Regular.woff') format('woff'),
-                url('../fonts/ChakraPetch-Regular.ttf') format('truetype');
-            font-weight: normal;
-            font-display: swap;
-        }
-        @font-face {
-            font-family: 'ChakraPetch';
-            src: url('../fonts/ChakraPetch-Bold.woff2') format('woff2'),
-                url('../fonts/ChakraPetch-Bold.woff') format('woff'),
-                url('../fonts/ChakraPetch-Bold.ttf') format('truetype');
-            font-weight: bold;
-            font-display: swap;
-        }
-
-        canvas { display: block; }
-        #controls {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            color: white;
-            font-family: 'ChakraPetch', sans-serif;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        #systemInput { padding: 5px; }
-        #findButton, #gridDownButton, #gridUpButton, #resetGridButton { padding: 5px; }
-    </style>
+    <title>3D Galaxy Visualization</title>
+    <link rel="stylesheet" href="/css/3dmap.css" type="text/css">
+    <link rel="stylesheet" href="/css/style.css" type="text/css">
+    <link rel="stylesheet" href="/css/tables.css" type="text/css">
+    <link rel="stylesheet" href="/css/table-acquisition.css" type="text/css">
+    <link rel="stylesheet" href="/css/searchform.css" type="text/css">
+    <link rel="stylesheet" href="/css/map.css" type="text/css">
+    <link rel="stylesheet" href="/css/controls.css" type="text/css">
+    <!--<script src="/js/css_reload.js" type="text/javascript"></script>-->
 </head>
 <body>
-<div id="controls">
-    <input id="systemInput" type="text" placeholder="Enter system name">
-    <button id="findButton">Find System</button>
-    <button id="gridDownButton">Move Grid Down</button>
-    <button id="gridUpButton">Move Grid Up</button>
-    <button id="resetGridButton">Reset Grid</button>
-    <label for="nameRadius">System Names Radius:</label>
-    <input type="range" id="nameRadius" min="25" max="300" value="150" step="1">
-</div>
 
-<script src="/js/threejs/gsap.min.js"></script>
-<script type="module">
+    <div class="container">
+        <div class="header">
+            <h1>Elite Dangerous Merit Miner | Web Version</h1>
+            <div class="kofi-button">
+                <!--<script type='text/javascript' src='https://storage.ko-fi.com/cdn/widget/Widget_2.js'></script>-->
+                <script type='text/javascript' src='js/Widget_2.js'></script>
+                <script type='text/javascript'>kofiwidget2.init('Support me on Ko-fi', '#0096e1', 'H2H618T1H5');kofiwidget2.draw();</script>
+            </div>
+        </div>
+        
+        <div class="search-container">
+            <div class="search-menu map">
+                <button class="search-menu-button active" data-id="system-finder">
+                    <img src="/img/icons/menu/2-system.svg" alt="System Finder">
+                    <span>System<br>Finder</span>
+                </button>
+                <button class="search-menu-button" data-id="back">
+                    <img src="/img/icons/menu/6-back-arrow.svg" alt="Back">
+                    <span>Back</span>
+                </button>
+            </div>
+
+            <form class="search-form map" id="searchForm">
+                <div class="form-row">
+                    <div class="form-group inline-group">
+                        <label for="system">Target System:</label>
+                        <div id="systemAutocomplete">
+                            <input type="text" id="system" name="system" value="Sol" required>
+                            <div class="autocomplete-results"></div>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary mainSearchButton">Search</button>
+                
+                    <div class="text-objects-status">
+                        <div style="display: none;">Text boxes in memory: <span id="textObjectsTotal">0</span></div>
+                        <div style="display: none;">Text boxes visible: <span id="textObjectsVisible">0</span></div>
+                    </div>
+
+                    <div class="status-container" style="display: none;">
+                        <div class="eddn-status">
+                            <div class="eddn-title">EDDN Live Update:</div>
+                            <div class="status-indicator">
+                                <div class="status-circle eddn-circle"></div>
+                                <div class="status-text eddn-text">Offline</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+
+
+            </form>
+        </div>
+        <div id="controls-left-container">
+            <button class="controls-left-button options" id="controls-visual">
+                <img src="img/icons/menu-map/menu-options.svg" alt="Options">
+            </button>
+            <div id="controls" style="display: none;">
+                <div class="system-info-header">
+                    <h3>Display Options</h3>
+                    <button id="close-display-info" class="close-button">&times;</button>
+                </div>
+                <div class="controls-notice">Rudimentary display options. Expect bugs.</div>
+                <div class="controls-info-group">
+                    <button id="toggleGasClouds">Nebulae On</button>
+                    <span class="controls-info">Toggles Nebulae <b>+FPS</b></span>
+                </div>
+                <div class="controls-info-group">
+                    <button id="togglePowerGlow">Power Glow On</button>
+                    <span class="controls-info">Toggles Power Glow <b>+FPS</b></span>
+                </div>
+                <div class="controls-info-group">
+                    <button id="togglePowerStates">Power Icons</button>
+                    <span class="controls-info">Toggles Power Icons</span>
+                </div>
+                <div class="controls-info-group">
+                    <button id="toggleBackground">360° Background</button>
+                    <span class="controls-info">Toggles Cubemap Background</span>
+                </div>
+                <div class="controls-info-group">
+                    <button id="toggleOrganicPowerLines">Lines Simple</button>
+                    <span class="controls-info">Toggles simple power lines connections</span>
+                </div>
+                <div class="controls-info-group">
+                    <button id="togglePowerLines">Lines Complex<br></button>
+                    <span class="controls-info">⚠️ Wait 30s! Connects all power control systems with each other.</span>
+                </div>
+                <div class="controls-info-group">
+                    <button id="togglePowerVolumes">Nebula</button>
+                    <span class="controls-info">Power Icon Nebula-like Glow</span>
+                </div>
+
+                <div class="controls-info-group">
+                    <button id="togglePowerRegions">Power Regions</button>
+                    <span class="controls-info">Power Regions as Convex Low-Poly Mesh</span>
+                </div>
+                <div class="controls-info-group">
+                    <button id="toggleGeodesicTerritories">Power Geodesic</button>
+                    <span class="controls-info">Power Geodesic Objects</span>
+                </div>
+                <div class="controls-info-group">
+                    <button id="togglePowerMesh">Power Mesh</button>
+                    <span class="controls-info">Broken</span>
+                </div>
+                <div class="controls-info-group">
+                    <button id="togglePowerTerritories">Power Territories</button>
+                    <span class="controls-info">Broken</span>
+                </div>
+                <div class="controls-element">
+                    <label for="nameRadius">System Names Radius:</label>
+                    <input type="range" id="nameRadius" min="10" max="40" value="20" step="1">
+                </div>
+                <div class="controls-element" style="display: none;">
+                    <label for="cutoffFront">Front Cutoff:</label>
+                    <input type="number" id="cutoffFront" value="40" step="1" style="width: 60px;">
+                </div>
+                <div class="controls-element" style="display: none;">
+                    <label for="visibleRadius">100% Visible Radius:</label>
+                    <input type="number" id="visibleRadius" value="100" step="1" style="width: 60px;">
+                </div>
+                <div class="controls-element" style="display: none;">
+                    <label for="farCutoff">Far Cutoff:</label>
+                    <input type="number" id="farCutoff" value="1000" step="1" style="width: 60px;">
+                </div>
+            </div>
+        </div>
+        
+        <div id="system-info" class="system-info">
+            <div class="system-info-header">
+                <h3>Alpha Centauri</h3>
+                <button id="close-system-info" class="close-button">&times;</button>
+            </div>
+            <div class="system-info-content">
+                <div class="system-info-power">
+                    <div class="info-row">
+                        <span class="label">Controlling Power:</span>
+                        <span class="value"><span class="dot red"></span>Archon Delaine</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">Undermining:</span>
+                        <div class="value-list">
+                            <div><span class="dot yellow"></span>Pranav Antal</div>
+                            <div><span class="dot orange"></span>Yuri Grom</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="system-info-power-state">
+                    <div class="info-row">
+                        <span class="label">Power State:</span>
+                        <span class="value"><span class="icon-boom"></span>Reinforced</span>
+                    </div>
+                </div>
+
+                <div class="system-info-state">
+                    <div class="info-row">
+                        <span class="label">System State:</span>
+                        <span class="value"><span class="icon-boom"></span>Boom</span>
+                    </div>
+                </div>
+
+                <div class="system-info-columns">
+                    <div class="system-info-hotspots">
+                        <h4>Ring Signals:</h4>
+                        <ul class="hotspot-list">
+                            <li class="hotspot-item">
+                                <span class="body">4 A</span>
+                                <img src="img/icons/hotspot-systemview.svg" class="hotspot-icon" alt="hotspot">
+                                <span class="mineral">Monazite</span>
+                            </li>
+                            <li class="hotspot-item">
+                                <span class="body">5 A</span>
+                                <img src="img/icons/hotspot-systemview.svg" class="hotspot-icon" alt="hotspot">
+                                <span class="mineral">Monazite</span>
+                            </li>
+                            <li class="hotspot-item">
+                                <span class="body">2 A</span>
+                                <img src="img/icons/hotspot-systemview.svg" class="hotspot-icon" alt="hotspot">
+                                <span class="mineral">Alexandrite</span>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <div class="system-info-stations">
+                        <h4>Stations Buying:</h4>
+                        <div class="station">
+                            <div class="station-header">
+                                <img class="station-icon-systemview" src="/img/icons/Coriolis_sm.svg" alt="Coriolis Starport">
+                                <div class="station-name-systemview">Lafitte Chemical Productions</div>
+                            </div>
+                            <div class="station-pad">Largest Landing Pad: L</div>
+                            <div class="commodities">
+                                <h5>Top mining commodities:</h5>
+                                <ul class="commodity-list">
+                                    <li class="station-item">
+                                        <span class="name">Monazite</span>
+                                        <span class="price">748,102 CR</span>
+                                        <svg class="demand-icon" width="13" height="8"><use href="img/icons/demand.svg#demand-medium"></use></svg>
+                                        <span class="demand">15,000</span>
+                                    </li>
+                                    <li class="station-item">
+                                        <span class="name">Alexandrite</span>
+                                        <span class="price">748,102 CR</span>
+                                        <svg class="demand-icon" width="13" height="8"><use href="img/icons/demand.svg#demand-medium"></use></svg>
+                                        <span class="demand">15,000</span>
+                                    </li>
+                                    <li class="station-item">
+                                        <span class="name">Musgravite</span>
+                                        <span class="price">748,102 CR</span>
+                                        <svg class="demand-icon" width="13" height="8"><use href="img/icons/demand.svg#demand-medium"></use></svg>
+                                        <span class="demand">15,000</span>
+                                    </li>
+                                </ul>
+                                <div class="commodity-buttons">
+                                    <button class="cmdt-btn commodity-hotspots active">Hotspots</button>
+                                    <button class="cmdt-btn commodity-mineable">Mineable</button>
+                                    <button class="cmdt-btn commodity-all">All</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="station">
+                            <div class="station-header">
+                                <img class="station-icon-systemview" src="/img/icons/Coriolis_sm.svg" alt="Coriolis Starport">
+                                <div class="station-name-systemview">Lafitte Chemical Productions</div>
+                            </div>
+                            <div class="station-pad">Largest Landing Pad: L</div>
+                            <div class="commodities">
+                                <h5>Top commodities:</h5>
+                                <ul class="commodity-list">
+                                    <li class="station-item">
+                                        <span class="name">Monazite</span>
+                                        <span class="price">748,102 CR</span>
+                                        <svg class="demand-icon" width="13" height="8"><use href="img/icons/demand.svg#demand-medium"></use></svg>
+                                        <span class="demand">15,000</span>
+                                    </li>
+                                    <li class="station-item">
+                                        <span class="name">Alexandrite</span>
+                                        <span class="price">748,102 CR</span>
+                                        <svg class="demand-icon" width="13" height="8"><use href="img/icons/demand.svg#demand-medium"></use></svg>
+                                        <span class="demand">15,000</span>
+                                    </li>
+                                    <li class="station-item">
+                                        <span class="name">Musgravite</span>
+                                        <span class="price">748,102 CR</span>
+                                        <svg class="demand-icon" width="13" height="8"><use href="img/icons/demand.svg#demand-medium"></use></svg>
+                                        <span class="demand">15,000</span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>        
+
+        <div class="loading-overlay"></div>
+        <div class="loading">
+            <div id="spinner-container"></div>
+            <div style="padding-top: 100px;">Searching systems...</div>
+        </div>
+
+        <div class="coordinates" id="camera-infos">
+            <span id="coordinates" class="coords" style="color: #00ffff;"></span>
+            <span style="color: #ffa500; margin-left: 10px;" class="coords" id="cameraCoords"></span>
+            <span id="zoomLevel" class="coords"></span>
+            <div id="fpsCounter">FPS: 0 (0ms)</div>
+        </div>
+    </div>
+
+    <div id="beta-warning" class="beta-warning" style="display: none;">
+        <div class="beta-content">
+            <div class="beta-header">
+                <h2>⚠️ Before you start</h2>
+                <button class="close-beta" onclick="document.getElementById('beta-warning').style.display='none';">×</button>
+            </div>
+            <div class="beta-body">
+                <p>This is a reconstruction of the in-game galaxy map, but   showing only  powerplay systems. Due to the limitation of the database only containing powerplay data i can't offer a realistic (star visualization) mode yet. 
+                <br><br>    
+                Enter a system in the search bar to get started. Use the icon on the top left to show/hide some displaying options if your framerate is too low. I haven't tested this is on low-end hardware or while playing the game. It might eat up too much VRAM and cause issues - i will need to properly monitor and optimize this.</p>
+
+                <h3>Controls:</h3>
+                <div>
+                <ul>
+                    <li>Mouse drag left: Rotate X and Z</li>
+                    <li>Mouse drag right: Translate Y</li>
+                    <li>Arrow keys, WASD: Translate X and Z</li>
+                    <li>First click on system: Show Info</li>
+                    <li>Second click on system: Move to that system</li>
+                </ul>
+                </div>
+
+                <h3>Features:</h3>
+                <p>When selecting a system by search or click you will see commodities and available minerals and metals in the rings of the systems bodies in the right popup window. Commodities are sortable with three buttons:
+                <ul>    
+                    <li>Hotspots: Minerals/Metals available in Hotspots, all sellable</li>
+                    <li>Mineable: Minerals/Metals available without Hotspots, all sellable</li>
+                    <li>All: All commodities bought at this station, not all mineable here</li>
+                </ul>
+                </p>
+
+                <h3>Experimental Visualizations:</h3>
+                <p>Some options i've implemented to show the faction spread and regions overall.<br>
+                Warning: "Lines Complex" draws connections between all power control systems. It will take 20-30s for the effect to show up.</p>
+
+                <h3>Next steps:</h3>
+                <p>In time i will add some functions from the main search here, mainly focusing on Acquisition systems - showing you possible candidates based on your current active, selected system.</p>
+
+                <div class="beta-footer">
+                    <small>This map is held together by duct-tape and "why did you stay up till 4am again? i fucking hate this fucking game!" screams.</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/autocomplete_map.js" type="text/javascript"></script>
+    <script src="/img/loading/spinner.js" type="text/javascript"></script>
+    <script src="/js/websocket.js" type="text/javascript"></script>
+
+    <script>
+        // Prevent MiningSearch initialization
+        window.skipMiningSearch = true;
+    </script>
+
+    <script src="/js/threejs/gsap.min.js"></script>
+    <script src="/js/map/pako.min.js"></script>
+    <script>
+        // Register GSAP plugins
+        gsap.registerPlugin();
+    </script>
+
+    <script type="module">
+    import { SystemsLoader } from '/js/map/systemLoader.js';
     import * as THREE from '/js/threejs/three.module.js';
     import { OrbitControls } from '/js/threejs/jsm/controls/OrbitControls.js';
     import { FontLoader } from '/js/threejs/jsm/loaders/FontLoader.js';
     import { TextGeometry } from '/js/threejs/jsm/geometries/TextGeometry.js';
+    import { ConvexGeometry } from '/js/threejs/jsm/geometries/ConvexGeometry.js';
+    import { PowerVisualizer } from '/js/map/visualize.js';
+    import { Line2 } from '/js/threejs/jsm/lines/Line2.js';
+    import { LineSegments2 } from '/js/threejs/jsm/lines/LineSegments2.js';
+    import { LineMaterial } from '/js/threejs/jsm/lines/LineMaterial.js';
+    import { LineGeometry } from '/js/threejs/jsm/lines/LineGeometry.js';
+    import { initSystems, updateSystemPoints, getChunkKey, loadSystemsInView, updateTextVisibility, isInYBubble, setMovingToTarget, togglePowerStateIcons, showPowerStateIcons, getTextObjectStats, isMovingToTarget, getCircleInstances } from '/js/map/systems.js';
+    import { initGrid, createCustomGrid } from '/js/map/grid.js';
+    import { MarchingCubes } from '/js/threejs/jsm/objects/MarchingCubes.js';
+    import { initClickHandler, setDragging, setOverContainer, updateDependencies, updateCollisionMeshes } from '/js/map/clickHandler.js';
+    import { initSystemView, handleSystemClick, handleEmptySpaceClick, updateActiveSystem, handleFirstClick } from '/js/map/systemView.js';
+    import { getSystemInfo } from '/js/map/api.js';
+    import { initCamera, moveToSystem, updateCameraTarget } from '/js/map/camera.js';
+    import { initControls, getCameraInfo, setOverContainer as setControlsOverContainer } from '/js/map/controls.js';
+    import { initLineMarkers, updateLineMarkers, updateSystemNameRadius, cleanup as cleanupLineMarkers } from '/js/map/lineMarkers.js';
+    import { initGasClouds, PowerVisualizerExtra } from '/js/map/visualizeExtra.js';
+    import { showSystemInfo } from '/js/map/systemInfo.js';
+    import { initPowerCapitals, updatePowerCapitals } from './js/map/powerStateShapes.js';
+    import { initBackgroundToggle } from '/js/map/visualizeMore.js';
+    import { initControlsMenu } from '/js/map/menus.js';
 
+    // Scene and Visualization Constants
+    const TARGET_DISTANCE = 60;  // Distance in front of camera in light years
+    const CHUNK_SIZE = 100;
+
+    // Distance and Visibility Constants
+    const NEAR = 120;      // Distance where close fade starts
+    const SWEET = 160;     // Distance where far fade starts
+    const FAR = 500;       // Distance where fade is complete
+    const CUTOFF = 0.2;    // Minimum opacity value
+    const TEXT_CUTOFF_FRONT = 40;  // Don't draw text closer than this
+    const TEXT_CUTOFF_FAR = 10;    // Additional fade distance beyond systemNameRadius
+    const MAX_Y_BUBBLE = 0.5;      // Y-axis bubble size relative to systemNameRadius
+    const MAX_LINES_PER_FRAME = 10;
+
+    // Modifiable visibility settings
+    let systemNameRadius = 20;    // Radius within which system names are displayed
+    let textVisibilityRadius = 20; // Separate radius for text visibility
+    const visibleStarsRadius = 1000; // Larger fixed radius for visible stars
+    let STAR_CUTOFF_FRONT = 40;      // Don't show stars closer than this
+    let STAR_VISIBLE_RADIUS = 100;   // Stars within this radius are 100% visible
+    let STAR_CUTOFF_FAR = 1000;      // Stars beyond this are invisible
+    let currentZoomLevel = 0;
+
+    // Grid and Camera Constants
+    const GRIDSWITCH = 50; // Zoom level threshold for switching grid density
+
+    // Power Colors
+    const powerColors = {
+        'Aisling Duval': 0x0099ff,
+        'Edmund Mahon': 0x019c00,
+        'A. Lavigny-Duval': 0x7f00ff,
+        'Nakato Kaine': 0xa3f127,
+        'Felicia Winters': 0xffc400,
+        'Denton Patreus': 0x00ffff,
+        'Jerome Archer': 0xdf1de4,
+        'Zemina Torval': 0x0040ff,
+        'Pranav Antal': 0xffff00,
+        'Li Yong-Rui': 0x33d688,
+        'Archon Delaine': 0xff0000,
+        'Yuri Grom': 0xff8000
+    };
+    window.powerColors = powerColors; // Make powerColors accessible to PowerVisualizer
+
+    // Initialize core THREE.js components
     const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 10000);
-    camera.position.set(200, 500, 500);
+    const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 10000);
+    camera.position.set(-100, 200, -200);  // Rotate initial position 180°
+    camera.up.set(0, 1, 0);  // Ensure up vector is correct
+
+    // Initialize target point
+    window.targetPoint = new THREE.Vector3(0, 0, 0);  // Add this line
+
+    
+    // Load and rotate cubemap background
+    const cubeTexture = new THREE.CubeTextureLoader()
+        .load([
+            'img/galaxy/cubemap-90-bright-1/px.jpg',
+            'img/galaxy/cubemap-90-bright-1/nx.jpg',
+            'img/galaxy/cubemap-90-bright-1/py.jpg',
+            'img/galaxy/cubemap-90-bright-1/ny.jpg',
+            'img/galaxy/cubemap-90-bright-1/pz.jpg',
+            'img/galaxy/cubemap-90-bright-1/nz.jpg',
+        ]);
+
+    // Create rotation matrix and texture transform
+    const rotationMatrix = new THREE.Matrix4();
+    rotationMatrix.makeRotationY(Math.PI);  // Rotate 90° counterclockwise
+    cubeTexture.matrix = new THREE.Matrix4();
+    cubeTexture.matrix.copy(rotationMatrix);
+    cubeTexture.matrixAutoUpdate = false;
+
+    scene.background = cubeTexture;
+    
+    // Add fog to the scene
+    scene.fog = new THREE.Fog(0x000000, 1500, 2500);  // Start fading at 1000ly, complete fade by 2000ly
+    scene.fog = new THREE.FogExp2(0x000000, 0.00075);  // Color and density parameter
+
+    // Add FPS tracking variables
+    let lastFrameTime = performance.now();
+    let frameCount = 0;
+    let lastFpsUpdate = 0;
+    let currentFps = 0;
+    let frameTime = 0;
+    const FPS_UPDATE_INTERVAL = 500; // Update FPS every 500ms
 
     const renderer = new THREE.WebGLRenderer({ 
         antialias: true,
@@ -66,317 +462,604 @@
     });
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.setSize(window.innerWidth, window.innerHeight);
+    // Enable vsync
+    renderer.setAnimationLoop(null);  // Disable default animation loop
     document.body.appendChild(renderer.domElement);
 
-    let controls = new OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
-    controls.dampingFactor = 0.25;
+    // Prevent arrow key scrolling when canvas is focused
+    renderer.domElement.tabIndex = 0;
+    renderer.domElement.addEventListener('keydown', function(e) {
+        if(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+            e.preventDefault();
+        }
+    });
 
-    const systems = {};
-    const textObjects = [];
-    const circleObjects = [];
+    // Constants for target visualization
+    let targetPoint = new THREE.Vector3();
+    let targetMarker;
+    let targetCircle;
+
+    // Initialize OrbitControls first
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.5;
+    controls.minDistance = 5;
+    controls.maxDistance = 2000;
+    controls.zoomSpeed = 4.0;
+
     const gridGroup = new THREE.Group();
     scene.add(gridGroup);
 
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
-    scene.add(ambientLight);
+    // Add initialization flag
+    let gridInitialized = false;
 
-    const fontLoader = new FontLoader();
-    fontLoader.load('/fonts/eurostile_regular.json', font => {
-        fetch('/js/threejs/rares.json')
-            .then(response => response.json())
-            .then(data => {
-                for (const systemKey in data) {
-                    const system = data[systemKey];
-                    systems[system.system.toLowerCase()] = {
-                        name: system.system,
-                        x: parseFloat(system.x),
-                        y: parseFloat(system.y),
-                        z: parseFloat(system.z)
-                    };
-                    addSystemPoint(system.system, system.x, system.y, system.z, font);
-                }
-                createCustomGrid();
-            })
-            .catch(error => console.error("Error loading JSON:", error));
+    // Define systems and related objects first
+    const systems = {};
+    const textObjects = [];
+    let circleInstances = null;
+
+    //const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+    //scene.add(ambientLight);
+
+    // Initialize camera module after systems is defined
+    initCamera({ 
+        camera, 
+        controls, 
+        targetPoint, 
+        gridGroup, 
+        GRIDSWITCH,
+        systems
     });
 
-    function addSystemPoint(name, x, y, z, font) {
-        const circleGeometry = new THREE.CircleGeometry(1.5, 32);
-        const circleMaterial = new THREE.MeshBasicMaterial({ color: 0xffa500, side: THREE.DoubleSide });
-        const circle = new THREE.Mesh(circleGeometry, circleMaterial);
-        circle.position.set(x, y, z);
-        scene.add(circle);
-        circle.renderOrder = 3; // Set a higher renderOrder for the circle
-        circleObjects.push(circle);
+    // Loading indicator div at the top
+    const loadingDiv = document.createElement('div');
+    loadingDiv.style.position = 'fixed';
+    loadingDiv.style.top = '20px';
+    loadingDiv.style.left = '50%';
+    loadingDiv.style.transform = 'translateX(-50%)';
+    loadingDiv.style.color = '#FFA500';
+    loadingDiv.style.fontSize = '24px';
+    loadingDiv.style.fontWeight = 'bold';
+    loadingDiv.style.zIndex = '1000';
+    loadingDiv.style.display = 'none';
+    document.body.appendChild(loadingDiv);
 
-        const textMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff, depthTest: false });
-        const textGeometry = new TextGeometry("  " + name.toUpperCase(), {
-            font: font,
-            size: 5,
-            depth: 0.1,
+    // Create reusable circle geometry and material
+    const circleGeometry = new THREE.CircleGeometry(0.65, 16);
+    const circleMaterial = new THREE.MeshBasicMaterial({ 
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 1.0,
+        depthWrite: true
+    });
+
+    // Initialize SystemsLoader with power icons enabled by default
+    const systemsLoader = new SystemsLoader(scene, loadingDiv, circleGeometry, circleMaterial, true);
+
+    // Track loaded chunks to avoid duplicate loading
+    const loadedChunks = new Set();
+    const systemWorker = new Worker('/js/systemWorker.js');
+   
+    // Add power state toggle handler to existing button
+    const powerStatesButton = document.getElementById('togglePowerStates');
+    powerStatesButton.textContent = 'Power Icons';  // Start with power icons on by default
+    
+    powerStatesButton.addEventListener('click', () => {
+        const newState = !showPowerStateIcons;
+        togglePowerStateIcons(newState);
+        powerStatesButton.textContent = newState ? 'Power Icons' : 'Icons off';
+    });
+
+    // Load font first, then initialize systems
+    const fontLoader = new FontLoader();
+    let font = null;
+    let fontLoaded = false;
+    fontLoader.load('fonts/eurostile_regular.json', loadedFont => {
+        font = loadedFont;
+        fontLoaded = true;
+        console.log('Font loaded successfully');
+        
+        // Initialize grid module first
+        
+        initGrid({
+            gridGroup,
+            font,
+            fontLoaded,
+            targetPoint,
+            camera,
+            controls,
+            GRIDSWITCH
         });
-        const textMesh = new THREE.Mesh(textGeometry, textMaterial);
+        gridInitialized = true;
+        
+        // Initialize systems
+        initSystems({
+            scene,
+            camera,
+            targetPoint,
+            systems,
+            systemNameRadius,
+            MAX_Y_BUBBLE,
+            powerColors,
+            loadedChunks,
+            systemWorker,
+            font,          
+            textObjects
+        });
 
-        textGeometry.computeBoundingBox();
-        const textHeight = textGeometry.boundingBox.max.y - textGeometry.boundingBox.min.y;
-        textMesh.position.set(x + 10, y - textHeight / 2, z);
-        textMesh.renderOrder = 3; // Ensure text has the highest render order
+        // Add button click handler after systems are initialized
+        document.querySelector('.mainSearchButton').addEventListener('click', () => {
+            const systemName = document.getElementById('system').value;
+            const system = Object.values(systems).find(s => s.name.toLowerCase() === systemName.toLowerCase());
+            if (system) {
+                moveToSystem(system);
+            }
+        });
+        
+        // Add Enter key handler for the input
+        document.querySelector('#system').addEventListener('keypress', (event) => {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                const systemName = document.getElementById('system').value;
+                const system = Object.values(systems).find(s => s.name.toLowerCase() === systemName.toLowerCase());
+                if (system) {
+                    moveToSystem(system);
+                }
+            }
+        });
+        
+        // Now load the systems data and initialize grid
+        systemsLoader.loadAllSystemsFromJson().then(() => {
+            createCustomGrid();  // Create grid after everything is initialized
+                  
+            // Initialize click handler
+            initClickHandler({
+                camera,
+                renderer,
+                systems,
+                circleInstances,
+                textObjects,
+                scene,
+                targetPoint
+            });
+               
+            // Initialize click handler with new instances
+            updateDependencies({ circleInstances });
 
-        scene.add(textMesh);
-        textMesh.renderOrder = 3;
-        textObjects.push({ mesh: textMesh, position: circle.position, textHeight });
+            // Initialize map autocomplete after systems are loaded
+            const input = document.getElementById('system');
+            const results = document.querySelector('.autocomplete-results');
+            if (input && results) {
+                window.mapSystemAutocomplete = new MapSystemAutocomplete(input, results);
+            }
+        });
+    });
+
+    function drawTarget() {
+        // Create target marker if it doesn't exist
+        if (!targetMarker) {
+            const geometry = new THREE.CircleGeometry(0.4, 32);
+            const material = new THREE.MeshBasicMaterial({
+                color: 0x00ffff,
+                side: THREE.DoubleSide,
+                depthWrite: false,
+                depthTest: false,
+                blending: THREE.AdditiveBlending,
+            });
+            targetMarker = new THREE.Mesh(geometry, material);
+            targetMarker.renderOrder = 3;
+            targetMarker.zIndex = 3;
+            scene.add(targetMarker);
+
+            // Create target circle
+            const circleGeometry = new THREE.RingGeometry(2, 2.4, 64);
+            const circleMaterial = new THREE.MeshBasicMaterial({
+                color: 0x00ffff,
+                side: THREE.DoubleSide,
+                transparent: true,
+                opacity: 0.5,
+                depthWrite: false,
+                depthTest: false,
+                blending: THREE.AdditiveBlending,
+            });
+            targetCircle = new THREE.Mesh(circleGeometry, circleMaterial);
+            targetCircle.renderOrder = 3;
+            scene.add(targetCircle);
+
+            // Initialize target point at current camera target
+            targetPoint.copy(controls.target);
+            targetPoint.y = gridGroup.position.y;
+        }
+
+        // Update target point Y to match grid Y
+        targetPoint.y = gridGroup.position.y;
+
+        // Update marker and circle position
+        targetMarker.position.copy(targetPoint);
+        targetMarker.rotation.x = -Math.PI / 2;  // Lay flat on XZ plane
+        
+        // Scale based on distance to maintain constant screen size
+        const distance = camera.position.distanceTo(targetPoint);
+        const scale = distance * 0.02;  // Adjust this factor to control the apparent size
+        targetMarker.scale.set(scale, scale, scale);
+
+        targetCircle.position.copy(targetPoint);
+        targetCircle.rotation.x = -Math.PI / 2;  // Lay flat on XZ plane
+        targetCircle.scale.set(scale, scale, scale);
+
+        // Ensure camera is orbiting around our fixed target point
+        controls.target.copy(targetPoint);
     }
 
-    const lineObjects = []; // Array to hold cyan lines
-    const circleMarkers = []; // Array to hold cyan circles at intersections
+    // Track if mouse is over search container
+    let isOverSearchContainer = false;
+    document.querySelector('.search-container').addEventListener('mouseenter', () => {
+        isOverSearchContainer = true;
+        setOverContainer(true);
+    });
+    document.querySelector('.search-container').addEventListener('mouseleave', () => {
+        isOverSearchContainer = false;
+        setOverContainer(false);
+    });
+
+    systemWorker.onmessage = function(e) {
+        const { type, data } = e.data;
+        
+        if (type === 'chunkLoaded') {
+            const { chunkKey, systems: newSystems } = data;
+            
+            if (Array.isArray(newSystems)) {
+                // Store all system data including names during initial load
+                for (const system of newSystems) {
+                    const key = system.name.toLowerCase();
+                    if (!systems[key]) {
+                        systems[key] = {
+                            name: system.name.toUpperCase(), // Store name in uppercase to avoid conversion later
+                            x: parseFloat(system.x),
+                            y: parseFloat(system.y),
+                            z: parseFloat(system.z),
+                            controlling_power: system.controlling_power,
+                            power_state: system.power_state,
+                            powers_acquiring: system.powers_acquiring,
+                            systemState: system.system_state,  // Add systemState
+                            pointCreated: false,
+                            hasText: false
+                        };
+                    }
+                }
+            }
+        }
+    };
+
+    function updateObjectOrientation() {
+        if (!circleInstances || isMovingToTarget) return;
+
+        // Use targetPoint as the center for all calculations
+        const cameraDirection = new THREE.Vector3();
+        camera.getWorldDirection(cameraDirection);
+
+        // Create hide matrix once for reuse
+        const hideMatrix = new THREE.Matrix4();
+        hideMatrix.compose(
+            new THREE.Vector3(100000, 100000, 100000),  // Move far away instead of 0,0,0
+            camera.quaternion,
+            new THREE.Vector3(0.00001, 0.00001, 0.00001)  // Tiny scale but not zero
+        );
+
+        // Update circles and create text if needed
+        Object.values(systems).forEach(system => {
+            if (system.instanceId === undefined) return;
+
+            // Calculate distances once
+            const position = new THREE.Vector3(system.x, system.y, system.z);
+            const distanceToCenter = targetPoint.distanceTo(position);
+            const distanceToCamera = camera.position.distanceTo(position);
+
+            // Check visibility constraints first
+            if (distanceToCamera < STAR_CUTOFF_FRONT || 
+                distanceToCamera > STAR_CUTOFF_FAR || 
+                distanceToCenter > visibleStarsRadius) {
+                // Hide instance completely
+                circleInstances.setMatrixAt(system.instanceId, hideMatrix);
+                return;
+            }
+
+            // Set base color for star
+            const baseColor = new THREE.Color();
+            if (system.controlling_power && powerColors[system.controlling_power]) {
+                baseColor.setHex(powerColors[system.controlling_power]);
+            } else if (system.powers_acquiring && system.powers_acquiring.length > 0) {
+                baseColor.setHex(0xFFFFFF);
+            } else {
+                baseColor.setHex(0x808080);
+            }
+
+            // Calculate opacity only for visible stars
+            let opacity = 1.0;
+            if (distanceToCenter > STAR_VISIBLE_RADIUS) {
+                opacity = 1 - ((distanceToCenter - STAR_VISIBLE_RADIUS) / (visibleStarsRadius - STAR_VISIBLE_RADIUS));
+            }
+            baseColor.multiplyScalar(opacity);
+
+            // Update star scale based on distance
+            const scaleFactor = THREE.MathUtils.clamp(distanceToCamera / 200, 0.4, 0.65);
+            const scale = new THREE.Vector3(scaleFactor, scaleFactor, scaleFactor);
+            const matrix = new THREE.Matrix4();
+            matrix.compose(position, camera.quaternion, scale);
+            circleInstances.setMatrixAt(system.instanceId, matrix);
+            circleInstances.setColorAt(system.instanceId, baseColor);
+        });
+
+        circleInstances.instanceMatrix.needsUpdate = true;
+        if (circleInstances.instanceColor) circleInstances.instanceColor.needsUpdate = true;
+
+        // Update existing text objects
+        textObjects.forEach(({ mesh, group, position, textHeight }) => {
+            const distanceToCenter = targetPoint.distanceTo(position);
+            const distanceToCamera = camera.position.distanceTo(position);
+            const maxYDistance = systemNameRadius * MAX_Y_BUBBLE;
+            
+            // Check all visibility conditions
+            const inYBubble = isInYBubble(position.y, targetPoint.y, maxYDistance);
+            const notTooClose = distanceToCamera >= TEXT_CUTOFF_FRONT;
+            const inMainRadius = distanceToCenter <= systemNameRadius;
+            const inExtendedRadius = TEXT_CUTOFF_FAR > 0 && 
+                                   distanceToCenter <= (systemNameRadius + TEXT_CUTOFF_FAR);
+            
+            if (notTooClose && inYBubble && (inMainRadius || inExtendedRadius)) {
+                const maxFontSize = 1;
+                const minFontSize = 0.25;
+                const scaleFactor = THREE.MathUtils.clamp((distanceToCamera + 80) / 400, minFontSize, maxFontSize);
+
+                mesh.scale.set(scaleFactor, scaleFactor, scaleFactor);
+                
+                // Calculate opacity
+                let opacity;
+                if (inMainRadius) {
+                    opacity = 1.0; // Full opacity within main radius
+            } else {
+                    // Only fade in the small region between systemNameRadius and systemNameRadius + TEXT_CUTOFF_FAR
+                    opacity = THREE.MathUtils.mapLinear(
+                        distanceToCenter,
+                        systemNameRadius - 5,
+                        systemNameRadius + TEXT_CUTOFF_FAR,
+                        1.0,
+                        0
+                    );
+                }
+                
+                mesh.material.opacity = opacity;
+                group.visible = true;
+                group.quaternion.copy(camera.quaternion);
+            } else {
+                group.visible = false;
+            }
+        });
+    }
 
     const nameRadiusSlider = document.getElementById('nameRadius');
-    let systemNameRadius = 150; // Default radius for system names and cyan lines
-    const visibleStarsRadius = 1000; // Larger fixed radius for orange points
 
-    // Update system name radius dynamically based on slider
-    nameRadiusSlider.addEventListener('input', () => {
+    // Update system name radius only when slider is moved
+    nameRadiusSlider.addEventListener('input', function() {
         systemNameRadius = parseInt(nameRadiusSlider.value);
-        createDynamicLinesAndCircles();
+        textVisibilityRadius = systemNameRadius;  // Update text visibility radius to match
+        // Re-initialize systems with new radius
+        initSystems({
+            camera,
+            targetPoint,
+            systems,
+            circleInstances,
+            systemNameRadius,
+            MAX_Y_BUBBLE,
+            powerColors,
+            loadedChunks,
+            systemWorker,
+            font,
+            scene,
+            textObjects
+        });
+        updateSystemNameRadius(systemNameRadius);
+        updateLineMarkers(systems);
         updateObjectOrientation();
     });
 
     let lastCameraPosition = null;
+    let lastTargetDistance = null;
 
-    function createDynamicLinesAndCircles() {
-        const cameraDirection = new THREE.Vector3();
-        camera.getWorldDirection(cameraDirection);
-        const cameraTarget = camera.position.clone().add(cameraDirection.multiplyScalar(70));
-
-        // Only update objects if camera has moved significantly
-        const cameraMoved = lastCameraPosition ? camera.position.distanceTo(lastCameraPosition) > 1 : true;
-        if (!cameraMoved) return;
-
-        if (lastCameraPosition) lastCameraPosition.copy(camera.position);
-        else lastCameraPosition = camera.position.clone();
-
-        Object.values(systems).forEach((system, index) => {
-            const systemPosition = new THREE.Vector3(system.x, system.y, system.z);
-            const distanceToCenter = cameraTarget.distanceTo(systemPosition);
-
-            // Reuse existing objects instead of creating new ones
-            let line = lineObjects[index];
-            let marker = circleMarkers[index];
-
-            if (distanceToCenter <= systemNameRadius) {
-                const gridYPosition = gridGroup.position.y;
-                const endPosition = new THREE.Vector3(system.x, gridYPosition, system.z);
-                const midPoint = new THREE.Vector3().addVectors(systemPosition, endPosition).multiplyScalar(0.5);
-                const length = systemPosition.distanceTo(endPosition);
-                const opacity = THREE.MathUtils.mapLinear(distanceToCenter, 0, systemNameRadius, 1, 0.2);
-
-                if (!line) {
-                    const cylinderGeometry = new THREE.CylinderGeometry(0.3, 0.3, 1, 8);
-                    const cylinderMaterial = new THREE.MeshBasicMaterial({ 
-                        color: 0x00ffff, 
-                        transparent: true,
-                        depthWrite: false 
-                    });
-                    line = new THREE.Mesh(cylinderGeometry, cylinderMaterial);
-                    lineObjects[index] = line;
-                    scene.add(line);
-                }
-
-                line.visible = true;
-                line.scale.y = length;
-                line.position.copy(midPoint);
-                line.lookAt(systemPosition);
-                line.rotateX(Math.PI / 2);
-                line.material.opacity = opacity;
-
-                if (!marker) {
-                    const circleGeometry = new THREE.CircleGeometry(3, 32);
-                    const circleMaterial = new THREE.MeshBasicMaterial({ 
-                        color: 0x00ffff, 
-                        transparent: true, 
-                        side: THREE.DoubleSide,
-                        depthWrite: false 
-                    });
-                    marker = new THREE.Mesh(circleGeometry, circleMaterial);
-                    marker.renderOrder = 2;
-                    circleMarkers[index] = marker;
-                    scene.add(marker);
-                }
-
-                const circleYPosition = system.y > gridYPosition ? gridYPosition + 0.1 : gridYPosition;
-                marker.visible = true;
-                marker.position.set(system.x, circleYPosition, system.z);
-                marker.rotation.x = Math.PI / 2;
-                marker.material.opacity = opacity;
-            } else {
-                if (line) line.visible = false;
-                if (marker) marker.visible = false;
-            }
-        });
-    }
-
-
-    function createCustomGrid() {
-        const size = 5000;
-        const divisions100 = size / 100;
-        const divisions50 = size / 50;
-        const divisions25 = size / 25;
-
-        createThickGridLines(25, divisions25, 0xbfffff, 1);
-        createThickGridLines(50, divisions50, 0xbfffff, 2);
-        createThickGridLines(100, divisions100, 0xbfffff, 12);
-    }
-
-    function createThickGridLines(interval, divisions, color, thickness) {
-        const halfSize = divisions * interval / 2;
-        const positions = [];
-
-        for (let i = -halfSize; i <= halfSize; i += interval) {
-            positions.push(new THREE.Vector3(-halfSize, 0, i), new THREE.Vector3(halfSize, 0, i));
-            positions.push(new THREE.Vector3(i, 0, -halfSize), new THREE.Vector3(i, 0, halfSize));
-        }
-
-        const geometry = new THREE.BufferGeometry().setFromPoints(positions);
-        const material = new THREE.LineBasicMaterial({
-            color: color,
-            linewidth: thickness,
-            transparent: true,
-            opacity: 0.05,
-            depthWrite: false // Prevent grid from affecting depth buffer
-        });
-        const line = new THREE.LineSegments(geometry, material);
-        line.renderOrder = 0; // Set a lower renderOrder for the grid
-        gridGroup.add(line);
-        scene.add(gridGroup);
-    }
+    // Batch line creation to prevent performance impact
+    let pendingLineCreation = [];
 
     let gridYOffset = 0;
 
-    document.getElementById('gridUpButton').addEventListener('click', () => {
-        animateGridPosition(12.5);
-    });
 
-    document.getElementById('gridDownButton').addEventListener('click', () => {
-        animateGridPosition(-12.5);
-    });
 
-    document.getElementById('resetGridButton').addEventListener('click', () => {
-        animateGridPosition(-gridYOffset);
-    });
+    // After PowerVisualizer.init(scene, THREE, ConvexGeometry);
 
-    document.getElementById('systemInput').addEventListener('keypress', (event) => {
-        if (event.key === 'Enter') {
-            findSystem();
-        }
-    });
-    document.getElementById('findButton').addEventListener('click', findSystem);
+    // Add batch processing variables for text cleanup
+    const CLEANUP_BATCH_SIZE = 50;  // Process 50 text objects per batch
+    let isCleaningUp = false;
+    let cleanupQueue = [];
 
-    function animateGridPosition(targetY) {
-        gsap.to(gridGroup.position, {
-            y: targetY,
-            duration: 1,
-            ease: 'power2.inOut',
-            onUpdate: createDynamicLinesAndCircles // Recalculate lines and circles during the animation
-        });
+    function cleanupTextObjects() {
+        if (isCleaningUp) return;  // Don't start new cleanup if one is in progress
+        
+        // Find text objects that need cleanup
+        cleanupQueue = textObjects.reduce((acc, obj, index) => {
+            const distanceToCamera = camera.position.distanceTo(obj.position);
+            const maxDistance = TEXT_CUTOFF_FAR > 0 ? 
+                systemNameRadius + TEXT_CUTOFF_FAR + 50 : 
+                systemNameRadius + 50;
+            
+            if (distanceToCamera > maxDistance) {
+                acc.push({ obj, index });
+            }
+            return acc;
+        }, []);
+
+        if (cleanupQueue.length === 0) return;
+
+        isCleaningUp = true;
+        processCleanupBatch();
     }
 
-    function findSystem() {
-        const systemName = document.getElementById('systemInput').value.toLowerCase();
-        if (systemName in systems) {
-            const target = systems[systemName];
+    function processCleanupBatch() {
+        const batch = cleanupQueue.splice(0, CLEANUP_BATCH_SIZE);
+        if (batch.length === 0) {
+            isCleaningUp = false;
+            return;
+        }
 
-            // Temporarily disable OrbitControls
-            controls.enabled = false;
-
-            // Calculate end position for the camera to center the target in the viewport
-            const distance = 100;
-            const targetVector = new THREE.Vector3(target.x, target.y, target.z);
-            const direction = camera.getWorldDirection(new THREE.Vector3());
-            const endPosition = targetVector.clone().sub(direction.multiplyScalar(distance));
-
-            // Animate the camera to the calculated end position
-            gsap.to(camera.position, {
-                x: endPosition.x,
-                y: endPosition.y,
-                z: endPosition.z,
-                duration: 2,
-                ease: 'power2.inOut',
-                onComplete: () => {
-                    camera.position.copy(endPosition);
-                    controls.target.copy(targetVector);
-                    controls.update();
-                    controls.enabled = true;
+        // Process this batch
+        const toRemove = [];
+        batch.forEach(({ obj, index }) => {
+            if (obj.debugPlane) {
+                scene.remove(obj.debugPlane);
+                if (obj.debugPlane.geometry) {
+                    obj.debugPlane.geometry.dispose();
                 }
-            });
+                if (obj.debugPlane.material) {
+                    obj.debugPlane.material.dispose();
+                }
+                obj.debugPlane = null;
+            }
 
-            // Animate the grid's Y position to align with the target's Y coordinate
-            gsap.to(gridGroup.position, {
-                y: target.y,
-                duration: 2,
-                ease: 'power2.inOut',
-                onUpdate: createDynamicLinesAndCircles // Update lines and circles during animation
-            });
+            scene.remove(obj.group);
+            obj.group.remove(obj.mesh);
+            obj.mesh.geometry.dispose();
+            obj.mesh.material.dispose();
+            toRemove.push(index);
+
+            // Reset hasText flag on corresponding system
+            const system = Object.values(systems).find(s => 
+                s.x === obj.position.x && 
+                s.y === obj.position.y && 
+                s.z === obj.position.z
+            );
+            if (system) system.hasText = false;
+        });
+
+        // Remove processed objects from textObjects array
+        // Sort indices in descending order to maintain correct indices when splicing
+        toRemove.sort((a, b) => b - a).forEach(index => {
+            textObjects.splice(index, 1);
+        });
+
+        // Schedule next batch if there are more items
+        if (cleanupQueue.length > 0) {
+            setTimeout(processCleanupBatch, 0);
         } else {
-            alert("System not found.");
+            isCleaningUp = false;
         }
     }
 
+    
+    // Create X shape vertices (size 10)
+    const xVertices = new Float32Array([
+        -5, 0, -5,   5, 0, 5,    // First line of X
+        -5, 0, 5,    5, 0, -5    // Second line of X
+    ]);
 
+    // Add variables to track last position and zoom
+    let lastZoomLevel = Infinity;
+    let lastTargetX = 0;
+    let lastTargetZ = 0;
 
-    function updateObjectOrientation() {
-        textObjects.forEach(({ mesh, position, textHeight }) => {
-            const distanceToCamera = camera.position.distanceTo(position);
+    // Add throttling variables
+    let lastStatsUpdate = 0;
+    let lastSystemUpdate = 0;
+    let lastTextCleanup = 0;
+    const STATS_UPDATE_INTERVAL = 500; // Update stats every 500ms
+    const SYSTEM_UPDATE_INTERVAL = 100; // Update systems every 100ms
+    const TEXT_CLEANUP_INTERVAL = 100; // Cleanup text every 5 seconds
 
-            // Set visibility based on system name radius
-            if (distanceToCamera <= systemNameRadius) {
-                const maxFontSize = 2;
-                const minFontSize = 0.5;
-                const scaleFactor = THREE.MathUtils.clamp((distanceToCamera + 80) / 400, minFontSize, maxFontSize);
-
-                mesh.scale.set(scaleFactor, scaleFactor, scaleFactor);
-                const maxOpacity = 1;
-                const minOpacity = 0.3;
-                const opacity = THREE.MathUtils.clamp(1 - ((distanceToCamera - 100) / 150), minOpacity, maxOpacity);
-                mesh.material.opacity = opacity;
-                mesh.visible = true; // Show text
-
-                mesh.quaternion.copy(camera.quaternion);
-                const verticalCenterOffset = (textHeight * scaleFactor) / 2;
-                mesh.position.set(position.x + 10, position.y - verticalCenterOffset, position.z);
-            } else {
-                mesh.visible = false; // Hide text if outside system name radius
-            }
-        });
-
-        circleObjects.forEach(circle => {
-            const distanceToCamera = camera.position.distanceTo(circle.position);
-
-            // Set visibility based on the larger visible stars radius for orange points
-            if (distanceToCamera <= visibleStarsRadius) {
-                const maxOpacity = 1;
-                const minOpacity = 0.4;
-                const opacity = THREE.MathUtils.clamp(1 - ((distanceToCamera - 40) / 400), minOpacity, maxOpacity);
-                circle.material.opacity = opacity;
-                const scaleFactor = THREE.MathUtils.clamp(distanceToCamera / 200, 0.5, 0.75);
-                circle.scale.set(scaleFactor, scaleFactor, scaleFactor);
-                circle.visible = true; // Show orange point
-            } else {
-                circle.visible = false; // Hide orange point if outside visible stars radius
-            }
-
-            circle.quaternion.copy(camera.quaternion);
-        });
-    }
-
-
+    // Update animate function to remove the throttled cleanup
     function animate() {
         requestAnimationFrame(animate);
-        if (controls.enabled) {
-            controls.update();
-            createDynamicLinesAndCircles(); // Now only creates objects when needed
+
+        // Calculate FPS
+        const now = performance.now();
+        frameCount++;
+        if (now - lastFpsUpdate > FPS_UPDATE_INTERVAL) {
+            currentFps = Math.round((frameCount * 1000) / (now - lastFpsUpdate));
+            frameTime = Math.round((now - lastFpsUpdate) / frameCount);
+            frameCount = 0;
+            lastFpsUpdate = now;
+            // Update FPS in separate div
+            document.getElementById('fpsCounter').textContent = 
+                `FPS: ${currentFps} (${frameTime}ms)`;
         }
-        updateObjectOrientation();
+
+        if (controls.enabled) {
+            updateCameraTarget();  // Replace controls.update()
+        }
+        
+        drawTarget();
+        updateActiveSystem();
+        //PowerVisualizerExtra.updateGasClouds(camera);
+        PowerVisualizerExtra.updatePowerGlow(camera);
+        updatePowerCapitals(camera);
+        updateCollisionMeshes();
+
+        // Always update grid and zoom level display
+        if (gridInitialized) {
+            // Update all grid text scales
+            gridGroup.children.forEach(child => {
+                if (child.updateScale) {
+                    const distanceToTarget = camera.position.distanceTo(controls.target);
+                    child.updateScale(distanceToTarget);
+                }
+            });
+            
+            // Check if we need to update the grid
+            const prevZoomAboveSwitch = lastZoomLevel > GRIDSWITCH;
+            currentZoomLevel = camera.position.distanceTo(targetPoint);
+            const currentZoomAboveSwitch = currentZoomLevel > GRIDSWITCH;
+            
+            // Update grid when crossing the GRIDSWITCH threshold or when target has moved significantly
+            if (prevZoomAboveSwitch !== currentZoomAboveSwitch || 
+                (currentZoomLevel <= GRIDSWITCH && 
+                 (Math.abs(lastTargetX - targetPoint.x) >= 1 || 
+                  Math.abs(lastTargetZ - targetPoint.z) >= 1))) {
+                createCustomGrid();
+                lastZoomLevel = currentZoomLevel;
+                lastTargetX = targetPoint.x;
+                lastTargetZ = targetPoint.z;
+            }
+        }
+            
+        document.getElementById('zoomLevel').textContent = 
+            `Zoom: ${currentZoomLevel.toFixed(1)}`;
+
+        // Skip heavy computations if camera is moving to target
+        if (!isMovingToTarget) {
+            // Throttle stats updates
+            const now = performance.now();
+            if (now - lastStatsUpdate > STATS_UPDATE_INTERVAL) {
+                const stats = getTextObjectStats();
+                document.getElementById('textObjectsTotal').textContent = stats.total;
+                document.getElementById('textObjectsVisible').textContent = stats.visible;
+                lastStatsUpdate = now;
+            }
+            
+            PowerVisualizerExtra.updatePowerGlow(camera);
+
+            loadSystemsInView();
+            updateLineMarkers(systems);
+            PowerVisualizer.updateGradients(camera);
+            
+            // Initiate async cleanup if not already in progress
+            if (!isCleaningUp) {
+                cleanupTextObjects();
+            }
+            
+            // Throttle system updates
+            if (now - lastSystemUpdate > SYSTEM_UPDATE_INTERVAL) {
+                lastSystemUpdate = now;
+            }
+            updateSystemPoints();
+            updateTextVisibility();
+        }
+        
         renderer.render(scene, camera);
     }
 
@@ -388,6 +1071,224 @@
         camera.aspect = window.innerWidth / window.innerHeight;
         camera.updateProjectionMatrix();
     });
+
+    // After scene initialization, initialize PowerVisualizer
+    PowerVisualizer.init(scene, THREE, ConvexGeometry);
+    
+    // Initialize power capital icons
+    initPowerCapitals(scene);
+
+    // Initialize gas clouds
+    initGasClouds(scene, THREE, camera);
+
+    // Add this right after systems are initialized
+    const searchForm = document.querySelector('#searchForm');
+    if (searchForm) {
+        // Override the form's submit behavior
+        searchForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const systemName = document.getElementById('system').value.toUpperCase();
+            
+            // First try to get the system from the autocomplete's selected system
+            let system = window.mapSystemAutocomplete?.getSelectedSystem();
+            
+            // If no system from autocomplete, try to get it from our loaded systems
+            if (!system) {
+                system = systems[systemName.toLowerCase()];
+            }
+            
+            console.log("Search initiated for system:", system);
+
+            if (system) {
+                // Show system info first
+                showSystemInfo(system);
+                
+                // Show both markers for the searched system
+                handleFirstClick(system);  // Show cyan circle
+                handleSystemClick(system); // Show orange marker
+                
+                // Move camera to the system
+                moveToSystem(system);
+            } else {
+                console.error('System not found:', systemName);
+            }
+        });
+    }
+
+    // Add this near the start of your script
+    document.querySelector('[data-id="back"]').addEventListener('click', () => {
+        window.location.href = '/';
+    });
+
+    // Add raycaster for system interaction
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+    let hoveredInstance = null;
+    let hoveredText = null;
+
+    // Update cursor style based on hover state
+    function updateCursor(isHovering) {
+        renderer.domElement.style.cursor = isHovering ? 'pointer' : 'default';
+    }
+
+    // Handle mouse move for hover effects
+    renderer.domElement.addEventListener('mousemove', (event) => {
+        if (isOverSearchContainer) return;
+
+        // Calculate mouse position in normalized device coordinates (-1 to +1)
+        mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+        mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+        // Update the picking ray
+        raycaster.setFromCamera(mouse, camera);
+
+        // Check for intersections with system instances
+        let foundIntersection = false;
+        if (circleInstances) {
+            const intersects = raycaster.intersectObject(circleInstances);
+            if (intersects.length > 0) {
+                hoveredInstance = intersects[0].instanceId;
+                foundIntersection = true;
+            } else {
+                hoveredInstance = null;
+            }
+        }
+
+        // Check for intersections with text objects if no system was hit
+        if (!foundIntersection && textObjects.length > 0) {
+            const textMeshes = textObjects.map(obj => obj.mesh);
+            const textIntersects = raycaster.intersectObjects(textMeshes);
+            if (textIntersects.length > 0) {
+                hoveredText = textIntersects[0].object;
+                foundIntersection = true;
+            } else {
+                hoveredText = null;
+            }
+        }
+
+        updateCursor(foundIntersection);
+    });
+
+    // Handle click on systems or text
+    renderer.domElement.addEventListener('click', (event) => {
+        if (isOverSearchContainer) return;
+
+        // Update raycaster
+        mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+        mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+        raycaster.setFromCamera(mouse, camera);
+
+        let systemClicked = false;
+
+        // Check for intersections with system instances
+        if (circleInstances) {
+            const intersects = raycaster.intersectObject(circleInstances);
+            if (intersects.length > 0) {
+                const instanceId = intersects[0].instanceId;
+                const system = Object.values(systems).find(s => s.instanceId === instanceId);
+                if (system) {
+                    // Show marker AND move to system
+                    handleSystemClick(system);
+                    document.getElementById('system').value = system.name;
+                    moveToSystem(system);  // Replace findSystem with moveToSystem
+                    systemClicked = true;
+                }
+            }
+        }
+
+        // Only check text objects if no system was clicked
+        if (!systemClicked && textObjects.length > 0) {
+            const textMeshes = textObjects.map(obj => obj.mesh);
+            const textIntersects = raycaster.intersectObjects(textMeshes);
+            if (textIntersects.length > 0) {
+                const textObj = textObjects.find(obj => obj.mesh === textIntersects[0].object);
+                if (textObj) {
+                    const system = Object.values(systems).find(s => 
+                        s.x === textObj.position.x && 
+                        s.y === textObj.position.y && 
+                        s.z === textObj.position.z
+                    );
+                    if (system) {
+                        // Show marker AND move to system
+                        handleSystemClick(system);
+                        document.getElementById('system').value = system.name;
+                        moveToSystem(system);  // Replace findSystem with moveToSystem
+                        systemClicked = true;
+                    }
+                }
+            }
+        }
+
+        // Only handle empty space click if no system or text was clicked
+        if (!systemClicked) {
+            handleEmptySpaceClick();
+        }
+    });
+
+    // Initialize systemView after scene initialization
+    initSystemView({ camera, scene });
+
+    // Initialize line markers after scene setup
+    initLineMarkers({ 
+        scene, 
+        camera, 
+        targetPoint, 
+        gridGroup, 
+        systemNameRadius, 
+        MAX_Y_BUBBLE,
+        systems  // Add systems object
+    });
+
+    // Initialize controls module
+    initControls({ 
+        camera, 
+        controls, 
+        targetPoint, 
+        gridGroup,
+        renderer,
+        systems,
+        scene,
+        powerColors
+    });
+
+    // Add search container event listeners for controls
+    document.querySelector('.search-container').addEventListener('mouseenter', () => {
+        setOverContainer(true);
+    });
+    document.querySelector('.search-container').addEventListener('mouseleave', () => {
+        setOverContainer(false);
+    });
+
+    // Remove fade-out class when page loads to trigger fade-in
+    document.addEventListener('DOMContentLoaded', () => {
+        document.body.classList.remove('fade-out');
+        document.querySelector('.container').classList.remove('fade-out');
+    });
+
+    // Beta warning control
+    const BETA_WARNING = true;
+    if (BETA_WARNING) {
+        document.getElementById('beta-warning').style.display = 'flex';
+    }
+
+    // Add this to your existing animation loop or update function
+    function updateCameraDisplay() {
+        const cameraInfo = getCameraInfo();
+        if (cameraInfo) {
+            document.getElementById('coordinates').innerHTML = 
+                `Coordinates:(${targetPoint.x.toFixed(1)}, ${targetPoint.y.toFixed(1)}, ${targetPoint.z.toFixed(1)})`;
+            document.getElementById('cameraCoords').textContent = 
+                `Camera:${cameraInfo.x}, ${cameraInfo.y}, ${cameraInfo.z} (${cameraInfo.angleX}°, ${cameraInfo.angleY}°)`;
+        }
+        requestAnimationFrame(updateCameraDisplay);
+    }
+    updateCameraDisplay();
+
+    // Initialize controls menu
+    initControlsMenu();
+
+    // After cubeTexture initialization and scene.background = cubeTexture;
+    initBackgroundToggle(scene, cubeTexture);
 </script>
 </body>
 </html>

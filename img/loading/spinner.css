@@ -7,17 +7,18 @@
 
 .dank-ass-loader .row {
     display: flex;
+    line-height: 0;  /* Remove any extra space */
 }
 
 .arrow {
     width: 0;
     height: 0;
-    margin: 0 -2px;
-    border-left: 4px solid transparent;
-    border-right: 4px solid transparent;
-    border-bottom: 7.2px solid #fd7000;
+    margin: 0 -0.125em;  /* Using em instead of px */
+    border-left: 0.25em solid transparent;
+    border-right: 0.25em solid transparent;
+    border-bottom: 0.45em solid #fd7000;
     animation: blink 1s infinite;
-    filter: drop-shadow(0 0 6px #fd7000);
+    filter: drop-shadow(0 0 0.375em #fd7000);
 }
 
 .arrow.down {

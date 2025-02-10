@@ -1,17 +1,12 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!-- Generator: Adobe Illustrator 28.3.0, SVG Export Plug-In . SVG Version: 6.00 Build 0)  -->
-<svg version="1.1" id="Layer_2" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
-	 viewBox="0 0 630 434.7" style="enable-background:new 0 0 630 434.7;" xml:space="preserve">
-<style type="text/css">
-	.st0{fill:none;stroke:#FFFFFF;stroke-width:36;stroke-miterlimit:10;}
-	.st1{fill:none;stroke:#20201E;stroke-width:36;stroke-miterlimit:10;}
-</style>
-<line id="XMLID_00000176022339182696351040000014517002986438887049_" class="st0" x1="416.7" y1="238.7" x2="416.7" y2="112.7"/>
-<line id="XMLID_00000136408614065854434900000004453508573708574625_" class="st1" x1="-0.4" y1="408.5" x2="629.3" y2="408.5"/>
-<polyline id="XMLID_00000121275670003424377060000000549432086208492433_" class="st1" points="329.1,408.5 329.1,205.8 62.7,205.8 
-	62.7,408.5 "/>
-<polyline id="XMLID_00000088106767990422653820000000951381588669178556_" class="st1" points="329.1,249.3 582.9,249.3 
-	582.9,408.5 "/>
-<line id="XMLID_00000134232072290317534130000018055715401661093002_" class="st1" x1="416.7" y1="249.3" x2="416.7" y2="114.7"/>
-<polyline id="XMLID_00000165927896149163130140000013335959421991962497_" class="st1" points="534.7,238.7 534.7,0 534.7,249.3 "/>
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Layer_2" xmlns="http://www.w3.org/2000/svg" version="1.1" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 630 434.7">
+  <!-- Generator: Adobe Illustrator 29.2.1, SVG Export Plug-In . SVG Version: 2.1.0 Build 116)  -->
+  <defs>
+    <style>
+      .st0 {
+        fill: #fff;
+      }
+    </style>
+  </defs>
+  <path class="st0" d="M600.9,390.5v-159.2h-48.2V0h-36v231.3h-82v-118.6h-36v118.6h-51.6v-43.5H44.7v202.7H-.4v36h629.7v-36h-28.4ZM564.9,267.3v123.2h-217.8v-123.2h217.8ZM80.7,223.8h230.4v166.7H80.7v-166.7Z"/>
 </svg>

@@ -1,0 +1,540 @@
+/* Acquisition table base styles */
+.acquisition-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+    border-spacing: 10px !important;
+}
+
+
+/* Inner tables */
+.acquisition-table .inner-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+/* Target section borders */
+.acquisition-table .target-section .inner-table td,
+.acquisition-table .target-section .inner-table th {
+    border: 1px solid #ff9d00 !important;  /* Using a visible color to debug */
+}
+
+
+/* Remove double borders */
+.acquisition-table .target-section .inner-table tr:not(:first-child) td {
+    border-top: none !important;
+}
+
+.acquisition-table .mining-section .inner-table tr:not(:first-child) td:not(:first-child) {
+    border-top: none !important;
+}
+
+/* Spacing between complete sets */
+.acquisition-table > tbody > tr:not(:last-child) {
+    height: 4px;
+}
+
+/* Keep gap cells clean */
+.acquisition-table .mining-section .inner-table td:first-child,
+.acquisition-table .mining-section .inner-table th:first-child {
+    border: none !important;
+    padding: 0 !important;
+    background: transparent !important;
+}
+
+/* Empty rows completely transparent */
+.acquisition-table tr.empty-row td,
+.acquisition-table td.empty-row {
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+}
+
+/* Section layouts */
+.acquisition-table .target-section {
+    width: 45%;
+    vertical-align: top;
+    padding: 0;
+}
+
+.acquisition-table .mining-section {
+    width: 51%;
+    vertical-align: top;
+    padding: 0;
+}
+
+/* Column widths */
+.acquisition-table .target-section td:nth-child(1),
+.acquisition-table .target-section th:nth-child(1) { width: 25%; }  /* Target System */
+
+.acquisition-table .target-section td:nth-child(2),
+.acquisition-table .target-section th:nth-child(2) { width: 20%; }  /* State */
+
+.acquisition-table .target-section td:nth-child(3),
+.acquisition-table .target-section th:nth-child(3) { width: 10%; }  /* DST */
+
+.acquisition-table .target-section td:nth-child(4),
+.acquisition-table .target-section th:nth-child(4) { width: 48%; }  /* Stations */
+
+/* Gap column */
+.acquisition-table .mining-section td:nth-child(1),
+.acquisition-table .mining-section th:nth-child(1) {
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 4%;  /* Exact gap width as requested */
+}
+
+.acquisition-table .mining-section td:nth-child(2),
+.acquisition-table .mining-section th:nth-child(2) { width: 18%; }  /* Mining System */
+
+.acquisition-table .mining-section td:nth-child(3),
+.acquisition-table .mining-section th:nth-child(3) { width: 39%; }  /* Ring Details */
+
+.acquisition-table .mining-section td:nth-child(4),
+.acquisition-table .mining-section th:nth-child(4) { width: 14%; }  /* State */
+
+.acquisition-table .mining-section td:nth-child(5),
+.acquisition-table .mining-section th:nth-child(5) { width: 18%; }  /* Power */
+
+/* Station and power info */
+.acquisition-table .station-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.acquisition-table .station-entry {
+    display: flex;
+    flex-direction: column;
+}
+
+.acquisition-table .power-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+/* Power status colors */
+.res-hotspot-table .controlling-power { color: yellow; }
+.res-hotspot-table .undermining-power { color: #ff9d00; }
+.acquisition-table .controlling-power { color: #ff9d00; }
+.acquisition-table .undermining-power { color: #ff5555; }
+.acquisition-table .power-state { color: #aaaaaa; }
+
+.acquisition-table>tbody>tr {
+    background: none;
+}
+
+/* Gap column transparency */
+.acquisition-table tbody tr td.mining-section table.inner-table tr {
+    background: none;
+}
+
+.acquisition-table tbody tr td.mining-section table.inner-table tbody tr {
+    background: none;
+}
+
+/* First make all rows transparent */
+.acquisition-table tr:nth-child(odd), .acquisition-table tr:nth-child(even) {
+    background: none;
+}
+
+/* Color target section cells */
+.acquisition-table .target-section td {
+    background-color: var(--table-darker);
+}
+
+/* Mining section coloring - odd columns */
+.acquisition-table .mining-section table.inner-table tr td:nth-child(2), /* Mining System */
+.acquisition-table .mining-section table.inner-table tr td:nth-child(3), /* Ring Details */
+.acquisition-table .mining-section table.inner-table tr td:nth-child(4), /* State */
+.acquisition-table .mining-section table.inner-table tr td:nth-child(5) /* Power */ {
+    background-color: var(--table-darker);
+}
+
+/* Ensure headers keep their color */
+.acquisition-table .inner-table th:not(.gap-cell) {
+    background: #4a2800;
+}
+
+/* Ensure gap column stays transparent */
+.acquisition-table .mining-section td:nth-child(1),
+.acquisition-table .mining-section th:nth-child(1) {
+    background: transparent !important;
+    border: none !important;
+}
+
+/* Ensure empty rows stay transparent */
+.acquisition-table tr.empty-row td,
+.acquisition-table td.empty-row {
+    background: none !important;
+}
+
+/* Add margin between complete rows */
+.acquisition-table > tbody > tr:not(:last-child) {
+    /*border-bottom: 4px solid transparent;  /* Transparent spacing between complete sets */
+}
+
+/* Fix double borders in mining systems */
+.acquisition-table .mining-section .inner-table tbody tr:not(:last-child) td {
+    border-bottom: 1px solid var(--table-border);
+}
+
+.acquisition-table .mining-section .inner-table tbody tr:not(:first-child) td {
+    border-top: none;
+}
+
+/* Add borders to target section inner table */
+.acquisition-table tbody tr td.target-section table.inner-table thead th,
+.acquisition-table tbody tr td.target-section table.inner-table tbody td {
+    border: 1px solid var(--table-border) !important;
+}
+
+/* Add borders to mining section inner table */
+.acquisition-table tbody tr td.mining-section table.inner-table thead th:not(:first-child),
+.acquisition-table tbody tr td.mining-section table.inner-table tbody td:not(:first-child) {
+    border: 1px solid var(--table-border) !important;
+}
+
+/* Remove double borders between cells */
+.acquisition-table tbody tr td.target-section table.inner-table tbody tr:not(:last-child) td,
+.acquisition-table tbody tr td.mining-section table.inner-table tbody tr:not(:last-child) td:not(.gap-cell) {
+    border-bottom: none;
+}
+
+.acquisition-table tbody tr td.target-section table.inner-table tbody tr:not(:first-child) td,
+.acquisition-table tbody tr td.mining-section table.inner-table tbody tr:not(:first-child) td:not(.gap-cell) {
+    border-top: none;
+}
+
+/* Override base table styles first */
+.acquisition-table.results-table th,
+.acquisition-table.results-table td {
+    border: none;  /* Reset all borders first */
+}
+
+/* Target section borders */
+.acquisition-table tbody tr td.target-section table.inner-table thead th,
+.acquisition-table tbody tr td.target-section table.inner-table tbody td {
+    border: 1px solid var(--table-border) !important;
+}
+
+/* Mining section borders */
+.acquisition-table tbody tr td.mining-section table.inner-table thead th:not(:first-child),
+.acquisition-table tbody tr td.mining-section table.inner-table tbody td:not(:first-child) {
+    border: 1px solid var(--table-border) !important;
+}
+
+/* Keep gap cells clean */
+.acquisition-table tbody tr td.mining-section table.inner-table thead th:first-child,
+.acquisition-table tbody tr td.mining-section table.inner-table tbody td:first-child {
+    border: none !important;
+    padding: 0 !important;
+    background: transparent !important;
+}
+
+/* Empty rows completely transparent */
+.acquisition-table tr.empty-row td,
+.acquisition-table td.empty-row {
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+}
+
+/* Spacing between complete sets */
+.acquisition-table > tbody > tr:not(:last-child) {
+    height: 4px;
+    background: transparent !important;
+}
+
+.acquisition-table.results-table > tbody > tr > td.target-section > table.inner-table > tbody > tr > td {
+    border-top: 1px solid black !important;
+    border-right: 1px solid black !important;
+}
+
+.acquisition-table.results-table > tbody > tr > td.target-section > table.inner-table > thead > tr > th {
+    border-top: 1px solid black !important;
+    border-right: 1px solid black !important;
+}
+
+.acquisition-table.results-table > tbody > tr > td.mining-section > table.inner-table > tbody > tr > td:not(:first-child) {
+    border-top: 1px solid black !important;
+    border-right: 1px solid black !important;
+}
+
+.acquisition-table.results-table > tbody > tr > td.mining-section > table.inner-table > thead > tr > th:not(:first-child) {
+    border-top: 1px solid black !important;
+    border-right: 1px solid black !important;
+}
+
+/* Keep gap cells clean */
+.acquisition-table.results-table > tbody > tr > td.mining-section > table.inner-table td:first-child,
+.acquisition-table.results-table > tbody > tr > td.mining-section > table.inner-table th:first-child {
+    border: none !important;
+    padding: 0 !important;
+    background: transparent !important;
+}
+
+/* Empty rows */
+.acquisition-table.results-table tr.empty-row td,
+.acquisition-table.results-table td.empty-row {
+    border: none !important;
+    background: transparent !important;
+    padding: 0 !important;
+}
+
+/* Spacing between groups */
+.acquisition-table > tbody > tr > td {
+    padding-bottom: 4px;
+}
+
+/* Spacing only after last mining system in a group */
+.acquisition-table tbody tr td.mining-section table.inner-table tbody tr:last-child {
+    margin-bottom: 4px;
+}
+
+/* Spacing after last mining system in a group */
+.acquisition-table tbody tr td.mining-section table.inner-table.row-space {
+    margin-bottom: 4px;
+    /*border-bottom: 4px solid transparent !important;*/
+}
+
+/* Gap cell connectors */
+.gap-cell {
+    position: relative;
+}
+
+@keyframes horizontalGradient {
+    0% {
+        background-position: -200% 0;
+    }
+    100% {
+        background-position: 200% 0;
+    }
+}
+
+@keyframes verticalGradient {
+    0% {
+        background-position: 0 -200%;
+    }
+    100% {
+        background-position: 0 200%;
+    }
+}
+
+/* Base gradient style for horizontal lines */
+
+.gap-cell:after {
+    background: linear-gradient(90deg, orange, yellow, orange);
+    background-size: 200% 100%;
+    animation: horizontalGradient 6s linear infinite;
+}
+
+
+/* Base gradient style for vertical lines */
+
+.gap-cell:before {
+    background: linear-gradient(180deg, orange, yellow, orange);
+    background-size: 100% 200%;
+    animation: verticalGradient 6s linear infinite;
+}
+
+
+/* Single mining system: horizontal line only */
+.gap-cell.single:after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 2px;
+}
+
+/* First mining system: "┰" shape */
+.gap-cell.first:after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 2px;
+}
+.gap-cell.first:before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    height: 50%;
+    left: 50%;
+    width: 2px;
+}
+
+/* Middle mining systems: "┠" shape */
+.gap-cell.next:before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 50%;
+    width: 2px;
+}
+.gap-cell.next:after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    right: 0;
+    height: 2px;
+}
+
+/* Last mining system: "┕" shape */
+.gap-cell.last:before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 50%;
+    left: 50%;
+    width: 2px;
+}
+.gap-cell.last:after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    right: 0;
+    height: 2px;
+}
+
+/* Acquisition table station overrides */
+.acquisition-table .station-details {
+    margin-left: 21px;
+    padding-left: 0;
+    padding-bottom: 0;
+    font-size: 14px;
+    font-weight: normal;
+    opacity: 0.7;
+    color: #ff6600;
+}
+
+.acquisition-table .station-updated {
+    margin-left: 21px;
+    font-size: 14px;
+    font-weight: normal;
+    opacity: 0.7;
+    color: #ff6600;
+    margin-bottom: 10px;
+}
+
+.acquisition-table .station-details:before,
+.acquisition-table .station-updated:before {
+    content: none;
+}
+
+.acquisition-table .other-commodities {
+    margin-left: 0px;
+}
+
+.acquisition-table .commodity-item:first-child {
+    font-size: 14px;
+    color: var(--main-color);
+}
+
+.acquisition-table .commodity-item:first-child .commodity-code {
+    background-color: #ff6600;
+    color: yellow;
+    padding: 0 4px;
+    /*border-radius: 2px;*/
+    font-size: 12px;
+}
+
+/* Align demand text blocks */
+.acquisition-table .demand-block {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+/* Copy icon for systems */
+.acquisition-table .system-name {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.acquisition-table .copy-icon {
+    cursor: pointer;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+}
+
+.acquisition-table .copy-icon:hover {
+    opacity: 1;
+}
+
+/* Spacing between complete result sets */
+.acquisition-table > tbody > tr:not(:first-child) {
+    margin-top: 20px;
+}
+
+.acquisition-table > tbody > tr:not(:first-child) td {
+    padding-top: 20px;
+}
+
+.acquisition-table .commodity-item {
+    display: grid;
+    grid-template-columns: 40px 120px auto;
+    align-items: center;
+    gap: 0px;
+}
+
+.acquisition-table .commodity-code {
+    width: 32px;
+    letter-spacing: 0.05em;
+}
+
+.acquisition-table td svg.power-state-icon {
+    vertical-align: middle;
+    margin-right: 5px;
+}
+
+.acquisition-table td {
+    vertical-align: middle;
+}
+
+.power-state-icon {
+    margin-right: 5px;
+    vertical-align: middle;
+}
+
+.signal-list {
+    list-style: none;
+    padding-left: 0;
+    margin: 0;
+}
+
+/* Alternating table colors */
+.acquisition-table > tbody > tr:nth-child(even) .mining-section table.inner-table tr td:not(:first-child) {
+    background-color: var(--table-dark);
+}
+
+.acquisition-table > tbody > tr:nth-child(odd) .mining-section table.inner-table tr td:not(:first-child) {
+    background-color: var(--table-darker);
+}
+
+.acquisition-table > tbody > tr:nth-child(even) .target-section table.inner-table td {
+    background-color: var(--table-dark);
+}
+
+.acquisition-table > tbody > tr:nth-child(odd) .target-section table.inner-table td {
+    background-color: var(--table-darker);
+}
+
+/* Keep gap cells transparent */
+.acquisition-table .mining-section .inner-table td:first-child {
+    background-color: transparent !important;
+} 
+
+.acquisition-table .inner-table tbody td tr {
+    vertical-align: top !important;
+}

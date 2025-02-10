@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="a" data-name="Ebene 2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 46.7 40">
+  <defs>
+    <style>
+      .b {
+        fill: red;
+        stroke-width: 0px;
+      }
+    </style>
+  </defs>
+  <path class="b" d="M0,0l23.35,40L46.7,0H0ZM7.17,4.12h32.36l-16.18,27.72L7.17,4.12Z"/>
+  <polygon class="b" points="11.33 6.53 35.37 6.53 23.35 27.12 11.33 6.53"/>
+</svg>

@@ -19,37 +19,37 @@
 
 <!-- 3 Bars Yellow -->
   <symbol id="demand-veryhigh" viewBox="0 0 13 12">
-    <rect class="yellow" y="8" width="3" height="4"/>
-    <rect class="yellow" x="5" y="4" width="3" height="8"/>
-    <rect class="yellow" x="10" width="3" height="12"/>
+    <rect fill="currentColor" y="8" width="3" height="4"/>
+    <rect fill="currentColor" x="5" y="4" width="3" height="8"/>
+    <rect fill="currentColor" x="10" width="3" height="12"/>
   </symbol>
 
   <!-- 3 Bars Green -->
   <symbol id="demand-high" viewBox="0 0 13 12">
-    <rect class="green" y="8" width="3" height="4"/>
-    <rect class="green" x="5" y="4" width="3" height="8"/>
-    <rect class="green" x="10" width="3" height="12"/>
+    <rect fill="currentColor" y="8" width="3" height="4"/>
+    <rect fill="currentColor" x="5" y="4" width="3" height="8"/>
+    <rect fill="currentColor" x="10" width="3" height="12"/>
   </symbol>
 
  <!-- 2 Bars Green -->
   <symbol id="demand-medium" viewBox="0 0 13 12">
-    <rect class="green" y="8" width="3" height="4"/>
-    <rect class="green" x="5" y="4" width="3" height="8"/>
-    <path class="green" d="M12,1v10h-1V1h1M13,0h-3v12h3V0h0Z"/>
+    <rect fill="currentColor" y="8" width="3" height="4"/>
+    <rect fill="currentColor" x="5" y="4" width="3" height="8"/>
+    <path fill="currentColor" d="M12,1v10h-1V1h1M13,0h-3v12h3V0h0Z"/>
   </symbol>
 
  <!-- 1 Bar Yellow -->
   <symbol id="demand-low" viewBox="0 0 13 12">
-    <rect class="bad" y="8" width="3" height="4"/>
-    <path class="bad" d="M7,5v6h-1v-6h1M8,4h-3v8h3V4h0Z"/>
-    <path class="bad" d="M12,1v10h-1V1h1M13,0h-3v12h3V0h0Z"/>
+    <rect fill="currentColor" y="8" width="3" height="4"/>
+    <path fill="currentColor" d="M7,5v6h-1v-6h1M8,4h-3v8h3V4h0Z"/>
+    <path fill="currentColor" d="M12,1v10h-1V1h1M13,0h-3v12h3V0h0Z"/>
   </symbol>
 
  <!-- 0 Bars Red -->
   <symbol id="demand-none" viewBox="0 0 13 12">
-    <path class="bad" d="M2,9v2h-1v-2h1M3,8H0v4h3v-4h0Z"/>
-    <path class="bad" d="M7,5v6h-1v-6h1M8,4h-3v8h3V4h0Z"/>
-    <path class="bad" d="M12,1v10h-1V1h1M13,0h-3v12h3V0h0Z"/>
+    <path fill="currentColor" d="M2,9v2h-1v-2h1M3,8H0v4h3v-4h0Z"/>
+    <path fill="currentColor" d="M7,5v6h-1v-6h1M8,4h-3v8h3V4h0Z"/>
+    <path fill="currentColor" d="M12,1v10h-1V1h1M13,0h-3v12h3V0h0Z"/>
   </symbol>
 
 </svg>

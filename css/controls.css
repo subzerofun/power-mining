@@ -1,0 +1,233 @@
+#controls {
+    position: absolute;
+    top: 0;
+    left: 60px;
+    margin-left: 0;
+    color: white;
+    font-family: 'ChakraPetch', sans-serif;
+    display: flex;
+    align-items: left;
+    flex-direction: column;
+    gap: 12px;
+    width: 400px;
+    z-index: 5;
+    background-color: rgba(18, 8, 2, 0.8);
+    backdrop-filter: blur(14px);
+    padding: 20px;
+    border-radius: 0 0 5px 5px;
+    border-top: 3px solid #ffb800;
+    clip-path: inset(0 0 100% 0);
+    transition: clip-path 0.3s ease-in-out, opacity 0.3s ease-in-out;
+    will-change: clip-path, opacity;
+}
+
+#controls.open {
+    clip-path: inset(0 0 0 0);
+}
+
+.controls-info-group {
+    display: flex;
+    flex-direction: row;
+    flex-flow: row-reverse;
+    gap: 10px;
+}
+
+.controls-info-group b {
+    color: #f5730d;
+}
+
+.controls-info  {
+    font-size: 0.8em;
+    color: #ffffff;
+    width: 60%;
+    align-self: center;
+}
+
+
+#controls #nameRadius {
+    width: 110px;
+    padding: 0;
+}
+
+
+#controls .controls-notice {
+    font-size: 0.9em;
+    color: white;
+    text-align: center;
+    width: 100%;
+    padding: 0;
+    height: auto;
+    align-self: normal;
+    align-items: left;
+    text-align: left;
+}
+
+#controls h3 {
+    color: #f5730d;
+    font-size: 1.2em;
+    text-align: left;
+    width: 100%;
+}
+
+#controls button {
+    width: 40%;
+}
+
+
+#controls .controls-element {
+    background-color: none !important;
+    font-size: 0.7em;
+    max-width: 120px;
+
+}
+#controls button {
+    min-height: 25px;
+    max-height: 50px;
+    font-size: 0.7em;
+    background: transparent;
+    align-self: normal;
+    align-items: left;
+    /* background-color: #f5730d; */
+    border: 1px solid #f5730d;
+    border-radius: 0;
+}
+
+
+#controls button {
+    /*  border: 1px solid var(--one); */
+    backdrop-filter: blur(14px);
+}
+
+#controls button:hover {
+    background-color: #f5730d;
+    backdrop-filter: blur(20px);
+}
+
+#systemInput { padding: 5px; }
+#findButton, #gridDownButton, #gridUpButton, #resetGridButton { padding: 5px; }
+#controls input[type="number"] {
+    background: rgba(0,0,0,0.5);
+    border: 1px solid #666;
+    color: white;
+    padding: 2px 5px;
+}
+#controls label {
+    color: #bbb;
+    font-family: 'ChakraPetch', sans-serif;
+}
+
+#controls-left-container {
+    position: fixed;
+    top: 240px;
+    left: auto;
+    color: white;
+    font-family: 'ChakraPetch', sans-serif;
+    display: flex;
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 10px;
+    max-width: 30%;
+    z-index: 500;
+    pointer-events: auto;
+}
+
+#controls-left-container .controls-left-button {
+    position: relative;
+    left: 0;
+    background-color: #391800d0 !important;
+    backdrop-filter: blur(14px);
+    width: 48px;
+    height: 48px;
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 500;
+    margin: 0;
+    padding: 0;
+    border-radius: 0 6px 6px 0;
+    transition: all 0.3s ease !important;
+    border: none !important;
+}
+
+/* Pseudo-element for the outer border */
+#controls-left-container .controls-left-button::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: -3px;
+    width: 3px;  /* Width of the border */
+    background-color: transparent;  /* Use background instead of border for cleaner look */
+    transition: all 0.3s ease;
+    pointer-events: none;  /* Make sure it doesn't interfere with button clicks */
+}
+
+#controls-left-container .controls-left-button:hover::before,
+#controls-left-container .controls-left-button.active-button::before {
+    background-color: #ffb800;  /* Change background color instead of border */
+}
+
+#controls-left-container .controls-left-button img {
+    width: 48px;
+    height: 48px;
+    transition: all 0.3s ease !important;
+}
+
+#controls-left-container .controls-left-button:hover {
+    background-color: #883202 !important;
+}
+
+#controls-left-container .controls-left-button:hover img {
+    filter: invert(62%) sepia(94%) saturate(725%) hue-rotate(359deg) brightness(103%) contrast(106%);
+}
+
+#controls-left-container .controls-left-button.active-button {
+    background-color: #883202 !important;
+}
+
+#controls-left-container .controls-left-button.active-button img {
+    filter: invert(62%) sepia(94%) saturate(725%) hue-rotate(359deg) brightness(103%) contrast(106%);
+}
+
+/* Remove redundant overrides */
+/* button.controls-left-button,
+button.controls-left-button:hover {
+    display: none;
+} */
+
+#controls .close-button {
+    background: none !important;
+    background-color: transparent !important;
+    border: none;
+    color: var(--main-color);
+    font-size: 32px;
+    font-weight: lighter;
+    cursor: pointer;
+    padding: 0;
+    margin-top: -8px;
+    line-height: 1;
+    height: 32px;
+    backdrop-filter: none !important;
+}
+
+#controls .close-button:hover {
+    color: var(--main-color);
+    background: none !important;
+    background-color: transparent !important;
+    backdrop-filter: none !important;
+}
+
+#controls .close-button:not(:hover) {
+    color: #595959;
+    background: none !important;
+    background-color: transparent !important;
+    backdrop-filter: none !important;
+}
+
+/* Override any inherited button styles */
+#controls .system-info-header .close-button {
+    background: none !important;
+    background-color: transparent !important;
+    backdrop-filter: none !important;
+}

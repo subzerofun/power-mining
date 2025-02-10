@@ -1,0 +1,85 @@
+1) Archon Delaine
+Title/Role: Pirate Warlord of the Kumo Crew
+Faction: Independent (Kumo Crew)
+Color (approx.):
+RGB: 125, 121, 116
+Hex: #7D7974
+
+2) A. Lavigny-Duval (Arissa Lavigny-Duval)
+Title/Role: Emperor of the Empire
+Faction: Empire
+Color (approx.):
+RGB: 232, 197, 66
+Hex: #E8C542
+
+3) Aisling Duval
+Title/Role: “People’s Princess” of the Empire
+Faction: Empire
+Color (approx.):
+RGB: 108, 212, 204
+Hex: #6CD4CC
+
+4) Denton Patreus
+Title/Role: Senator of the Empire
+Faction: Empire
+Color (approx.):
+RGB: 147, 27, 27
+Hex: #931B1B
+
+5) Edmund Mahon
+Title/Role: Prime Minister of the Alliance
+Faction: Alliance
+Color (approx.):
+RGB: 39, 163, 25
+Hex: #27A319
+
+6) Felicia Winters
+Title/Role: Shadow President of the Federation
+Faction: Federation
+Color (approx.):
+RGB: 35, 90, 202
+Hex: #235ACA
+
+7) Jerome Archer
+Title/Role: Federal Administration (President/Secretary of Security)
+Faction: Federation
+Color (approx.):
+RGB: 33, 87, 206
+Hex: #2157CE
+Jerome Archer effectively replaced Zachary Hudson in some listings and is associated with a Federation-blue hue similar to Hudson’s.
+
+8) Li Yong-Rui
+Title/Role: CEO of Sirius Gov
+Faction: Independent
+Color (approx.):
+RGB: 24, 211, 209
+Hex: #18D3D1
+
+9) Nakato Kaine
+Title/Role: Alliance Council Member / Leading Rival to Mahon
+Faction: Alliance
+Color (approx.):
+RGB: 33, 183, 77
+Hex: #21B74D
+Exact coloration varies; some players see a shade of green near Mahon’s color.
+
+10) Pranav Antal
+Title/Role: Simguru of Utopia
+Faction: Independent (Utopians)
+Color (approx.):
+RGB: 119, 69, 162
+Hex: #7745A2
+
+11) Yuri Grom
+Title/Role: Supreme Leader of EG Union
+Faction: Independent
+Color (approx.):
+RGB: 114, 159, 155
+Hex: #729F9B
+
+12) Zemina Torval
+Title/Role: Senator of the Empire
+Faction: Empire
+Color (approx.):
+RGB: 81, 51, 31
+Hex: #51331F

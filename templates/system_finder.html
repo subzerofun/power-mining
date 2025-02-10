@@ -1,0 +1,47 @@
+<form class="search-form" id="searchForm">
+    <div class="form-row">
+        <div class="form-group inline-group">
+            <label for="system">Reference System:</label>
+            <div id="systemAutocomplete">
+                <input type="text" id="system" name="system" value="Harma" required>
+                <div class="autocomplete-results"></div>
+            </div>
+        </div>
+        <div class="form-group inline-group">
+            <label for="distance">Distance:</label>
+            <div class="distance-container">
+                <input type="range" id="distance" name="distance" class="distance-slider" value="200" min="1" max="500">
+                <span class="distance-value">200 Ly</span>
+            </div>
+        </div>
+        <div class="form-group inline-group">
+            <label for="limit">Search results:</label>
+            <input type="number" id="limit" name="limit" value="30" min="1" class="limit-input">
+        </div>
+        <!---
+        <div class="form-group inline-group compare-group">
+            <label class="compare-label">Price<br>comparison:</label>
+            <div class="toggle-switch" onclick="togglePriceReference()">
+                <span id="avgPriceToggle" class="active">Avg</span>
+                <span id="maxPriceToggle">Max</span>
+            </div>
+        </div>
+        -->
+    </div>
+    
+    <div class="form-row">
+        <button type="submit" class="btn btn-primary mainSearchButton">Search</button>
+        <button type="button" class="btn btn-info" onclick="searchHighest()">Best Prices</button>
+        <button type="button" class="btn btn-info" onclick="searchResHotspots()">Res Hotspots</button>
+        <button type="button" class="btn btn-info" onclick="searchHighYieldPlatinum()">High Platinum Hotspots</button>
+        <div class="status-container">
+            <div class="eddn-status">
+                <div class="eddn-title">EDDN Live Update:</div>
+                <div class="status-indicator">
+                    <div class="status-circle eddn-circle"></div>
+                    <div class="status-text eddn-text">Offline</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>

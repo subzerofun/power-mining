@@ -89,3 +89,17 @@ utils/old_update_live.py
 utils/old_update_live_web.py
 utils/search_notOK.py
 timescaledb
+json/powerplay.zpaq
+json/systemsPopulated (3).json
+*.zst
+json/systemsPopulated_02-07.gz
+/img/powers
+/img/psd
+/img/galaxy/src
+/docs
+.BridgeSort
+/.cursor
+/cursor-cmd
+/videos
+/img/reddit
+/journal_events

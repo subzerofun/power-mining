@@ -1,0 +1,2961 @@
+{
+    "id": 9515,
+    "id64": 560216394091,
+    "name": "HR 8514",
+    "coords": {
+        "x": -74.21875,
+        "y": -64.1875,
+        "z": 23.46875
+    },
+    "allegiance": "Independent",
+    "government": "Confederacy",
+    "state": "Expansion",
+    "economy": "Industrial",
+    "security": "Low",
+    "population": 17571312,
+    "controllingFaction": {
+        "id": 82154,
+        "name": "Tethys Independent Crew",
+        "allegiance": "Independent",
+        "government": "Confederacy",
+        "isPlayer": false
+    },
+    "factions": [
+        {
+            "id": 82154,
+            "name": "Tethys Independent Crew",
+            "allegiance": "Independent",
+            "government": "Confederacy",
+            "influence": 0.724033,
+            "state": "Expansion",
+            "activeStates": [
+                {
+                    "state": "Boom"
+                },
+                {
+                    "state": "Expansion"
+                }
+            ],
+            "recoveringStates": [],
+            "pendingStates": [],
+            "happiness": "Happy",
+            "isPlayer": false,
+            "lastUpdate": 1735052345
+        },
+        {
+            "id": 78718,
+            "name": "G-CLAN",
+            "allegiance": "Independent",
+            "government": "Democracy",
+            "influence": 0.181263,
+            "state": "Expansion",
+            "activeStates": [
+                {
+                    "state": "Expansion"
+                }
+            ],
+            "recoveringStates": [],
+            "pendingStates": [],
+            "happiness": "Happy",
+            "isPlayer": true,
+            "lastUpdate": 1735052345
+        },
+        {
+            "id": 50330,
+            "name": "HR 8514 Focus",
+            "allegiance": "Independent",
+            "government": "Dictatorship",
+            "influence": 0.023422,
+            "state": "None",
+            "activeStates": [],
+            "recoveringStates": [
+                {
+                    "state": "Outbreak",
+                    "trend": 0
+                }
+            ],
+            "pendingStates": [],
+            "happiness": "Happy",
+            "isPlayer": false,
+            "lastUpdate": 1735052345
+        },
+        {
+            "id": 50331,
+            "name": "HR 8514 Interstellar",
+            "allegiance": "Independent",
+            "government": "Corporate",
+            "influence": 0.023422,
+            "state": "None",
+            "activeStates": [],
+            "recoveringStates": [],
+            "pendingStates": [],
+            "happiness": "Happy",
+            "isPlayer": false,
+            "lastUpdate": 1735052345
+        },
+        {
+            "id": 16983,
+            "name": "HR 8514 Purple Ring",
+            "allegiance": "Independent",
+            "government": "Anarchy",
+            "influence": 0.01833,
+            "state": "None",
+            "activeStates": [],
+            "recoveringStates": [],
+            "pendingStates": [],
+            "happiness": "Happy",
+            "isPlayer": false,
+            "lastUpdate": 1735052345
+        },
+        {
+            "id": 50332,
+            "name": "Eureka Mining Co-Operative",
+            "allegiance": "Independent",
+            "government": "Cooperative",
+            "influence": 0.01833,
+            "state": "None",
+            "activeStates": [],
+            "recoveringStates": [],
+            "pendingStates": [],
+            "happiness": "Happy",
+            "isPlayer": true,
+            "lastUpdate": 1735052345
+        },
+        {
+            "id": 50329,
+            "name": "Progressive Party of HR 8514",
+            "allegiance": "Federation",
+            "government": "Democracy",
+            "influence": 0.011202,
+            "state": "None",
+            "activeStates": [],
+            "recoveringStates": [],
+            "pendingStates": [],
+            "happiness": "Happy",
+            "isPlayer": false,
+            "lastUpdate": 1735052345
+        },
+        {
+            "id": 80805,
+            "name": "Tethys Empire Crew",
+            "allegiance": "Empire",
+            "government": "Corporate",
+            "influence": 0,
+            "state": "None",
+            "activeStates": [],
+            "recoveringStates": [],
+            "pendingStates": [],
+            "happiness": "Happy",
+            "isPlayer": true,
+            "lastUpdate": 1735052345
+        },
+        {
+            "id": 933,
+            "name": "Blue Comms Corp.",
+            "allegiance": "Federation",
+            "government": "Corporate",
+            "influence": 0,
+            "state": "None",
+            "activeStates": [],
+            "recoveringStates": [],
+            "pendingStates": [],
+            "happiness": "None",
+            "isPlayer": false,
+            "lastUpdate": 1735052345
+        },
+        {
+            "id": 8135,
+            "name": "Nankul General Holdings",
+            "allegiance": "Federation",
+            "government": "Corporate",
+            "influence": 0,
+            "state": "None",
+            "activeStates": [],
+            "recoveringStates": [],
+            "pendingStates": [],
+            "happiness": "Happy",
+            "isPlayer": false,
+            "lastUpdate": 1735052345
+        },
+        {
+            "id": 14125,
+            "name": "Kao Kach Purple Energy PLC",
+            "allegiance": "Independent",
+            "government": "Corporate",
+            "influence": 0,
+            "state": "None",
+            "activeStates": [],
+            "recoveringStates": [],
+            "pendingStates": [],
+            "happiness": "Happy",
+            "isPlayer": false,
+            "lastUpdate": 1735052345
+        },
+        {
+            "id": 81923,
+            "name": "Pilots' Federation Local Branch",
+            "allegiance": "Pilots Federation",
+            "government": "Democracy",
+            "influence": 0,
+            "state": "None",
+            "activeStates": [],
+            "recoveringStates": [],
+            "pendingStates": [],
+            "happiness": "None",
+            "isPlayer": false,
+            "lastUpdate": 1735052345
+        },
+        {
+            "id": 7974,
+            "name": "Alya Allied & Co",
+            "allegiance": "Independent",
+            "government": "Corporate",
+            "influence": 0,
+            "state": "None",
+            "activeStates": [],
+            "recoveringStates": [],
+            "pendingStates": [],
+            "happiness": "Happy",
+            "isPlayer": false,
+            "lastUpdate": 1735052345
+        },
+        {
+            "id": 79563,
+            "name": "Cavalry Command of Yuma",
+            "allegiance": "Federation",
+            "government": "Confederacy",
+            "influence": 0,
+            "state": "None",
+            "activeStates": [],
+            "recoveringStates": [],
+            "pendingStates": [],
+            "happiness": "Happy",
+            "isPlayer": true,
+            "lastUpdate": 1735052345
+        }
+    ],
+    "stations": [
+        {
+            "id": 201831,
+            "marketId": 3708371712,
+            "type": "Fleet Carrier",
+            "name": "T3J-9KF",
+            "distanceToArrival": 0,
+            "allegiance": "Independent",
+            "government": "Fleet Carrier",
+            "economy": "Fleet Carrier",
+            "secondEconomy": null,
+            "haveMarket": false,
+            "haveShipyard": false,
+            "haveOutfitting": false,
+            "otherServices": [
+                "Restock",
+                "Refuel",
+                "Repair",
+                "Contacts",
+                "Universal Cartographics",
+                "Crew Lounge"
+            ],
+            "updateTime": {
+                "information": "2023-05-26 02:26:54",
+                "market": null,
+                "shipyard": null,
+                "outfitting": null
+            }
+        },
+        {
+            "id": 118385,
+            "marketId": 3706722816,
+            "type": "Fleet Carrier",
+            "name": "X9T-5HT",
+            "distanceToArrival": 0,
+            "allegiance": "Independent",
+            "government": "Fleet Carrier",
+            "economy": "Fleet Carrier",
+            "secondEconomy": null,
+            "haveMarket": true,
+            "haveShipyard": true,
+            "haveOutfitting": true,
+            "otherServices": [
+                "Black Market",
+                "Restock",
+                "Refuel",
+                "Repair",
+                "Contacts",
+                "Universal Cartographics",
+                "Crew Lounge",
+                "Pioneer Supplies",
+                "Vista Genomics"
+            ],
+            "updateTime": {
+                "information": "2024-12-24 14:50:23",
+                "market": "2024-12-24 14:37:26",
+                "shipyard": "2024-12-24 14:50:54",
+                "outfitting": "2024-12-22 15:32:44"
+            }
+        },
+        {
+            "id": 73560,
+            "marketId": 3703815680,
+            "type": "Fleet Carrier",
+            "name": "XHM-WTZ",
+            "distanceToArrival": 2507.030568,
+            "allegiance": "Independent",
+            "government": "Fleet Carrier",
+            "economy": "Fleet Carrier",
+            "secondEconomy": null,
+            "haveMarket": true,
+            "haveShipyard": false,
+            "haveOutfitting": false,
+            "otherServices": [
+                "Contacts",
+                "Crew Lounge"
+            ],
+            "updateTime": {
+                "information": "2023-11-18 15:55:48",
+                "market": "2022-08-09 12:50:39",
+                "shipyard": null,
+                "outfitting": null
+            }
+        },
+        {
+            "id": 116241,
+            "marketId": 3706514432,
+            "type": "Fleet Carrier",
+            "name": "H7J-2QL",
+            "distanceToArrival": 2510.560519,
+            "allegiance": "Independent",
+            "government": "Fleet Carrier",
+            "economy": "Fleet Carrier",
+            "secondEconomy": null,
+            "haveMarket": true,
+            "haveShipyard": false,
+            "haveOutfitting": false,
+            "otherServices": [
+                "Restock",
+                "Refuel",
+                "Repair",
+                "Contacts",
+                "Crew Lounge"
+            ],
+            "updateTime": {
+                "information": "2024-08-28 16:39:46",
+                "market": "2024-08-28 16:39:55",
+                "shipyard": null,
+                "outfitting": null
+            }
+        },
+        {
+            "id": 118628,
+            "marketId": 3853606912,
+            "type": "Odyssey Settlement",
+            "name": "Sangweni's Origin",
+            "body": {
+                "id": 8278781,
+                "name": "HR 8514 5 a",
+                "latitude": -14.2437,
+                "longitude": -150.758
+            },
+            "distanceToArrival": 2652,
+            "allegiance": "Independent",
+            "government": "Confederacy",
+            "economy": "Tourism",
+            "secondEconomy": null,
+            "haveMarket": true,
+            "haveShipyard": false,
+            "haveOutfitting": false,
+            "otherServices": [
+                "Black Market",
+                "Refuel",
+                "Repair",
+                "Contacts",
+                "Missions",
+                "Crew Lounge",
+                "Interstellar Factors Contact",
+                "Search and Rescue"
+            ],
+            "controllingFaction": {
+                "id": 82154,
+                "name": "Tethys Independent Crew"
+            },
+            "updateTime": {
+                "information": "2024-11-25 09:52:13",
+                "market": "2022-11-27 15:05:49",
+                "shipyard": null,
+                "outfitting": null
+            }
+        },
+        {
+            "id": 113120,
+            "marketId": 3853607168,
+            "type": "Odyssey Settlement",
+            "name": "Feng Botanical Market",
+            "body": {
+                "id": 8278781,
+                "name": "HR 8514 5 a",
+                "latitude": 18.9705,
+                "longitude": -51.6068
+            },
+            "distanceToArrival": 2652,
+            "allegiance": "Independent",
+            "government": "Confederacy",
+            "economy": "Agriculture",
+            "secondEconomy": null,
+            "haveMarket": true,
+            "haveShipyard": false,
+            "haveOutfitting": false,
+            "otherServices": [
+                "Black Market",
+                "Refuel",
+                "Repair",
+                "Contacts",
+                "Missions",
+                "Interstellar Factors Contact",
+                "Search and Rescue"
+            ],
+            "controllingFaction": {
+                "id": 82154,
+                "name": "Tethys Independent Crew"
+            },
+            "updateTime": {
+                "information": "2024-11-25 09:52:13",
+                "market": "2023-01-15 07:55:25",
+                "shipyard": null,
+                "outfitting": null
+            }
+        },
+        {
+            "id": 109814,
+            "marketId": 3853611264,
+            "type": "Odyssey Settlement",
+            "name": "Symons Command Facility",
+            "body": {
+                "id": 8278786,
+                "name": "HR 8514 4 a",
+                "latitude": -22.0611,
+                "longitude": -75.296
+            },
+            "distanceToArrival": 2656,
+            "allegiance": "Independent",
+            "government": "Confederacy",
+            "economy": "Military",
+            "secondEconomy": null,
+            "haveMarket": true,
+            "haveShipyard": false,
+            "haveOutfitting": false,
+            "otherServices": [
+                "Black Market",
+                "Restock",
+                "Refuel",
+                "Repair",
+                "Contacts",
+                "Missions",
+                "Interstellar Factors Contact",
+                "Search and Rescue"
+            ],
+            "controllingFaction": {
+                "id": 82154,
+                "name": "Tethys Independent Crew"
+            },
+            "updateTime": {
+                "information": "2024-11-25 09:52:13",
+                "market": "2022-03-15 20:46:07",
+                "shipyard": null,
+                "outfitting": null
+            }
+        },
+        {
+            "id": 339778,
+            "marketId": 3853609728,
+            "type": "Odyssey Settlement",
+            "name": "Juarez Botanical Market",
+            "body": {
+                "id": 8278780,
+                "name": "HR 8514 3 d",
+                "latitude": -20.5059,
+                "longitude": 157.513
+            },
+            "distanceToArrival": 2573,
+            "allegiance": "Independent",
+            "government": "Cooperative",
+            "economy": "Agriculture",
+            "secondEconomy": null,
+            "haveMarket": true,
+            "haveShipyard": false,
+            "haveOutfitting": false,
+            "otherServices": [
+                "Black Market",
+                "Refuel",
+                "Repair",
+                "Contacts",
+                "Missions",
+                "Interstellar Factors Contact",
+                "Search and Rescue"
+            ],
+            "controllingFaction": {
+                "id": 50332,
+                "name": "Eureka Mining Co-Operative"
+            },
+            "updateTime": {
+                "information": "2024-11-07 05:59:21",
+                "market": "2024-10-20 23:32:23",
+                "shipyard": null,
+                "outfitting": null
+            }
+        },
+        {
+            "id": 161822,
+            "marketId": 3853609472,
+            "type": "Odyssey Settlement",
+            "name": "Newland's Plantation",
+            "distanceToArrival": 2580.20649,
+            "allegiance": "Federation",
+            "government": "Democracy",
+            "economy": "Agriculture",
+            "secondEconomy": null,
+            "haveMarket": false,
+            "haveShipyard": false,
+            "haveOutfitting": false,
+            "otherServices": [
+                "Black Market",
+                "Refuel",
+                "Repair",
+                "Contacts",
+                "Missions",
+                "Interstellar Factors Contact",
+                "Search and Rescue"
+            ],
+            "controllingFaction": {
+                "id": 50329,
+                "name": "Progressive Party of HR 8514"
+            },
+            "updateTime": {
+                "information": "2024-10-29 12:00:26",
+                "market": null,
+                "shipyard": null,
+                "outfitting": null
+            }
+        },
+        {
+            "id": 135099,
+            "marketId": 3853609216,
+            "type": "Odyssey Settlement",
+            "name": "Hasegawa Hydroponics Habitat",
+            "distanceToArrival": 2584.159785,
+            "allegiance": "Independent",
+            "government": "Confederacy",
+            "economy": "Agriculture",
+            "secondEconomy": null,
+            "haveMarket": false,
+            "haveShipyard": false,
+            "haveOutfitting": false,
+            "otherServices": [
+                "Black Market",
+                "Refuel",
+                "Repair",
+                "Contacts",
+                "Missions",
+                "Interstellar Factors Contact",
+                "Search and Rescue"
+            ],
+            "controllingFaction": {
+                "id": 82154,
+                "name": "Tethys Independent Crew"
+            },
+            "updateTime": {
+                "information": "2024-11-25 09:52:13",
+                "market": null,
+                "shipyard": null,
+                "outfitting": null
+            }
+        },
+        {
+            "id": 161820,
+            "marketId": 3853610240,
+            "type": "Odyssey Settlement",
+            "name": "Dhillon Horticultural Centre",
+            "distanceToArrival": 2584.491965,
+            "allegiance": "Independent",
+            "government": "Cooperative",
+            "economy": "Agriculture",
+            "secondEconomy": null,
+            "haveMarket": false,
+            "haveShipyard": false,
+            "haveOutfitting": false,
+            "otherServices": [
+                "Black Market",
+                "Refuel",
+                "Repair",
+                "Contacts",
+                "Missions",
+                "Interstellar Factors Contact",
+                "Search and Rescue"
+            ],
+            "controllingFaction": {
+                "id": 50332,
+                "name": "Eureka Mining Co-Operative"
+            },
+            "updateTime": {
+                "information": "2024-11-07 05:59:21",
+                "market": null,
+                "shipyard": null,
+                "outfitting": null
+            }
+        },
+        {
+            "id": 113140,
+            "marketId": 3853610496,
+            "type": "Odyssey Settlement",
+            "name": "Rybalka Botanical Market",
+            "body": {
+                "id": 8278780,
+                "name": "HR 8514 3 d",
+                "latitude": -28.8394,
+                "longitude": -129.048
+            },
+            "distanceToArrival": 2573,
+            "allegiance": "Independent",
+            "government": "Confederacy",
+            "economy": "Agriculture",
+            "secondEconomy": null,
+            "haveMarket": false,
+            "haveShipyard": false,
+            "haveOutfitting": false,
+            "otherServices": [
+                "Black Market",
+                "Refuel",
+                "Repair",
+                "Contacts",
+                "Missions",
+                "Interstellar Factors Contact",
+                "Search and Rescue"
+            ],
+            "controllingFaction": {
+                "id": 82154,
+                "name": "Tethys Independent Crew"
+            },
+            "updateTime": {
+                "information": "2024-11-25 09:52:13",
+                "market": null,
+                "shipyard": null,
+                "outfitting": null
+            }
+        },
+        {
+            "id": 113268,
+            "marketId": 3853609984,
+            "type": "Odyssey Settlement",
+            "name": "Dovbush's Conservatory",
+            "body": {
+                "id": 8278780,
+                "name": "HR 8514 3 d",
+                "latitude": 38.2422,
+                "longitude": -147.855
+            },
+            "distanceToArrival": 2573,
+            "allegiance": "Empire",
+            "government": "Corporate",
+            "economy": "Agriculture",
+            "secondEconomy": null,
+            "haveMarket": false,
+            "haveShipyard": false,
+            "haveOutfitting": false,
+            "otherServices": [
+                "Black Market",
+                "Refuel",
+                "Repair",
+                "Contacts",
+                "Missions",
+                "Interstellar Factors Contact",
+                "Search and Rescue"
+            ],
+            "controllingFaction": {
+                "id": 80805,
+                "name": "Tethys Empire Crew"
+            },
+            "updateTime": {
+                "information": "2023-09-22 13:06:33",
+                "market": null,
+                "shipyard": null,
+                "outfitting": null
+            }
+        },
+        {
+            "id": 161747,
+            "marketId": 3853607424,
+            "type": "Odyssey Settlement",
+            "name": "Dubey Botanical Centre",
+            "distanceToArrival": 2585.714008,
+            "allegiance": "Independent",
+            "government": "Confederacy",
+            "economy": "Agriculture",
+            "secondEconomy": null,
+            "haveMarket": false,
+            "haveShipyard": false,
+            "haveOutfitting": false,
+            "otherServices": [
+                "Black Market",
+                "Refuel",
+                "Repair",
+                "Contacts",
+                "Missions",
+                "Interstellar Factors Contact",
+                "Search and Rescue"
+            ],
+            "controllingFaction": {
+                "id": 82154,
+                "name": "Tethys Independent Crew"
+            },
+            "updateTime": {
+                "information": "2024-11-25 09:52:13",
+                "market": null,
+                "shipyard": null,
+                "outfitting": null
+            }
+        },
+        {
+            "id": 89819,
+            "marketId": 3853608448,
+            "type": "Odyssey Settlement",
+            "name": "Mbarga Cultivation Garden",
+            "distanceToArrival": 2585.729211,
+            "allegiance": "Independent",
+            "government": "Cooperative",
+            "economy": "Agriculture",
+            "secondEconomy": null,
+            "haveMarket": false,
+            "haveShipyard": false,
+            "haveOutfitting": false,
+            "otherServices": [
+                "Black Market",
+                "Refuel",
+                "Repair",
+                "Contacts",
+                "Missions",
+                "Interstellar Factors Contact",
+                "Search and Rescue"
+            ],
+            "controllingFaction": {
+                "id": 50332,
+                "name": "Eureka Mining Co-Operative"
+            },
+            "updateTime": {
+                "information": "2024-11-07 05:59:21",
+                "market": null,
+                "shipyard": null,
+                "outfitting": null
+            }
+        },
+        {
+            "id": 119517,
+            "marketId": 3853608704,
+            "type": "Odyssey Settlement",
+            "name": "Wen's Plantation",
+            "distanceToArrival": 2586.409386,
+            "allegiance": "Independent",
+            "government": "Cooperative",
+            "economy": "Agriculture",
+            "secondEconomy": null,
+            "haveMarket": false,
+            "haveShipyard": false,
+            "haveOutfitting": false,
+            "otherServices": [
+                "Black Market",
+                "Refuel",
+                "Repair",
+                "Contacts",
+                "Missions",
+                "Interstellar Factors Contact",
+                "Search and Rescue"
+            ],
+            "controllingFaction": {
+                "id": 50332,
+                "name": "Eureka Mining Co-Operative"
+            },
+            "updateTime": {
+                "information": "2024-11-07 05:59:21",
+                "market": null,
+                "shipyard": null,
+                "outfitting": null
+            }
+        },
+        {
+            "id": 119465,
+            "marketId": 3853608960,
+            "type": "Odyssey Settlement",
+            "name": "Zyma Metallurgic Reserve",
+            "body": {
+                "id": 8278777,
+                "name": "HR 8514 3 c",
+                "latitude": 26.4291,
+                "longitude": -62.7979
+            },
+            "distanceToArrival": 2570,
+            "allegiance": "Independent",
+            "government": "Cooperative",
+            "economy": "Extraction",
+            "secondEconomy": null,
+            "haveMarket": true,
+            "haveShipyard": false,
+            "haveOutfitting": false,
+            "otherServices": [
+                "Black Market",
+                "Refuel",
+                "Repair",
+                "Contacts",
+                "Missions",
+                "Interstellar Factors Contact",
+                "Search and Rescue"
+            ],
+            "controllingFaction": {
+                "id": 50332,
+                "name": "Eureka Mining Co-Operative"
+            },
+            "updateTime": {
+                "information": "2024-11-07 05:59:21",
+                "market": "2021-09-15 20:43:35",
+                "shipyard": null,
+                "outfitting": null
+            }
+        },
+        {
+            "id": 126733,
+            "marketId": 3853608192,
+            "type": "Odyssey Settlement",
+            "name": "Morgan Botanical Plantation",
+            "body": {
+                "id": 8278777,
+                "name": "HR 8514 3 c",
+                "latitude": 16.9496,
+                "longitude": -107.527
+            },
+            "distanceToArrival": 2570,
+            "allegiance": "Independent",
+            "government": "Cooperative",
+            "economy": "Agriculture",
+            "secondEconomy": null,
+            "haveMarket": true,
+            "haveShipyard": false,
+            "haveOutfitting": false,
+            "otherServices": [
+                "Black Market",
+                "Refuel",
+                "Repair",
+                "Contacts",
+                "Missions",
+                "Interstellar Factors Contact",
+                "Search and Rescue"
+            ],
+            "controllingFaction": {
+                "id": 50332,
+                "name": "Eureka Mining Co-Operative"
+            },
+            "updateTime": {
+                "information": "2024-11-07 05:59:21",
+                "market": "2021-10-06 16:28:44",
+                "shipyard": null,
+                "outfitting": null
+            }
+        },
+        {
+            "id": 124070,
+            "marketId": 3853607680,
+            "type": "Odyssey Settlement",
+            "name": "Madida Nutrition Holding",
+            "distanceToArrival": 2587.143179,
+            "allegiance": "Independent",
+            "government": "Cooperative",
+            "economy": "Agriculture",
+            "secondEconomy": null,
+            "haveMarket": false,
+            "haveShipyard": false,
+            "haveOutfitting": false,
+            "otherServices": [
+                "Black Market",
+                "Refuel",
+                "Repair",
+                "Contacts",
+                "Missions",
+                "Interstellar Factors Contact",
+                "Search and Rescue"
+            ],
+            "controllingFaction": {
+                "id": 50332,
+                "name": "Eureka Mining Co-Operative"
+            },
+            "updateTime": {
+                "information": "2024-11-07 05:59:21",
+                "market": null,
+                "shipyard": null,
+                "outfitting": null
+            }
+        },
+        {
+            "id": 124097,
+            "marketId": 3853610752,
+            "type": "Odyssey Settlement",
+            "name": "Tracy Mineralogic Hub",
+            "distanceToArrival": 2587.777686,
+            "allegiance": "Independent",
+            "government": "Cooperative",
+            "economy": "Extraction",
+            "secondEconomy": null,
+            "haveMarket": false,
+            "haveShipyard": false,
+            "haveOutfitting": false,
+            "otherServices": [
+                "Black Market",
+                "Refuel",
+                "Repair",
+                "Contacts",
+                "Missions",
+                "Interstellar Factors Contact",
+                "Search and Rescue"
+            ],
+            "controllingFaction": {
+                "id": 50332,
+                "name": "Eureka Mining Co-Operative"
+            },
+            "updateTime": {
+                "information": "2024-11-07 05:59:21",
+                "market": null,
+                "shipyard": null,
+                "outfitting": null
+            }
+        },
+        {
+            "id": 124073,
+            "marketId": 3853607936,
+            "type": "Odyssey Settlement",
+            "name": "Brown Horticultural Farm",
+            "distanceToArrival": 2589.416448,
+            "allegiance": "Independent",
+            "government": "Cooperative",
+            "economy": "Agriculture",
+            "secondEconomy": null,
+            "haveMarket": true,
+            "haveShipyard": false,
+            "haveOutfitting": false,
+            "otherServices": [
+                "Black Market",
+                "Refuel",
+                "Repair",
+                "Contacts",
+                "Missions",
+                "Interstellar Factors Contact",
+                "Search and Rescue"
+            ],
+            "controllingFaction": {
+                "id": 50332,
+                "name": "Eureka Mining Co-Operative"
+            },
+            "updateTime": {
+                "information": "2024-11-07 05:59:21",
+                "market": "2021-09-15 20:53:18",
+                "shipyard": null,
+                "outfitting": null
+            }
+        },
+        {
+            "id": 76465,
+            "marketId": 3703466240,
+            "type": "Fleet Carrier",
+            "name": "X0G-77G",
+            "distanceToArrival": 2590.102308,
+            "allegiance": "Independent",
+            "government": "Fleet Carrier",
+            "economy": "Fleet Carrier",
+            "secondEconomy": null,
+            "haveMarket": true,
+            "haveShipyard": false,
+            "haveOutfitting": false,
+            "otherServices": [
+                "Restock",
+                "Refuel",
+                "Repair",
+                "Contacts",
+                "Crew Lounge"
+            ],
+            "updateTime": {
+                "information": "2022-03-12 12:43:33",
+                "market": "2022-03-12 12:43:38",
+                "shipyard": null,
+                "outfitting": null
+            }
+        },
+        {
+            "id": 247304,
+            "marketId": 3853611008,
+            "type": "Odyssey Settlement",
+            "name": "Manzo Chemical Site",
+            "body": {
+                "id": 8278786,
+                "name": "HR 8514 4 a",
+                "latitude": 13.1423,
+                "longitude": 107.935
+            },
+            "distanceToArrival": 2656,
+            "allegiance": "Federation",
+            "government": "Democracy",
+            "economy": "Industrial",
+            "secondEconomy": null,
+            "haveMarket": true,
+            "haveShipyard": false,
+            "haveOutfitting": false,
+            "otherServices": [
+                "Black Market",
+                "Refuel",
+                "Repair",
+                "Contacts",
+                "Missions",
+                "Interstellar Factors Contact",
+                "Search and Rescue"
+            ],
+            "controllingFaction": {
+                "id": 50329,
+                "name": "Progressive Party of HR 8514"
+            },
+            "updateTime": {
+                "information": "2024-10-29 12:00:26",
+                "market": "2022-12-31 16:55:06",
+                "shipyard": null,
+                "outfitting": null
+            }
+        },
+        {
+            "id": 78591,
+            "marketId": 3703118080,
+            "type": "Fleet Carrier",
+            "name": "H2G-61Z",
+            "distanceToArrival": 2606.403056,
+            "allegiance": "Independent",
+            "government": "Fleet Carrier",
+            "economy": "Fleet Carrier",
+            "secondEconomy": null,
+            "haveMarket": true,
+            "haveShipyard": false,
+            "haveOutfitting": false,
+            "otherServices": [
+                "Restock",
+                "Refuel",
+                "Repair",
+                "Contacts",
+                "Universal Cartographics",
+                "Crew Lounge",
+                "Vista Genomics"
+            ],
+            "updateTime": {
+                "information": "2024-05-27 22:36:02",
+                "market": "2024-05-30 01:00:35",
+                "shipyard": null,
+                "outfitting": null
+            }
+        },
+        {
+            "id": 177771,
+            "marketId": 3707541504,
+            "type": "Fleet Carrier",
+            "name": "V1V-3XX",
+            "distanceToArrival": 2613.921869,
+            "allegiance": "Independent",
+            "government": "Fleet Carrier",
+            "economy": "Fleet Carrier",
+            "secondEconomy": null,
+            "haveMarket": true,
+            "haveShipyard": false,
+            "haveOutfitting": false,
+            "otherServices": [
+                "Contacts",
+                "Crew Lounge"
+            ],
+            "updateTime": {
+                "information": "2022-11-26 01:23:07",
+                "market": "2022-11-26 01:23:13",
+                "shipyard": null,
+                "outfitting": null
+            }
+        },
+        {
+            "id": 204425,
+            "marketId": 3706846208,
+            "type": "Fleet Carrier",
+            "name": "H4B-47F",
+            "distanceToArrival": 2614.504415,
+            "allegiance": "Independent",
+            "government": "Fleet Carrier",
+            "economy": "Fleet Carrier",
+            "secondEconomy": null,
+            "haveMarket": true,
+            "haveShipyard": false,
+            "haveOutfitting": false,
+            "otherServices": [
+                "Restock",
+                "Refuel",
+                "Repair",
+                "Contacts",
+                "Crew Lounge"
+            ],
+            "updateTime": {
+                "information": "2024-11-04 17:30:24",
+                "market": "2024-11-04 17:30:31",
+                "shipyard": null,
+                "outfitting": null
+            }
+        },
+        {
+            "id": 203185,
+            "marketId": 3708301824,
+            "type": "Fleet Carrier",
+            "name": "K1Y-L9Z",
+            "distanceToArrival": 2646.253613,
+            "allegiance": "Independent",
+            "government": "Fleet Carrier",
+            "economy": "Fleet Carrier",
+            "secondEconomy": null,
+            "haveMarket": true,
+            "haveShipyard": true,
+            "haveOutfitting": true,
+            "otherServices": [
+                "Restock",
+                "Refuel",
+                "Repair",
+                "Contacts",
+                "Crew Lounge",
+                "Pioneer Supplies",
+                "Vista Genomics"
+            ],
+            "updateTime": {
+                "information": "2024-11-29 18:42:02",
+                "market": "2024-09-22 13:24:59",
+                "shipyard": "2024-11-29 18:42:28",
+                "outfitting": "2024-10-04 18:49:16"
+            }
+        },
+        {
+            "id": 130549,
+            "marketId": 3706847232,
+            "type": "Fleet Carrier",
+            "name": "V7V-86T",
+            "distanceToArrival": 2647.204865,
+            "allegiance": "Independent",
+            "government": "Fleet Carrier",
+            "economy": "Fleet Carrier",
+            "secondEconomy": null,
+            "haveMarket": true,
+            "haveShipyard": true,
+            "haveOutfitting": false,
+            "otherServices": [
+                "Restock",
+                "Refuel",
+                "Repair",
+                "Contacts",
+                "Universal Cartographics",
+                "Crew Lounge",
+                "Pioneer Supplies",
+                "Vista Genomics"
+            ],
+            "updateTime": {
+                "information": "2024-12-01 01:09:20",
+                "market": "2024-12-01 01:09:27",
+                "shipyard": "2024-12-01 01:09:27",
+                "outfitting": null
+            }
+        },
+        {
+            "id": 75636,
+            "marketId": 3704091648,
+            "type": "Fleet Carrier",
+            "name": "V3W-N2H",
+            "distanceToArrival": 2653.03363,
+            "allegiance": "Independent",
+            "government": "Fleet Carrier",
+            "economy": "Fleet Carrier",
+            "secondEconomy": null,
+            "haveMarket": true,
+            "haveShipyard": false,
+            "haveOutfitting": false,
+            "otherServices": [
+                "Restock",
+                "Refuel",
+                "Repair",
+                "Contacts",
+                "Crew Lounge"
+            ],
+            "updateTime": {
+                "information": "2024-12-22 02:41:08",
+                "market": "2024-12-22 02:41:15",
+                "shipyard": null,
+                "outfitting": null
+            }
+        },
+        {
+            "id": 33354,
+            "marketId": 3221504000,
+            "type": "Outpost",
+            "name": "Coleman Hub",
+            "body": {
+                "id": 13220,
+                "name": "HR 8514 5"
+            },
+            "distanceToArrival": 2653,
+            "allegiance": "Independent",
+            "government": "Confederacy",
+            "economy": "Industrial",
+            "secondEconomy": "Extraction",
+            "haveMarket": true,
+            "haveShipyard": false,
+            "haveOutfitting": false,
+            "otherServices": [
+                "Black Market",
+                "Refuel",
+                "Repair",
+                "Contacts",
+                "Universal Cartographics",
+                "Missions",
+                "Tuning",
+                "Interstellar Factors Contact",
+                "Search and Rescue",
+                "Apex Interstellar Transport",
+                "Pioneer Supplies"
+            ],
+            "controllingFaction": {
+                "id": 82154,
+                "name": "Tethys Independent Crew"
+            },
+            "updateTime": {
+                "information": "2024-12-23 16:39:17",
+                "market": "2024-12-23 16:39:28",
+                "shipyard": null,
+                "outfitting": null
+            }
+        },
+        {
+            "id": 72269,
+            "marketId": 3700969472,
+            "type": "Fleet Carrier",
+            "name": "K7H-NCZ",
+            "distanceToArrival": 2655.392989,
+            "allegiance": "Independent",
+            "government": "Fleet Carrier",
+            "economy": "Fleet Carrier",
+            "secondEconomy": null,
+            "haveMarket": true,
+            "haveShipyard": false,
+            "haveOutfitting": false,
+            "otherServices": [
+                "Black Market",
+                "Restock",
+                "Refuel",
+                "Repair",
+                "Contacts",
+                "Universal Cartographics",
+                "Crew Lounge",
+                "Pioneer Supplies",
+                "Vista Genomics"
+            ],
+            "updateTime": {
+                "information": "2024-04-01 17:14:47",
+                "market": "2024-04-01 17:15:20",
+                "shipyard": null,
+                "outfitting": null
+            }
+        },
+        {
+            "id": 33697,
+            "marketId": 3221503744,
+            "type": "Ocellus Starport",
+            "name": "Hennen Station",
+            "body": {
+                "id": 8278786,
+                "name": "HR 8514 4 a"
+            },
+            "distanceToArrival": 2656,
+            "allegiance": "Independent",
+            "government": "Confederacy",
+            "economy": "Industrial",
+            "secondEconomy": "Extraction",
+            "haveMarket": true,
+            "haveShipyard": true,
+            "haveOutfitting": true,
+            "otherServices": [
+                "Black Market",
+                "Restock",
+                "Refuel",
+                "Repair",
+                "Contacts",
+                "Universal Cartographics",
+                "Missions",
+                "Crew Lounge",
+                "Tuning",
+                "Interstellar Factors Contact",
+                "Search and Rescue",
+                "Apex Interstellar Transport",
+                "Frontline Solutions",
+                "Pioneer Supplies",
+                "Vista Genomics"
+            ],
+            "controllingFaction": {
+                "id": 82154,
+                "name": "Tethys Independent Crew"
+            },
+            "updateTime": {
+                "information": "2024-12-23 23:45:45",
+                "market": "2024-12-23 23:45:51",
+                "shipyard": "2024-12-23 23:45:51",
+                "outfitting": "2024-12-23 23:46:18"
+            }
+        },
+        {
+            "id": 155081,
+            "marketId": 3857143040,
+            "type": "Odyssey Settlement",
+            "name": "Dietrich Synthetics Site",
+            "distanceToArrival": 3862.147135,
+            "allegiance": "Independent",
+            "government": "Cooperative",
+            "economy": "Industrial",
+            "secondEconomy": null,
+            "haveMarket": false,
+            "haveShipyard": false,
+            "haveOutfitting": false,
+            "otherServices": [
+                "Black Market",
+                "Refuel",
+                "Repair",
+                "Contacts",
+                "Missions",
+                "Interstellar Factors Contact",
+                "Search and Rescue"
+            ],
+            "controllingFaction": {
+                "id": 50332,
+                "name": "Eureka Mining Co-Operative"
+            },
+            "updateTime": {
+                "information": "2024-11-07 05:59:21",
+                "market": null,
+                "shipyard": null,
+                "outfitting": null
+            }
+        },
+        {
+            "id": 127543,
+            "marketId": 3857142528,
+            "type": "Odyssey Settlement",
+            "name": "Baldock Engineering Site",
+            "distanceToArrival": 3863.217105,
+            "allegiance": "Independent",
+            "government": "Cooperative",
+            "economy": "Industrial",
+            "secondEconomy": null,
+            "haveMarket": false,
+            "haveShipyard": false,
+            "haveOutfitting": false,
+            "otherServices": [
+                "Black Market",
+                "Refuel",
+                "Repair",
+                "Contacts",
+                "Missions",
+                "Interstellar Factors Contact",
+                "Search and Rescue"
+            ],
+            "controllingFaction": {
+                "id": 50332,
+                "name": "Eureka Mining Co-Operative"
+            },
+            "updateTime": {
+                "information": "2024-11-07 05:59:21",
+                "market": null,
+                "shipyard": null,
+                "outfitting": null
+            }
+        },
+        {
+            "id": 124083,
+            "marketId": 3857142784,
+            "type": "Odyssey Settlement",
+            "name": "Sangweni Chemical Exchange",
+            "distanceToArrival": 3867.891339,
+            "allegiance": "Independent",
+            "government": "Cooperative",
+            "economy": "Industrial",
+            "secondEconomy": null,
+            "haveMarket": false,
+            "haveShipyard": false,
+            "haveOutfitting": false,
+            "otherServices": [
+                "Black Market",
+                "Refuel",
+                "Repair",
+                "Contacts",
+                "Missions",
+                "Interstellar Factors Contact",
+                "Search and Rescue"
+            ],
+            "controllingFaction": {
+                "id": 50332,
+                "name": "Eureka Mining Co-Operative"
+            },
+            "updateTime": {
+                "information": "2024-11-07 05:59:21",
+                "market": null,
+                "shipyard": null,
+                "outfitting": null
+            }
+        },
+        {
+            "id": 110930,
+            "marketId": 3857142272,
+            "type": "Odyssey Settlement",
+            "name": "Mallett Lodges",
+            "body": {
+                "id": 8278772,
+                "name": "HR 8514 6 d",
+                "latitude": 55.0519,
+                "longitude": -168.486
+            },
+            "distanceToArrival": 3979,
+            "allegiance": "Independent",
+            "government": "Cooperative",
+            "economy": "Tourism",
+            "secondEconomy": null,
+            "haveMarket": true,
+            "haveShipyard": false,
+            "haveOutfitting": false,
+            "otherServices": [
+                "Black Market",
+                "Refuel",
+                "Repair",
+                "Contacts",
+                "Missions",
+                "Crew Lounge",
+                "Interstellar Factors Contact",
+                "Search and Rescue"
+            ],
+            "controllingFaction": {
+                "id": 50332,
+                "name": "Eureka Mining Co-Operative"
+            },
+            "updateTime": {
+                "information": "2024-11-07 05:59:21",
+                "market": "2021-09-15 17:18:45",
+                "shipyard": null,
+                "outfitting": null
+            }
+        },
+        {
+            "id": 153032,
+            "marketId": 3857145856,
+            "type": "Odyssey Settlement",
+            "name": "Goto's Steal",
+            "body": {
+                "id": 8278775,
+                "name": "HR 8514 6 c",
+                "latitude": 13.9022,
+                "longitude": -41.1991
+            },
+            "distanceToArrival": 3977,
+            "allegiance": "Independent",
+            "government": "Cooperative",
+            "economy": "Tourism",
+            "secondEconomy": null,
+            "haveMarket": true,
+            "haveShipyard": false,
+            "haveOutfitting": false,
+            "otherServices": [
+                "Black Market",
+                "Refuel",
+                "Repair",
+                "Contacts",
+                "Missions",
+                "Crew Lounge",
+                "Interstellar Factors Contact",
+                "Search and Rescue"
+            ],
+            "controllingFaction": {
+                "id": 50332,
+                "name": "Eureka Mining Co-Operative"
+            },
+            "updateTime": {
+                "information": "2024-11-07 05:59:21",
+                "market": "2021-09-15 17:32:20",
+                "shipyard": null,
+                "outfitting": null
+            }
+        },
+        {
+            "id": 126742,
+            "marketId": 3857144832,
+            "type": "Odyssey Settlement",
+            "name": "Newberry Dredging Platform",
+            "distanceToArrival": 3879.050561,
+            "allegiance": "Independent",
+            "government": "Confederacy",
+            "economy": "Extraction",
+            "secondEconomy": null,
+            "haveMarket": false,
+            "haveShipyard": false,
+            "haveOutfitting": false,
+            "otherServices": [
+                "Black Market",
+                "Refuel",
+                "Repair",
+                "Contacts",
+                "Missions",
+                "Interstellar Factors Contact",
+                "Search and Rescue"
+            ],
+            "controllingFaction": {
+                "id": 82154,
+                "name": "Tethys Independent Crew"
+            },
+            "updateTime": {
+                "information": "2024-11-25 09:52:13",
+                "market": null,
+                "shipyard": null,
+                "outfitting": null
+            }
+        },
+        {
+            "id": 161769,
+            "marketId": 3857145344,
+            "type": "Odyssey Settlement",
+            "name": "Jara Manufacturing Depot",
+            "distanceToArrival": 3879.633934,
+            "allegiance": "Federation",
+            "government": "Democracy",
+            "economy": "Industrial",
+            "secondEconomy": null,
+            "haveMarket": false,
+            "haveShipyard": false,
+            "haveOutfitting": false,
+            "otherServices": [
+                "Black Market",
+                "Refuel",
+                "Repair",
+                "Contacts",
+                "Missions",
+                "Interstellar Factors Contact",
+                "Search and Rescue"
+            ],
+            "controllingFaction": {
+                "id": 50329,
+                "name": "Progressive Party of HR 8514"
+            },
+            "updateTime": {
+                "information": "2024-10-29 12:00:26",
+                "market": null,
+                "shipyard": null,
+                "outfitting": null
+            }
+        },
+        {
+            "id": 128628,
+            "marketId": 3857143296,
+            "type": "Odyssey Settlement",
+            "name": "Alaneme Metallurgic Installation",
+            "body": {
+                "id": 8278772,
+                "name": "HR 8514 6 d",
+                "latitude": 32.7591,
+                "longitude": 169.461
+            },
+            "distanceToArrival": 3979,
+            "allegiance": "Independent",
+            "government": "Confederacy",
+            "economy": "Extraction",
+            "secondEconomy": null,
+            "haveMarket": false,
+            "haveShipyard": false,
+            "haveOutfitting": false,
+            "otherServices": [
+                "Black Market",
+                "Refuel",
+                "Repair",
+                "Contacts",
+                "Missions",
+                "Interstellar Factors Contact",
+                "Search and Rescue"
+            ],
+            "controllingFaction": {
+                "id": 82154,
+                "name": "Tethys Independent Crew"
+            },
+            "updateTime": {
+                "information": "2024-11-25 09:52:13",
+                "market": null,
+                "shipyard": null,
+                "outfitting": null
+            }
+        },
+        {
+            "id": 113209,
+            "marketId": 3857143552,
+            "type": "Odyssey Settlement",
+            "name": "Khatri Spa",
+            "distanceToArrival": 3890.397007,
+            "allegiance": "Independent",
+            "government": "Cooperative",
+            "economy": "Tourism",
+            "secondEconomy": null,
+            "haveMarket": true,
+            "haveShipyard": false,
+            "haveOutfitting": false,
+            "otherServices": [
+                "Black Market",
+                "Refuel",
+                "Repair",
+                "Contacts",
+                "Missions",
+                "Crew Lounge",
+                "Interstellar Factors Contact",
+                "Search and Rescue"
+            ],
+            "controllingFaction": {
+                "id": 50332,
+                "name": "Eureka Mining Co-Operative"
+            },
+            "updateTime": {
+                "information": "2024-11-07 05:59:21",
+                "market": "2022-01-07 22:16:31",
+                "shipyard": null,
+                "outfitting": null
+            }
+        },
+        {
+            "id": 37879,
+            "marketId": 3221504256,
+            "type": "Outpost",
+            "name": "Bowersox Station",
+            "body": {
+                "id": 8278782,
+                "name": "HR 8514 6 a"
+            },
+            "distanceToArrival": 3980,
+            "allegiance": "Independent",
+            "government": "Confederacy",
+            "economy": "Extraction",
+            "secondEconomy": "Industrial",
+            "haveMarket": true,
+            "haveShipyard": false,
+            "haveOutfitting": true,
+            "otherServices": [
+                "Black Market",
+                "Refuel",
+                "Repair",
+                "Contacts",
+                "Universal Cartographics",
+                "Missions",
+                "Crew Lounge",
+                "Tuning",
+                "Interstellar Factors Contact",
+                "Search and Rescue",
+                "Apex Interstellar Transport",
+                "Pioneer Supplies"
+            ],
+            "controllingFaction": {
+                "id": 82154,
+                "name": "Tethys Independent Crew"
+            },
+            "updateTime": {
+                "information": "2024-12-23 14:48:45",
+                "market": "2024-12-23 14:48:52",
+                "shipyard": null,
+                "outfitting": "2024-12-23 14:49:57"
+            }
+        },
+        {
+            "id": 124078,
+            "marketId": 3857144064,
+            "type": "Odyssey Settlement",
+            "name": "Piazza's Claim",
+            "body": {
+                "id": 8278785,
+                "name": "HR 8514 6 b",
+                "latitude": -15.3536,
+                "longitude": 157.128
+            },
+            "distanceToArrival": 3981,
+            "allegiance": "Independent",
+            "government": "Cooperative",
+            "economy": "Extraction",
+            "secondEconomy": null,
+            "haveMarket": true,
+            "haveShipyard": false,
+            "haveOutfitting": false,
+            "otherServices": [
+                "Black Market",
+                "Refuel",
+                "Repair",
+                "Contacts",
+                "Missions",
+                "Interstellar Factors Contact",
+                "Search and Rescue"
+            ],
+            "controllingFaction": {
+                "id": 50332,
+                "name": "Eureka Mining Co-Operative"
+            },
+            "updateTime": {
+                "information": "2024-11-07 05:59:21",
+                "market": "2022-04-03 09:43:11",
+                "shipyard": null,
+                "outfitting": null
+            }
+        },
+        {
+            "id": 212117,
+            "marketId": 3857144576,
+            "type": "Odyssey Settlement",
+            "name": "Byeon's Prospect",
+            "body": {
+                "id": 8278782,
+                "name": "HR 8514 6 a"
+            },
+            "distanceToArrival": 3980,
+            "allegiance": "Independent",
+            "government": "Confederacy",
+            "economy": "Extraction",
+            "secondEconomy": null,
+            "haveMarket": false,
+            "haveShipyard": false,
+            "haveOutfitting": false,
+            "otherServices": [
+                "Black Market",
+                "Refuel",
+                "Repair",
+                "Contacts",
+                "Missions",
+                "Interstellar Factors Contact",
+                "Search and Rescue"
+            ],
+            "controllingFaction": {
+                "id": 82154,
+                "name": "Tethys Independent Crew"
+            },
+            "updateTime": {
+                "information": "2024-11-25 09:52:13",
+                "market": null,
+                "shipyard": null,
+                "outfitting": null
+            }
+        },
+        {
+            "id": 124080,
+            "marketId": 3857143808,
+            "type": "Odyssey Settlement",
+            "name": "Naidu Chemical Assembly",
+            "distanceToArrival": 3907.841598,
+            "allegiance": "Independent",
+            "government": "Confederacy",
+            "economy": "Industrial",
+            "secondEconomy": null,
+            "haveMarket": false,
+            "haveShipyard": false,
+            "haveOutfitting": false,
+            "otherServices": [
+                "Black Market",
+                "Refuel",
+                "Repair",
+                "Contacts",
+                "Missions",
+                "Interstellar Factors Contact",
+                "Search and Rescue"
+            ],
+            "controllingFaction": {
+                "id": 82154,
+                "name": "Tethys Independent Crew"
+            },
+            "updateTime": {
+                "information": "2024-11-25 09:52:13",
+                "market": null,
+                "shipyard": null,
+                "outfitting": null
+            }
+        },
+        {
+            "id": 113106,
+            "marketId": 3857146112,
+            "type": "Odyssey Settlement",
+            "name": "Pan's Works",
+            "distanceToArrival": 3913.224797,
+            "allegiance": "Independent",
+            "government": "Confederacy",
+            "economy": "Industrial",
+            "secondEconomy": null,
+            "haveMarket": false,
+            "haveShipyard": false,
+            "haveOutfitting": false,
+            "otherServices": [
+                "Black Market",
+                "Refuel",
+                "Repair",
+                "Contacts",
+                "Missions",
+                "Interstellar Factors Contact",
+                "Search and Rescue"
+            ],
+            "controllingFaction": {
+                "id": 82154,
+                "name": "Tethys Independent Crew"
+            },
+            "updateTime": {
+                "information": "2024-11-25 09:52:13",
+                "market": null,
+                "shipyard": null,
+                "outfitting": null
+            }
+        },
+        {
+            "id": 110240,
+            "marketId": 3857146624,
+            "type": "Odyssey Settlement",
+            "name": "Amaike's Forge",
+            "body": {
+                "id": 8278775,
+                "name": "HR 8514 6 c",
+                "latitude": 18.7542,
+                "longitude": -120.126
+            },
+            "distanceToArrival": 3977,
+            "allegiance": "Independent",
+            "government": "Confederacy",
+            "economy": "Industrial",
+            "secondEconomy": null,
+            "haveMarket": true,
+            "haveShipyard": false,
+            "haveOutfitting": false,
+            "otherServices": [
+                "Black Market",
+                "Refuel",
+                "Repair",
+                "Contacts",
+                "Missions",
+                "Interstellar Factors Contact",
+                "Search and Rescue"
+            ],
+            "controllingFaction": {
+                "id": 82154,
+                "name": "Tethys Independent Crew"
+            },
+            "updateTime": {
+                "information": "2024-11-25 09:52:13",
+                "market": "2023-01-04 03:56:58",
+                "shipyard": null,
+                "outfitting": null
+            }
+        },
+        {
+            "id": 90305,
+            "marketId": 3857146368,
+            "type": "Odyssey Settlement",
+            "name": "Clayton's Constructions",
+            "body": {
+                "id": 8278775,
+                "name": "HR 8514 6 c",
+                "latitude": 10.8185,
+                "longitude": 86.674
+            },
+            "distanceToArrival": 3977,
+            "allegiance": "Independent",
+            "government": "Cooperative",
+            "economy": "Industrial",
+            "secondEconomy": null,
+            "haveMarket": true,
+            "haveShipyard": false,
+            "haveOutfitting": false,
+            "otherServices": [
+                "Black Market",
+                "Refuel",
+                "Repair",
+                "Contacts",
+                "Missions",
+                "Interstellar Factors Contact",
+                "Search and Rescue"
+            ],
+            "controllingFaction": {
+                "id": 50332,
+                "name": "Eureka Mining Co-Operative"
+            },
+            "updateTime": {
+                "information": "2024-11-07 05:59:21",
+                "market": "2023-05-01 08:15:37",
+                "shipyard": null,
+                "outfitting": null
+            }
+        },
+        {
+            "id": 110880,
+            "marketId": 3857144320,
+            "type": "Odyssey Settlement",
+            "name": "Carvalho Drilling Hub",
+            "body": {
+                "id": 8278782,
+                "name": "HR 8514 6 a",
+                "latitude": 5.10284,
+                "longitude": -47.6036
+            },
+            "distanceToArrival": 3980,
+            "allegiance": "Independent",
+            "government": "Confederacy",
+            "economy": "Extraction",
+            "secondEconomy": null,
+            "haveMarket": true,
+            "haveShipyard": false,
+            "haveOutfitting": false,
+            "otherServices": [
+                "Black Market",
+                "Refuel",
+                "Repair",
+                "Contacts",
+                "Missions",
+                "Interstellar Factors Contact",
+                "Search and Rescue"
+            ],
+            "controllingFaction": {
+                "id": 82154,
+                "name": "Tethys Independent Crew"
+            },
+            "updateTime": {
+                "information": "2024-11-25 09:52:13",
+                "market": "2023-12-30 06:26:57",
+                "shipyard": null,
+                "outfitting": null
+            }
+        },
+        {
+            "id": 24150,
+            "marketId": 3501611520,
+            "type": "Planetary Outpost",
+            "name": "Clarke Arsenal",
+            "body": {
+                "id": 8278782,
+                "name": "HR 8514 6 a",
+                "latitude": -77.1809,
+                "longitude": -162.59
+            },
+            "distanceToArrival": 3980,
+            "allegiance": "Independent",
+            "government": "Democracy",
+            "economy": "Military",
+            "secondEconomy": null,
+            "haveMarket": true,
+            "haveShipyard": false,
+            "haveOutfitting": true,
+            "otherServices": [
+                "Black Market",
+                "Restock",
+                "Refuel",
+                "Repair",
+                "Contacts",
+                "Universal Cartographics",
+                "Missions",
+                "Crew Lounge",
+                "Tuning",
+                "Interstellar Factors Contact",
+                "Search and Rescue",
+                "Apex Interstellar Transport",
+                "Frontline Solutions",
+                "Pioneer Supplies",
+                "Vista Genomics"
+            ],
+            "controllingFaction": {
+                "id": 78718,
+                "name": "G-CLAN"
+            },
+            "updateTime": {
+                "information": "2024-12-23 18:33:28",
+                "market": "2024-12-23 18:33:34",
+                "shipyard": null,
+                "outfitting": "2024-12-23 18:34:01"
+            }
+        },
+        {
+            "id": 68852,
+            "marketId": 3702194176,
+            "type": "Fleet Carrier",
+            "name": "VLB-22Z",
+            "distanceToArrival": 3981.20457,
+            "allegiance": "Independent",
+            "government": "Fleet Carrier",
+            "economy": "Fleet Carrier",
+            "secondEconomy": null,
+            "haveMarket": true,
+            "haveShipyard": false,
+            "haveOutfitting": false,
+            "otherServices": [
+                "Restock",
+                "Refuel",
+                "Repair",
+                "Contacts",
+                "Crew Lounge"
+            ],
+            "updateTime": {
+                "information": "2024-12-22 21:00:51",
+                "market": "2024-12-22 21:01:03",
+                "shipyard": null,
+                "outfitting": null
+            }
+        }
+    ],
+    "bodies": [
+        {
+            "id": 8278776,
+            "id64": 560216394091,
+            "bodyId": 0,
+            "name": "HR 8514",
+            "type": "Star",
+            "subType": "F (White) Star",
+            "parents": null,
+            "distanceToArrival": 0,
+            "isMainStar": true,
+            "isScoopable": true,
+            "age": 2352,
+            "spectralClass": "F2",
+            "luminosity": "V",
+            "absoluteMagnitude": 3.899612,
+            "solarMasses": 1.359375,
+            "solarRadius": 1.1881713644859813,
+            "surfaceTemperature": 7087,
+            "orbitalPeriod": null,
+            "semiMajorAxis": null,
+            "orbitalEccentricity": null,
+            "orbitalInclination": null,
+            "argOfPeriapsis": null,
+            "rotationalPeriod": 2.8667863058564818,
+            "rotationalPeriodTidallyLocked": false,
+            "axialTilt": null,
+            "belts": [
+                {
+                    "name": "HR 8514 A Belt",
+                    "type": "Metallic",
+                    "mass": 81139000000000000,
+                    "innerRadius": 19190000,
+                    "outerRadius": 487400000
+                }
+            ],
+            "updateTime": "2021-01-10 20:14:07"
+        },
+        {
+            "id": 2109,
+            "id64": 36029357235358056,
+            "bodyId": 1,
+            "name": "HR 8514 1",
+            "type": "Planet",
+            "subType": "High metal content world",
+            "parents": [
+                {
+                    "Star": 0
+                }
+            ],
+            "distanceToArrival": 21,
+            "isLandable": false,
+            "gravity": 1.7246427784745233,
+            "earthMasses": 2.900578,
+            "radius": 8271.3655,
+            "surfaceTemperature": 1749,
+            "surfacePressure": 78.77953614606464,
+            "volcanismType": "Major Silicate Vapour Geysers",
+            "atmosphereType": "Hot thick Silicate vapour",
+            "atmosphereComposition": {
+                "Silicates": 100
+            },
+            "solidComposition": {
+                "Rock": 66.72,
+                "Metal": 33.28,
+                "Ice": 0
+            },
+            "terraformingState": null,
+            "orbitalPeriod": 2.6850206432523147,
+            "semiMajorAxis": 0.04208468156608127,
+            "orbitalEccentricity": 0.000001,
+            "orbitalInclination": -0.000101,
+            "argOfPeriapsis": 337.910041,
+            "rotationalPeriod": 2.7043910992013886,
+            "rotationalPeriodTidallyLocked": true,
+            "axialTilt": 0.430466,
+            "updateTime": "2024-12-18 01:28:42"
+        },
+        {
+            "id": 3363,
+            "id64": 72058154254322030,
+            "bodyId": 2,
+            "name": "HR 8514 2",
+            "type": "Planet",
+            "subType": "Metal-rich body",
+            "parents": [
+                {
+                    "Star": 0
+                }
+            ],
+            "distanceToArrival": 36,
+            "isLandable": true,
+            "gravity": 1.6835357300664406,
+            "earthMasses": 0.934429,
+            "radius": 4751.6725,
+            "surfaceTemperature": 1154,
+            "surfacePressure": 0,
+            "volcanismType": "Major Metallic Magma",
+            "atmosphereType": "No atmosphere",
+            "atmosphereComposition": null,
+            "solidComposition": {
+                "Metal": 100,
+                "Ice": 0,
+                "Rock": 0
+            },
+            "terraformingState": null,
+            "orbitalPeriod": 6.01393853625,
+            "semiMajorAxis": 0.07204406389036258,
+            "orbitalEccentricity": 0.00003,
+            "orbitalInclination": -0.00053,
+            "argOfPeriapsis": 62.930928,
+            "rotationalPeriod": 6.057324537627315,
+            "rotationalPeriodTidallyLocked": false,
+            "axialTilt": -0.142228,
+            "materials": {
+                "Iron": 32.97,
+                "Nickel": 24.94,
+                "Chromium": 14.83,
+                "Manganese": 13.62,
+                "Vanadium": 8.1,
+                "Tin": 2.18,
+                "Molybdenum": 2.15,
+                "Antimony": 1.22
+            },
+            "updateTime": "2024-12-18 01:28:42"
+        },
+        {
+            "id": 9942,
+            "id64": 468374921462925700,
+            "bodyId": 13,
+            "name": "HR 8514 3",
+            "type": "Planet",
+            "subType": "Class III gas giant",
+            "parents": [
+                {
+                    "Null": 12
+                },
+                {
+                    "Star": 0
+                }
+            ],
+            "distanceToArrival": 2571,
+            "isLandable": false,
+            "gravity": 20.657383974169072,
+            "earthMasses": 2542.219238,
+            "radius": 70754.384,
+            "surfaceTemperature": 677,
+            "surfacePressure": null,
+            "volcanismType": "No volcanism",
+            "atmosphereType": "No atmosphere",
+            "atmosphereComposition": {
+                "Hydrogen": 73.85,
+                "Helium": 26.15
+            },
+            "solidComposition": null,
+            "terraformingState": null,
+            "orbitalPeriod": 252.77546158542822,
+            "semiMajorAxis": 0.0002707377322219667,
+            "orbitalEccentricity": 0.156449,
+            "orbitalInclination": -4.389449,
+            "argOfPeriapsis": 271.84563,
+            "rotationalPeriod": 1.8897909953125,
+            "rotationalPeriodTidallyLocked": false,
+            "axialTilt": 2.087751,
+            "rings": [
+                {
+                    "name": "HR 8514 3 A Ring",
+                    "type": "Rocky",
+                    "mass": 990980000000,
+                    "innerRadius": 139030,
+                    "outerRadius": 475130
+                }
+            ],
+            "reserveLevel": "Pristine",
+            "updateTime": "2023-11-18 16:29:05"
+        },
+        {
+            "id": 6601,
+            "id64": 540432515500853600,
+            "bodyId": 15,
+            "name": "HR 8514 3 a",
+            "type": "Planet",
+            "subType": "Rocky body",
+            "parents": [
+                {
+                    "Planet": 13
+                },
+                {
+                    "Null": 12
+                },
+                {
+                    "Star": 0
+                }
+            ],
+            "distanceToArrival": 2566,
+            "isLandable": false,
+            "gravity": 0.0974053624174611,
+            "earthMasses": 0.001652,
+            "radius": 830.6118125,
+            "surfaceTemperature": 859,
+            "surfacePressure": 32.46484085862324,
+            "volcanismType": "Metallic Magma",
+            "atmosphereType": "Hot thick Water",
+            "atmosphereComposition": {
+                "Water": 100
+            },
+            "solidComposition": {
+                "Rock": 90.91,
+                "Metal": 9.09,
+                "Ice": 0
+            },
+            "terraformingState": null,
+            "orbitalPeriod": 0.9327633444328705,
+            "semiMajorAxis": 0.003678942278715268,
+            "orbitalEccentricity": 0.000342,
+            "orbitalInclination": 0.013444,
+            "argOfPeriapsis": 271.946338,
+            "rotationalPeriod": 0.9327665542013889,
+            "rotationalPeriodTidallyLocked": true,
+            "axialTilt": -0.490888,
+            "updateTime": "2024-12-18 01:28:42"
+        },
+        {
+            "id": 8278783,
+            "id64": 576461312519817600,
+            "bodyId": 16,
+            "name": "HR 8514 3 b",
+            "type": "Planet",
+            "subType": "Rocky body",
+            "parents": [
+                {
+                    "Planet": 13
+                },
+                {
+                    "Null": 12
+                },
+                {
+                    "Star": 0
+                }
+            ],
+            "distanceToArrival": 2566,
+            "isLandable": false,
+            "gravity": 0.08614011279856419,
+            "earthMasses": 0.001149,
+            "radius": 736.617125,
+            "surfaceTemperature": 237,
+            "surfacePressure": null,
+            "volcanismType": "Major Rocky Magma",
+            "atmosphereType": "Sulphur dioxide",
+            "atmosphereComposition": {
+                "Sulphur dioxide": 90,
+                "Silicates": 5,
+                "Oxygen": 3
+            },
+            "solidComposition": {
+                "Rock": 90.91,
+                "Metal": 9.09,
+                "Ice": 0
+            },
+            "terraformingState": null,
+            "orbitalPeriod": 1.6888859509374998,
+            "semiMajorAxis": 0.005465235357365284,
+            "orbitalEccentricity": 0.007323,
+            "orbitalInclination": 0.000072,
+            "argOfPeriapsis": 68.513604,
+            "rotationalPeriod": 1.6888915925578705,
+            "rotationalPeriodTidallyLocked": false,
+            "axialTilt": 0.467879,
+            "updateTime": "2024-12-18 01:28:42"
+        },
+        {
+            "id": 8278777,
+            "id64": 612490109538781600,
+            "bodyId": 17,
+            "name": "HR 8514 3 c",
+            "type": "Planet",
+            "subType": "Rocky body",
+            "parents": [
+                {
+                    "Planet": 13
+                },
+                {
+                    "Null": 12
+                },
+                {
+                    "Star": 0
+                }
+            ],
+            "distanceToArrival": 2570,
+            "isLandable": true,
+            "gravity": 0.13961033225161737,
+            "earthMasses": 0.004749,
+            "radius": 1176.323625,
+            "surfaceTemperature": 213,
+            "surfacePressure": null,
+            "volcanismType": "No volcanism",
+            "atmosphereType": "No atmosphere",
+            "atmosphereComposition": null,
+            "solidComposition": {
+                "Rock": 90.75,
+                "Metal": 9.25,
+                "Ice": 0
+            },
+            "terraformingState": null,
+            "orbitalPeriod": 3.8421476190856483,
+            "semiMajorAxis": 0.009453473050199638,
+            "orbitalEccentricity": 0.00147,
+            "orbitalInclination": 0.002386,
+            "argOfPeriapsis": 96.851505,
+            "rotationalPeriod": 3.8421608809722225,
+            "rotationalPeriodTidallyLocked": false,
+            "axialTilt": 1.164461,
+            "materials": {
+                "Iron": 19.04,
+                "Sulphur": 18.39,
+                "Carbon": 15.47,
+                "Nickel": 14.4,
+                "Phosphorus": 9.9,
+                "Chromium": 8.56,
+                "Germanium": 5.45,
+                "Zinc": 5.17,
+                "Niobium": 1.3,
+                "Ruthenium": 1.18,
+                "Tin": 1.13
+            },
+            "updateTime": "2024-12-18 01:28:42"
+        },
+        {
+            "id": 8278780,
+            "id64": 648518906557745500,
+            "bodyId": 18,
+            "name": "HR 8514 3 d",
+            "type": "Planet",
+            "subType": "Rocky body",
+            "parents": [
+                {
+                    "Planet": 13
+                },
+                {
+                    "Null": 12
+                },
+                {
+                    "Star": 0
+                }
+            ],
+            "distanceToArrival": 2573,
+            "isLandable": true,
+            "gravity": 0.09848962104173958,
+            "earthMasses": 0.001706,
+            "radius": 839.419,
+            "surfaceTemperature": 203,
+            "surfacePressure": null,
+            "volcanismType": "No volcanism",
+            "atmosphereType": "No atmosphere",
+            "atmosphereComposition": null,
+            "solidComposition": {
+                "Rock": 90.91,
+                "Metal": 9.09,
+                "Ice": 0
+            },
+            "terraformingState": null,
+            "orbitalPeriod": 5.901012983587964,
+            "semiMajorAxis": 0.012584222094301507,
+            "orbitalEccentricity": 0.000979,
+            "orbitalInclination": 4.065385,
+            "argOfPeriapsis": 212.193063,
+            "rotationalPeriod": 5.901032769166667,
+            "rotationalPeriodTidallyLocked": false,
+            "axialTilt": -0.206932,
+            "materials": {
+                "Iron": 20.3,
+                "Sulphur": 19.67,
+                "Carbon": 16.54,
+                "Nickel": 15.35,
+                "Phosphorus": 10.59,
+                "Germanium": 5.83,
+                "Zinc": 5.52,
+                "Arsenic": 2.61,
+                "Tellurium": 1.51,
+                "Tin": 1.21,
+                "Mercury": 0.89
+            },
+            "updateTime": "2024-12-18 01:28:42"
+        },
+        {
+            "id": 14066,
+            "id64": 720576500595673500,
+            "bodyId": 20,
+            "name": "HR 8514 4",
+            "type": "Planet",
+            "subType": "Class II gas giant",
+            "parents": [
+                {
+                    "Null": 19
+                },
+                {
+                    "Null": 12
+                },
+                {
+                    "Star": 0
+                }
+            ],
+            "distanceToArrival": 2655,
+            "isLandable": false,
+            "gravity": 0.4927184745930548,
+            "earthMasses": 2.957286,
+            "radius": 15625.422,
+            "surfaceTemperature": 152,
+            "surfacePressure": null,
+            "volcanismType": "No volcanism",
+            "atmosphereType": "No atmosphere",
+            "atmosphereComposition": {
+                "Hydrogen": 73.85,
+                "Helium": 26.15
+            },
+            "solidComposition": null,
+            "terraformingState": null,
+            "orbitalPeriod": 52.40478380410879,
+            "semiMajorAxis": 0.0022065771483312964,
+            "orbitalEccentricity": 0.162568,
+            "orbitalInclination": -0.199574,
+            "argOfPeriapsis": 45.763992,
+            "rotationalPeriod": 90.63509059913194,
+            "rotationalPeriodTidallyLocked": false,
+            "axialTilt": -0.0846,
+            "rings": [
+                {
+                    "name": "HR 8514 4 A Ring",
+                    "type": "Metal Rich",
+                    "mass": 1458400000,
+                    "innerRadius": 33941,
+                    "outerRadius": 34555
+                },
+                {
+                    "name": "HR 8514 4 B Ring",
+                    "type": "Rocky",
+                    "mass": 30635000000,
+                    "innerRadius": 34608,
+                    "outerRadius": 44979
+                }
+            ],
+            "reserveLevel": "Pristine",
+            "updateTime": "2024-12-18 01:28:42"
+        },
+        {
+            "id": 8278786,
+            "id64": 828662891652565400,
+            "bodyId": 23,
+            "name": "HR 8514 4 a",
+            "type": "Planet",
+            "subType": "Rocky body",
+            "parents": [
+                {
+                    "Planet": 20
+                },
+                {
+                    "Null": 19
+                },
+                {
+                    "Null": 12
+                },
+                {
+                    "Star": 0
+                }
+            ],
+            "distanceToArrival": 2656,
+            "isLandable": true,
+            "gravity": 0.06078031368430514,
+            "earthMasses": 0.000409,
+            "radius": 523.19634375,
+            "surfaceTemperature": 155,
+            "surfacePressure": null,
+            "volcanismType": "No volcanism",
+            "atmosphereType": "No atmosphere",
+            "atmosphereComposition": null,
+            "solidComposition": {
+                "Rock": 90.93,
+                "Metal": 9.07,
+                "Ice": 0
+            },
+            "terraformingState": null,
+            "orbitalPeriod": 1.8253110487152777,
+            "semiMajorAxis": 0.000605368764016345,
+            "orbitalEccentricity": 0.000432,
+            "orbitalInclination": 0.009182,
+            "argOfPeriapsis": 227.792307,
+            "rotationalPeriod": 3.875687935717593,
+            "rotationalPeriodTidallyLocked": false,
+            "axialTilt": -0.304006,
+            "materials": {
+                "Iron": 19.85,
+                "Sulphur": 19.24,
+                "Carbon": 16.18,
+                "Nickel": 15.01,
+                "Phosphorus": 10.36,
+                "Manganese": 8.2,
+                "Germanium": 5.7,
+                "Zirconium": 2.3,
+                "Antimony": 1.2,
+                "Tungsten": 1.09,
+                "Mercury": 0.87
+            },
+            "updateTime": "2024-12-18 01:28:42"
+        },
+        {
+            "id": 13220,
+            "id64": 864691688671529300,
+            "bodyId": 24,
+            "name": "HR 8514 5",
+            "type": "Planet",
+            "subType": "High metal content world",
+            "parents": [
+                {
+                    "Null": 19
+                },
+                {
+                    "Null": 12
+                },
+                {
+                    "Star": 0
+                }
+            ],
+            "distanceToArrival": 2653,
+            "isLandable": false,
+            "gravity": 1.2870151029426975,
+            "earthMasses": 1.514533,
+            "radius": 6918.8205,
+            "surfaceTemperature": 187,
+            "surfacePressure": 36.732677029360964,
+            "volcanismType": "Minor Silicate Vapour Geysers",
+            "atmosphereType": "Thick Argon-rich",
+            "atmosphereComposition": {
+                "Nitrogen": 94.7,
+                "Argon": 4.6,
+                "Oxygen": 0.7
+            },
+            "solidComposition": {
+                "Rock": 65.49,
+                "Metal": 32.75,
+                "Ice": 1.76
+            },
+            "terraformingState": null,
+            "orbitalPeriod": 52.40478380410879,
+            "semiMajorAxis": 0.00430834110487483,
+            "orbitalEccentricity": 0.162568,
+            "orbitalInclination": -0.199574,
+            "argOfPeriapsis": 225.76397,
+            "rotationalPeriod": 234.5576060770833,
+            "rotationalPeriodTidallyLocked": true,
+            "axialTilt": -0.150618,
+            "rings": [
+                {
+                    "name": "HR 8514 5 A Ring",
+                    "type": "Metallic",
+                    "mass": 7529200000,
+                    "innerRadius": 43848,
+                    "outerRadius": 46715
+                },
+                {
+                    "name": "HR 8514 5 B Ring",
+                    "type": "Rocky",
+                    "mass": 38820000000,
+                    "innerRadius": 46815,
+                    "outerRadius": 59339
+                }
+            ],
+            "reserveLevel": "Pristine",
+            "updateTime": "2024-12-18 01:28:42"
+        },
+        {
+            "id": 8278781,
+            "id64": 972778079728421200,
+            "bodyId": 27,
+            "name": "HR 8514 5 a",
+            "type": "Planet",
+            "subType": "Rocky body",
+            "parents": [
+                {
+                    "Planet": 24
+                },
+                {
+                    "Null": 19
+                },
+                {
+                    "Null": 12
+                },
+                {
+                    "Star": 0
+                }
+            ],
+            "distanceToArrival": 2652,
+            "isLandable": true,
+            "gravity": 0.05448041053892261,
+            "earthMasses": 0.000295,
+            "radius": 469.32678125,
+            "surfaceTemperature": 155,
+            "surfacePressure": 0.00018191702936096716,
+            "volcanismType": "No volcanism",
+            "atmosphereType": "No atmosphere",
+            "atmosphereComposition": null,
+            "solidComposition": {
+                "Rock": 90.93,
+                "Metal": 9.07,
+                "Ice": 0
+            },
+            "terraformingState": null,
+            "orbitalPeriod": 5.415054590057871,
+            "semiMajorAxis": 0.001000000721212939,
+            "orbitalEccentricity": 0.007031,
+            "orbitalInclination": -5.564592,
+            "argOfPeriapsis": 278.560147,
+            "rotationalPeriod": 5.415717965532408,
+            "rotationalPeriodTidallyLocked": false,
+            "axialTilt": -0.255625,
+            "materials": {
+                "Iron": 18.49,
+                "Sulphur": 17.92,
+                "Carbon": 15.07,
+                "Nickel": 13.98,
+                "Phosphorus": 9.65,
+                "Chromium": 8.31,
+                "Manganese": 7.63,
+                "Germanium": 5.31,
+                "Cadmium": 1.44,
+                "Yttrium": 1.1,
+                "Tin": 1.1
+            },
+            "updateTime": "2024-12-18 01:28:42"
+        },
+        {
+            "id": 8278778,
+            "id64": 1044835673766349200,
+            "bodyId": 29,
+            "name": "HR 8514 6",
+            "type": "Star",
+            "subType": "Y (Brown dwarf) Star",
+            "parents": [
+                {
+                    "Null": 28
+                },
+                {
+                    "Star": 0
+                }
+            ],
+            "distanceToArrival": 3979,
+            "isMainStar": false,
+            "isScoopable": false,
+            "age": 2352,
+            "spectralClass": "Y4",
+            "luminosity": "V",
+            "absoluteMagnitude": 22.93251,
+            "solarMasses": 0.011719,
+            "solarRadius": 0.06253051329978433,
+            "surfaceTemperature": 377,
+            "orbitalPeriod": 440.49921411055556,
+            "semiMajorAxis": 0.0002251822100394775,
+            "orbitalEccentricity": 0.168923,
+            "orbitalInclination": -1.696172,
+            "argOfPeriapsis": 220.529589,
+            "rotationalPeriod": 1.7841224681712962,
+            "rotationalPeriodTidallyLocked": false,
+            "axialTilt": -2.192005,
+            "rings": [
+                {
+                    "name": "HR 8514 6 A Ring",
+                    "type": "Rocky",
+                    "mass": 527770000000,
+                    "innerRadius": 94271,
+                    "outerRadius": 551220
+                }
+            ],
+            "reserveLevel": null,
+            "updateTime": "2024-11-16 22:25:07"
+        },
+        {
+            "id": 8278782,
+            "id64": 1116893267804277100,
+            "bodyId": 31,
+            "name": "HR 8514 6 a",
+            "type": "Planet",
+            "subType": "Rocky body",
+            "parents": [
+                {
+                    "Star": 29
+                },
+                {
+                    "Null": 28
+                },
+                {
+                    "Star": 0
+                }
+            ],
+            "distanceToArrival": 3980,
+            "isLandable": true,
+            "gravity": 0.24304197447976036,
+            "earthMasses": 0.023768,
+            "radius": 1994.52825,
+            "surfaceTemperature": 110,
+            "surfacePressure": null,
+            "volcanismType": "Minor Metallic Magma",
+            "atmosphereType": "No atmosphere",
+            "atmosphereComposition": null,
+            "solidComposition": {
+                "Rock": 90.93,
+                "Metal": 9.07,
+                "Ice": 0
+            },
+            "terraformingState": null,
+            "orbitalPeriod": 1.1527377560185186,
+            "semiMajorAxis": 0.004915233398842956,
+            "orbitalEccentricity": 0.000995,
+            "orbitalInclination": -0.000268,
+            "argOfPeriapsis": 12.846903,
+            "rotationalPeriod": 1.152762942037037,
+            "rotationalPeriodTidallyLocked": true,
+            "axialTilt": 0.340381,
+            "materials": {
+                "Iron": 19.54,
+                "Sulphur": 18.95,
+                "Carbon": 15.93,
+                "Nickel": 14.78,
+                "Phosphorus": 10.2,
+                "Chromium": 8.79,
+                "Zinc": 5.31,
+                "Selenium": 2.97,
+                "Molybdenum": 1.28,
+                "Antimony": 1.19,
+                "Tungsten": 1.07
+            },
+            "updateTime": "2024-12-18 01:28:42"
+        },
+        {
+            "id": 8278785,
+            "id64": 1152922064823241000,
+            "bodyId": 32,
+            "name": "HR 8514 6 b",
+            "type": "Planet",
+            "subType": "Rocky body",
+            "parents": [
+                {
+                    "Star": 29
+                },
+                {
+                    "Null": 28
+                },
+                {
+                    "Star": 0
+                }
+            ],
+            "distanceToArrival": 3981,
+            "isLandable": true,
+            "gravity": 0.2937477743363383,
+            "earthMasses": 0.040808,
+            "radius": 2377.22275,
+            "surfaceTemperature": 110,
+            "surfacePressure": null,
+            "volcanismType": "No volcanism",
+            "atmosphereType": "No atmosphere",
+            "atmosphereComposition": null,
+            "solidComposition": {
+                "Rock": 90.93,
+                "Metal": 9.07,
+                "Ice": 0
+            },
+            "terraformingState": null,
+            "orbitalPeriod": 2.9398458147453703,
+            "semiMajorAxis": 0.009175016984340674,
+            "orbitalEccentricity": 0.003415,
+            "orbitalInclination": 0.000305,
+            "argOfPeriapsis": 12.395601,
+            "rotationalPeriod": 2.939909694212963,
+            "rotationalPeriodTidallyLocked": true,
+            "axialTilt": 0.084783,
+            "materials": {
+                "Iron": 19.81,
+                "Sulphur": 19.21,
+                "Carbon": 16.15,
+                "Nickel": 14.99,
+                "Phosphorus": 10.34,
+                "Manganese": 8.18,
+                "Zinc": 5.38,
+                "Zirconium": 2.3,
+                "Niobium": 1.35,
+                "Yttrium": 1.18,
+                "Tungsten": 1.09
+            },
+            "updateTime": "2024-12-18 01:28:42"
+        },
+        {
+            "id": 8278775,
+            "id64": 1188950861842205000,
+            "bodyId": 33,
+            "name": "HR 8514 6 c",
+            "type": "Planet",
+            "subType": "Rocky body",
+            "parents": [
+                {
+                    "Star": 29
+                },
+                {
+                    "Null": 28
+                },
+                {
+                    "Star": 0
+                }
+            ],
+            "distanceToArrival": 3977,
+            "isLandable": true,
+            "gravity": 0.2567019633191525,
+            "earthMasses": 0.027796,
+            "radius": 2098.75175,
+            "surfaceTemperature": 110,
+            "surfacePressure": null,
+            "volcanismType": "No volcanism",
+            "atmosphereType": "No atmosphere",
+            "atmosphereComposition": null,
+            "solidComposition": {
+                "Rock": 90.93,
+                "Metal": 9.07,
+                "Ice": 0
+            },
+            "terraformingState": null,
+            "orbitalPeriod": 7.379071235104167,
+            "semiMajorAxis": 0.016945652050860373,
+            "orbitalEccentricity": 0.002525,
+            "orbitalInclination": -0.001628,
+            "argOfPeriapsis": 23.25497,
+            "rotationalPeriod": 7.379232844120371,
+            "rotationalPeriodTidallyLocked": false,
+            "axialTilt": -0.001089,
+            "materials": {
+                "Iron": 19.01,
+                "Sulphur": 18.43,
+                "Carbon": 15.5,
+                "Nickel": 14.38,
+                "Phosphorus": 9.92,
+                "Chromium": 8.55,
+                "Germanium": 5.46,
+                "Zinc": 5.17,
+                "Niobium": 1.3,
+                "Antimony": 1.15,
+                "Tin": 1.13
+            },
+            "updateTime": "2024-12-18 01:28:42"
+        },
+        {
+            "id": 8278772,
+            "id64": 1224979658861169000,
+            "bodyId": 34,
+            "name": "HR 8514 6 d",
+            "type": "Planet",
+            "subType": "Rocky body",
+            "parents": [
+                {
+                    "Star": 29
+                },
+                {
+                    "Null": 28
+                },
+                {
+                    "Star": 0
+                }
+            ],
+            "distanceToArrival": 3979,
+            "isLandable": true,
+            "gravity": 0.2804558449311252,
+            "earthMasses": 0.035778,
+            "radius": 2278.0345,
+            "surfaceTemperature": 110,
+            "surfacePressure": null,
+            "volcanismType": "No volcanism",
+            "atmosphereType": "No atmosphere",
+            "atmosphereComposition": null,
+            "solidComposition": {
+                "Rock": 90.93,
+                "Metal": 9.07,
+                "Ice": 0
+            },
+            "terraformingState": null,
+            "orbitalPeriod": 17.54286457542824,
+            "semiMajorAxis": 0.03018497437388258,
+            "orbitalEccentricity": 0.011017,
+            "orbitalInclination": 8.335867,
+            "argOfPeriapsis": 78.573359,
+            "rotationalPeriod": 17.543248144131944,
+            "rotationalPeriodTidallyLocked": false,
+            "axialTilt": 0.165316,
+            "materials": {
+                "Iron": 19.89,
+                "Sulphur": 19.28,
+                "Carbon": 16.21,
+                "Nickel": 15.04,
+                "Phosphorus": 10.38,
+                "Chromium": 8.94,
+                "Vanadium": 4.88,
+                "Zirconium": 2.31,
+                "Niobium": 1.36,
+                "Tin": 1.18,
+                "Polonium": 0.51
+            },
+            "updateTime": "2024-12-18 01:28:42"
+        },
+        {
+            "id": 10140,
+            "id64": 1261008455880132900,
+            "bodyId": 35,
+            "name": "HR 8514 7",
+            "type": "Planet",
+            "subType": "High metal content world",
+            "parents": [
+                {
+                    "Null": 28
+                },
+                {
+                    "Star": 0
+                }
+            ],
+            "distanceToArrival": 3890,
+            "isLandable": false,
+            "gravity": 1.8641044207593893,
+            "earthMasses": 3.455626,
+            "radius": 8683.859,
+            "surfaceTemperature": 299,
+            "surfacePressure": 31.319847026893658,
+            "volcanismType": "Major Silicate Vapour Geysers",
+            "atmosphereType": "Thick Methane",
+            "atmosphereComposition": {
+                "Methane": 49.88,
+                "Nitrogen": 49.88,
+                "Ammonia": 0.21
+            },
+            "solidComposition": {
+                "Rock": 66.72,
+                "Metal": 33.28,
+                "Ice": 0
+            },
+            "terraformingState": null,
+            "orbitalPeriod": 440.49921411055556,
+            "semiMajorAxis": 0.25868344160978085,
+            "orbitalEccentricity": 0.168923,
+            "orbitalInclination": -1.696172,
+            "argOfPeriapsis": 40.529595,
+            "rotationalPeriod": 1.6219277484837962,
+            "rotationalPeriodTidallyLocked": false,
+            "axialTilt": -0.439479,
+            "rings": [
+                {
+                    "name": "HR 8514 7 A Ring",
+                    "type": "Metal Rich",
+                    "mass": 5314300,
+                    "innerRadius": 14328,
+                    "outerRadius": 54534
+                }
+            ],
+            "reserveLevel": "Pristine",
+            "updateTime": "2024-12-18 01:28:42"
+        }
+    ],
+    "date": "2017-01-16 08:52:43"
+}
