@@ -11,13 +11,24 @@ map_bp = Blueprint('map', __name__)
 class MapController:
     def __init__(self):
         self.chunk_size = 100  # Size of each spatial chunk
-        self.cache_file = "cache/systems_cache.json"
+        
+        # Use /tmp for cache in production, or local cache dir in development
+        self.cache_dir = os.path.join(os.getenv('CACHE_DIR', '/tmp'), 'power-mining-cache')
+        self.cache_file = os.path.join(self.cache_dir, "systems_cache.json")
         self.cache_duration = 3600  # 1 hour in seconds
         self.systems_cache = None
         self.last_cache_update = 0
         
-        # Ensure cache directory exists
-        os.makedirs("cache", exist_ok=True)
+        # Ensure cache directory exists with proper permissions
+        try:
+            os.makedirs(self.cache_dir, exist_ok=True)
+            # Set directory permissions to be writable
+            os.chmod(self.cache_dir, 0o777)
+        except Exception as e:
+            print(f"Failed to create cache directory: {str(e)}")
+            # Fallback to using /tmp directly if we can't create our own dir
+            self.cache_dir = '/tmp'
+            self.cache_file = os.path.join(self.cache_dir, "systems_cache.json")
 
     def update_cache_if_needed(self):
         """Update the cache file if it's expired or doesn't exist"""
