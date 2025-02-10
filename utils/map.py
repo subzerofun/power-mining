@@ -16,9 +16,13 @@ class MapController:
         self.last_cache_update = 0
         self._cache_dir = None
         self._cache_file = None
+        # Check if caching is enabled via environment variable
+        self.caching_enabled = os.getenv('ENABLE_MAP_CACHE', '').lower() == 'true'
 
     @property
     def cache_dir(self):
+        if not self.caching_enabled:
+            return None
         if self._cache_dir is None:
             # Lazy initialization of cache directory
             try:
@@ -32,6 +36,8 @@ class MapController:
 
     @property
     def cache_file(self):
+        if not self.caching_enabled:
+            return None
         if self._cache_file is None:
             self._cache_file = os.path.join(self.cache_dir, "systems_cache.json")
         return self._cache_file
@@ -40,7 +46,49 @@ class MapController:
         """Update the cache file if it's expired or doesn't exist"""
         current_time = time.time()
         
-        # Check if we need to update cache
+        # Skip cache operations if caching is disabled
+        if not self.caching_enabled:
+            try:
+                conn = get_db_connection()
+                if not conn:
+                    raise ValueError("Could not connect to database")
+                cur = conn.cursor()
+                
+                # Get all systems with minimal required data
+                cur.execute("""
+                    SELECT 
+                        name,
+                        x, y, z,
+                        controlling_power,
+                        power_state,
+                        powers_acquiring
+                    FROM systems
+                    ORDER BY name
+                """)
+                
+                systems = []
+                for row in cur.fetchall():
+                    systems.append({
+                        'name': row[0],
+                        'x': float(row[1]),
+                        'y': float(row[2]),
+                        'z': float(row[3]),
+                        'controlling_power': row[4],
+                        'power_state': row[5],
+                        'powers_acquiring': row[6] if row[6] else []
+                    })
+                
+                self.systems_cache = systems
+                
+                cur.close()
+                conn.close()
+                return
+            except Exception as e:
+                if 'conn' in locals() and conn:
+                    conn.close()
+                raise
+        
+        # Normal cache operations if caching is enabled
         if (self.systems_cache is None or 
             current_time - self.last_cache_update > self.cache_duration or 
             not os.path.exists(self.cache_file)):
@@ -75,9 +123,10 @@ class MapController:
                         'powers_acquiring': row[6] if row[6] else []
                     })
                 
-                # Save to cache file
-                with open(self.cache_file, 'w') as f:
-                    json.dump(systems, f)
+                # Save to cache file only if caching is enabled
+                if self.caching_enabled:
+                    with open(self.cache_file, 'w') as f:
+                        json.dump(systems, f)
                 
                 self.systems_cache = systems
                 self.last_cache_update = current_time
