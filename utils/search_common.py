@@ -204,7 +204,7 @@ def format_ring_info(row, material, signal_type):
         else: mineral_name = row['mineral_type']
         hotspot_text = "Hotspot " if row['signal_count'] == 1 else "Hotspots " if row['signal_count'] else ""
         return {
-            'name': display_ring_name + f" <img src='/img/icons/rings/{row['ring_type']}.png' width='16' height='16' class='ring-type-icon' alt='{row['ring_type']}' title='Ring Type: {row['ring_type']}' style='vertical-align: middle;'> <svg class='reserve-level-icon' width='14' height='13' style='margin-right: 2px; color: #f5730d'><title>Reserve Level: {row['reserve_level']}</title><use href='img/icons/reserve-level.svg#reserve-level-{row['reserve_level'].lower()}'></use></svg>",
+            'name': display_ring_name + f" <img src='/img/icons/rings/{row['ring_type'].lowercase()}.png' width='16' height='16' class='ring-type-icon' alt='{row['ring_type']}' title='Ring Type: {row['ring_type']}' style='vertical-align: middle;'> <svg class='reserve-level-icon' width='14' height='13' style='margin-right: 2px; color: #f5730d'><title>Reserve Level: {row['reserve_level']}</title><use href='img/icons/reserve-level.svg#reserve-level-{row['reserve_level'].lower()}'></use></svg>",
             'body_name': row['body_name'],
             'signals': f"<img src='img/icons/hotspot-systemview.svg' width='13' height='13' class='hotspot-icon'> {mineral_name}: {row['signal_count'] or ''} {hotspot_text}"
         }
@@ -218,7 +218,7 @@ def format_ring_info(row, material, signal_type):
         mineral_name = row.get('commodity_name') or material['name']
         if mineral_name == 'Low Temperature Diamonds': mineral_name = 'Low T. Diamonds'
         return {
-            'name': display_ring_name + f" <img src='/img/icons/rings/{row['ring_type']}.png' width='16' height='16' class='ring-type-icon' alt='{row['ring_type']}' title='Ring Type: {row['ring_type']}' style='vertical-align: middle;'> <svg class='reserve-level-icon' width='14' height='13' style='margin-right: 2px; color: #f5730d'><title>Reserve Level: {row['reserve_level']}</title><use href='img/icons/reserve-level.svg#reserve-level-{row['reserve_level'].lower()}'></use></svg>",
+            'name': display_ring_name + f" <img src='/img/icons/rings/{row['ring_type'].lowercase()}.png' width='16' height='16' class='ring-type-icon' alt='{row['ring_type']}' title='Ring Type: {row['ring_type']}' style='vertical-align: middle;'> <svg class='reserve-level-icon' width='14' height='13' style='margin-right: 2px; color: #f5730d'><title>Reserve Level: {row['reserve_level']}</title><use href='img/icons/reserve-level.svg#reserve-level-{row['reserve_level'].lower()}'></use></svg>",
             'body_name': row['body_name'],
             'signals': f"{mineral_name}"
         }
