@@ -158,7 +158,9 @@ def dump_powerplay_data(db_url, output_file, no_hudson=False):
                             'Contested': 0,
                             'Prepared': 0,
                             'InPrepareRadius': 0,
-                            'Expansion': 0  # Added Expansion state
+                            'Expansion': 0,  # Added Expansion state
+                            'Controlled': 0,  # Added Controlled state
+                            'HomeSystem': 0   # Added HomeSystem state
                         }
                     
                     if state and state != 'Unoccupied':  # Skip Unoccupied state
@@ -179,7 +181,9 @@ def dump_powerplay_data(db_url, output_file, no_hudson=False):
                                 'Contested': 0,
                                 'Prepared': 0,
                                 'InPrepareRadius': 0,
-                                'Expansion': 0  # Added Expansion state
+                                'Expansion': 0,  # Added Expansion state
+                                'Controlled': 0,  # Added Controlled state
+                                'HomeSystem': 0   # Added HomeSystem state
                             }
                         power_stats[acquiring_power][state] += 1
                 

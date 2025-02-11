@@ -152,21 +152,24 @@ def build_complete_query(params, coords, material, valid_ring_types, where_condi
     
     inner_query += get_order_by()
 
-    # Wrap in outer query that limits by distinct systems
+    # Wrap in outer query that first selects distinct systems, then gets all signals for those systems
     query = f"""
     WITH AllResults AS (
         {inner_query}
+    ),
+    DistinctSystems AS (
+        SELECT DISTINCT ON (system_name) *
+        FROM AllResults
+        ORDER BY system_name, COALESCE(sell_price, 0) DESC
+        LIMIT %s
     )
-    SELECT DISTINCT ON (COALESCE(sell_price, 0), system_name) *
-    FROM AllResults
-    ORDER BY COALESCE(sell_price, 0) DESC, system_name
+    SELECT ar.*
+    FROM AllResults ar
+    INNER JOIN DistinctSystems ds ON ar.system_name = ds.system_name
+    ORDER BY COALESCE(ar.sell_price, 0) DESC, ar.system_name, ar.ring_name
     """
 
-    # Add LIMIT for non-highest format
-    if params['limit'] and params.get('display_format') != 'highest':
-        query += " LIMIT %s"
-    
-    # Build parameters
+    # Add parameters
     query_params = [
         rx, ry, rz,  # Distance calculation
         rx, ry, rz,  # Distance filter
