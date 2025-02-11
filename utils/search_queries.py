@@ -152,7 +152,8 @@ def build_complete_query(params, coords, material, valid_ring_types, where_condi
     
     query += get_order_by()
     
-    if params['limit']:
+    # Only apply limit for non-highest price searches
+    if params['limit'] and params.get('display_format') != 'highest':
         query += " LIMIT %s"
     
     # Build parameters
@@ -180,7 +181,8 @@ def build_complete_query(params, coords, material, valid_ring_types, where_condi
     query_params.extend(join_params)
     query_params.extend(where_params)
     
-    if params['limit']:
+    # Only add limit param for non-highest price searches
+    if params['limit'] and params.get('display_format') != 'highest':
         query_params.append(params['limit'])
     
     return query, query_params
