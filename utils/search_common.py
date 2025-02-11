@@ -235,7 +235,7 @@ def format_station_info(row, other_commodities):
         'distance': float(row['distance_to_arrival']) if row['distance_to_arrival'] is not None else 0,
         'sell_price': int(row['sell_price']) if row['sell_price'] is not None else 0,
         'demand': int(row['demand']) if row['demand'] is not None else 0,
-        'update_time': row['update_time'],
+        'update_time': row['update_time'].isoformat() if row['update_time'] is not None else None,
         'mineral_type': row['mineral_type'],  # Add mineral_type from the query
         'commodity_name': row['mineral_type'] or row['commodity_name'],  # Use mineral_type as primary, fallback to commodity_name
         'other_commodities': []

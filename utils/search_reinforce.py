@@ -140,7 +140,7 @@ def search(display_format='full'):
             # Apply limit after deduplication and sorting
             limit = int(params.get('limit', 30))
             formatted_results = formatted_results[:limit]
-            
+
             return jsonify(formatted_results)
         
         # Process results for full display format
