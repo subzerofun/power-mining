@@ -117,6 +117,10 @@ def search(display_format='full'):
             # Sort by price descending
             formatted_results.sort(key=lambda x: (-x['max_price'], x['system_name'], x['station_name']))
             
+            # Apply limit after deduplication and sorting
+            limit = int(params.get('limit', 30))
+            formatted_results = formatted_results[:limit]
+            
             return jsonify(formatted_results)
         
         # Process results
