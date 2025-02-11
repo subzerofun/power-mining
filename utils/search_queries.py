@@ -137,22 +137,32 @@ def build_complete_query(params, coords, material, valid_ring_types, where_condi
         where_conditions.append("s.system_state = ANY(%s::text[])")
         where_params.append(params['system_states'])
     
-    # Build query
-    query = get_base_cte()
+    # Build inner query
+    inner_query = get_base_cte()
     
     # Add station CTE if needed
     if params['min_demand'] > 0 or params['max_demand'] > 0 or material['name']:
-        query += get_station_cte()
+        inner_query += get_station_cte()
     
-    query += get_main_select()
-    query += get_main_joins().format(join_condition=join_condition)
+    inner_query += get_main_select()
+    inner_query += get_main_joins().format(join_condition=join_condition)
     
     if where_conditions:
-        query += " WHERE " + " AND ".join(where_conditions)
+        inner_query += " WHERE " + " AND ".join(where_conditions)
     
-    query += get_order_by()
-    
-    # Only apply limit for non-highest price searches
+    inner_query += get_order_by()
+
+    # Wrap in outer query that limits by distinct systems
+    query = f"""
+    WITH AllResults AS (
+        {inner_query}
+    )
+    SELECT DISTINCT ON (COALESCE(sell_price, 0), system_name) *
+    FROM AllResults
+    ORDER BY COALESCE(sell_price, 0) DESC, system_name
+    """
+
+    # Add LIMIT for non-highest format
     if params['limit'] and params.get('display_format') != 'highest':
         query += " LIMIT %s"
     
@@ -181,7 +191,7 @@ def build_complete_query(params, coords, material, valid_ring_types, where_condi
     query_params.extend(join_params)
     query_params.extend(where_params)
     
-    # Only add limit param for non-highest price searches
+    # Add limit parameter for non-highest format
     if params['limit'] and params.get('display_format') != 'highest':
         query_params.append(params['limit'])
     
