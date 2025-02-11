@@ -71,17 +71,15 @@ def get_main_joins():
     return """
     FROM relevant_systems s
     JOIN mineral_signals ms ON {join_condition}
-    INNER JOIN relevant_stations rs ON s.id64 = rs.system_id64  -- Only include stations with prices
-    INNER JOIN stations st ON s.id64 = st.system_id64 AND rs.station_name = st.station_name  -- Only matching stations
+    LEFT JOIN relevant_stations rs ON s.id64 = rs.system_id64
+    LEFT JOIN stations st ON s.id64 = st.system_id64 AND rs.station_name = st.station_name
     """
 
 def get_order_by():
     """Get the ORDER BY clause"""
     return """
     ORDER BY COALESCE(rs.sell_price, 0) DESC,
-             s.distance,
-             s.name,
-             st.station_name
+             s.distance
     """
 
 def get_ring_join_conditions(ring_type_filter, signal_type, valid_ring_types):
