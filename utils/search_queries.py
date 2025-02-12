@@ -87,26 +87,26 @@ def get_ring_join_conditions(ring_type_filter, signal_type, valid_ring_types):
     join_condition = "s.id64 = ms.system_id64"
     join_params = []
 
+    # First ensure ring type is valid for mining type
+    join_condition += " AND ms.ring_type = ANY(%s::text[])"
+    join_params.append(valid_ring_types)
+
+    # Then add hotspot/ring type filters
     if ring_type_filter == 'Hotspots':
         if signal_type == 'Any':
-            # For Any, just check that there is a hotspot
             join_condition += " AND ms.mineral_type IS NOT NULL"
         else:
-            # For specific mineral, check for that hotspot
             join_condition += " AND ms.mineral_type = %s"
             join_params.append(signal_type)
     elif ring_type_filter == 'Without Hotspots':
-        # No hotspots but specific ring type
-        join_condition += " AND ms.mineral_type IS NULL AND ms.ring_type = ANY(%s::text[])"
-        join_params.append(valid_ring_types)
+        join_condition += " AND ms.mineral_type IS NULL"
     else:
-        # All: Either has hotspot (of any type for Any, or specific type) or matches ring type
+        # For 'All' or specific ring type
         if signal_type == 'Any':
-            join_condition += " AND (ms.mineral_type IS NOT NULL OR (ms.mineral_type IS NULL AND ms.ring_type = ANY(%s::text[])))"
-            join_params.append(valid_ring_types)
+            join_condition += " AND (ms.mineral_type IS NOT NULL OR ms.mineral_type IS NULL)"
         else:
-            join_condition += " AND (ms.mineral_type = %s OR (ms.mineral_type IS NULL AND ms.ring_type = ANY(%s::text[])))"
-            join_params.extend([signal_type, valid_ring_types])
+            join_condition += " AND (ms.mineral_type = %s OR ms.mineral_type IS NULL)"
+            join_params.append(signal_type)
 
     return join_condition, join_params
 
