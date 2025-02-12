@@ -275,8 +275,12 @@
                     <button type="button" class="btn btn-info highestPricesButton" onclick="searchHighest(event)">Overview</button>
                     <button type="button" style="display: none;" class="btn btn-info resSearchButton" onclick="searchResHotspots()">Search Res Hotspot Overlaps</button>
                     <button type="button" style="display: none;" class="btn btn-info platinumSearchButton" onclick="searchHighYieldPlatinum()">Search High Yield Platinum Spots</button>
-                    <button type="button" class="btn btn-reset" onclick="formStorage.clearStorage()">Reset to defaults</button>
+                    <button type="button" class="btn btn-reset" onclick="formStorage.clearStorage()">Reset</button>
                     <div class="status-container">
+                        <div class="notice-status">
+                            <div class="notice-line">⚠️ Long/failing queries with "Any" mineral/metal are being worked on.</div>
+                            <div class="notice-line">⚠️ Fix for wrong ring type results with "All" in the works.</div>
+                        </div>
                         <div class="eddn-status">
                             <div class="eddn-title">EDDN Live Update:</div>
                             <div class="status-indicator">
