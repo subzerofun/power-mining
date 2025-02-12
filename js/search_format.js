@@ -345,7 +345,7 @@ function toggleAllSignals(button, allSignals, systemName) {
                     // Add non-hotspot entry if it exists and we're not in 'Hotspots' mode
                     if (data.non_hotspot && ringTypeFilter !== 'Hotspots') {
                         //console.log('Adding non-hotspot for ring:', ringName);
-                        lines.push(`${planetIcon}${ringName} <img src="/img/icons/rings/${data.ring_type.toLowerCase()}.png" width="16" height="16" class="ring-type-icon" alt="${data.ring_type}" title="Ring Type: ${data.ring_type}" style="vertical-align: middle;"> ${getReserveIcon(data.reserve_level,14,13,'#f5730d')} : ${mineral_name}`);
+                        lines.push(`${planetIcon}${ringName} <img src="/img/icons/rings/${data.ring_type}.png" width="16" height="16" class="ring-type-icon" alt="${data.ring_type}" title="Ring Type: ${data.ring_type}" style="vertical-align: middle;"> ${getReserveIcon(data.reserve_level,14,13,'#f5730d')} : ${mineral_name}`);
                     }
                     
 
@@ -358,7 +358,7 @@ function toggleAllSignals(button, allSignals, systemName) {
                             mineral_name = hotspot.mineral_type;
                             if(mineral_name === "Low Temperature Diamonds") { mineral_name = "Low T. Diamonds" } 
 
-                            lines.push(`${icon}${ringName} <img src="/img/icons/rings/${data.ring_type.toLowerCase()}.png" width="16" height="16" class="ring-type-icon" alt="${data.ring_type}" title="Ring Type: ${data.ring_type}" style="vertical-align: middle;"> ${getReserveIcon(data.reserve_level,14,13,'#f5730d')} : <img src='img/icons/hotspot-systemview.svg' width='13' height='13' class='hotspot-icon'> ${mineral_name}: ${hotspot.signal_count} ${hotspotText}`);
+                            lines.push(`${icon}${ringName} <img src="/img/icons/rings/${data.ring_type}.png" width="16" height="16" class="ring-type-icon" alt="${data.ring_type}" title="Ring Type: ${data.ring_type}" style="vertical-align: middle;"> ${getReserveIcon(data.reserve_level,14,13,'#f5730d')} : <img src='img/icons/hotspot-systemview.svg' width='13' height='13' class='hotspot-icon'> ${mineral_name}: ${hotspot.signal_count} ${hotspotText}`);
                         });
                     }
                     
