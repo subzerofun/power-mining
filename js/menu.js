@@ -209,6 +209,10 @@ class SearchMenu {
             }
         }
 
+        // Always show the reset button
+        const resetButton = this.formContainer.querySelector('.btn-reset');
+        if (resetButton) resetButton.style.display = 'block';
+
         // Handle row visibility
         this.formContainer.querySelectorAll('.form-row').forEach(row => {
             // Skip the button row - always keep it visible

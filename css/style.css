@@ -198,6 +198,21 @@ button:not(:hover) {
     margin-left: auto;
 }
 
+.notice-status {
+    display: flex;
+    flex-direction: column;
+    gap: 0px;
+    font-size: 14px;
+    margin-right: 20px;
+}
+
+.notice-line {
+    color: var(--main-color);
+    white-space: nowrap;
+    margin-bottom: 0px;
+    height: 20px;
+}
+
 .eddn-status:first-child {
     margin-right: 20px;
 }
@@ -280,7 +295,7 @@ button:not(:hover) {
 
 .status-container {
     display: flex;
-    gap: 20px;
+    gap: 50px;
     margin-left: auto;
 }
 
@@ -367,7 +382,7 @@ button:not(:hover) {
 .mainSearchButton, .highestPricesButton, .resSearchButton, .platinumSearchButton {
     height: 46px;
     font-size: 1em;
-    min-width: 20%;
+    min-width: 15%;
     width: auto;
     box-shadow: 0 0 10px rgba(255, 55, 0, 0.3),
                 0 0 25px rgba(255, 158, 4, 0.15);
