@@ -59,7 +59,13 @@ def build_any_material_query(params, coords, valid_ring_types, where_conditions,
         FROM relevant_systems s
         JOIN minable_materials mm ON s.id64 = mm.system_id64
         JOIN station_commodities sc ON s.id64 = sc.system_id64 
-            AND (mm.mineral_type = sc.commodity_name OR mm.ring_type = ANY(%s::text[]))
+        AND (
+            -- Case 1: When we have a hotspot, it must match the commodity
+            (mm.mineral_type IS NOT NULL AND mm.mineral_type = sc.commodity_name)
+            OR
+            -- Case 2: When no hotspot but valid ring type, commodity must be mineable in that ring type
+            (mm.mineral_type IS NULL AND mm.ring_type = ANY(%s::text[]))
+        )
         JOIN stations st ON sc.system_id64 = st.system_id64 AND sc.station_name = st.station_name
         WHERE sc.sell_price > 0
         AND (
