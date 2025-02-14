@@ -85,10 +85,30 @@ def load_material_data(signal_type):
             return {
                 'name': 'Any',
                 'ring_types': {
-                    'Rocky': {'surfaceLaserMining': True},
-                    'Metal Rich': {'surfaceLaserMining': True},
-                    'Metallic': {'surfaceLaserMining': True},
-                    'Icy': {'surfaceLaserMining': True}
+                    'Rocky': {
+                        'surfaceLaserMining': True,
+                        'surfaceDeposit': True,
+                        'subSurfaceDeposit': True,
+                        'core': True
+                    },
+                    'Metal Rich': {
+                        'surfaceLaserMining': True,
+                        'surfaceDeposit': True,
+                        'subSurfaceDeposit': True,
+                        'core': True
+                    },
+                    'Metallic': {
+                        'surfaceLaserMining': True,
+                        'surfaceDeposit': True,
+                        'subSurfaceDeposit': True,
+                        'core': True
+                    },
+                    'Icy': {
+                        'surfaceLaserMining': True,
+                        'surfaceDeposit': True,
+                        'subSurfaceDeposit': True,
+                        'core': True
+                    }
                 }
             }
             
@@ -110,18 +130,49 @@ def load_material_data(signal_type):
 def get_valid_ring_types(material, mining_types):
     """Get valid ring types based on mining types and material data"""
     valid_ring_types = []
+    
+    # If no mining types specified, return all ring types that support any mining method
     if not mining_types:
-        return list(material['ring_types'].keys())
+        for ring_type, data in material['ring_types'].items():
+            if any([
+                data.get('surfaceLaserMining', False),
+                data.get('surfaceDeposit', False),
+                data.get('subSurfaceDeposit', False),
+                data.get('core', False)
+            ]):
+                valid_ring_types.append(ring_type)
+        return valid_ring_types
         
+    # Check each ring type against the selected mining methods
     for ring_type, data in material['ring_types'].items():
         # Check if ring type supports ALL selected mining methods
+        supports_all = True
         for mining_type in mining_types:
-            if (mining_type == 'Laser Surface' and not data.get('surfaceLaserMining', False)) or \
-               (mining_type == 'Surface' and not data.get('surfaceDeposit', False)) or \
-               (mining_type == 'Subsurface' and not data.get('subSurfaceDeposit', False)) or \
-               (mining_type == 'Core' and not data.get('core', False)):
-                break  # Skip if ANY selected method isn't supported
-        else:  # No break - all methods supported
+            mining_type = mining_type.lower()
+            if mining_type == 'laser surface' and not data.get('surfaceLaserMining', False):
+                supports_all = False
+                break
+            elif mining_type == 'surface' and not data.get('surfaceDeposit', False):
+                supports_all = False
+                break
+            elif mining_type == 'subsurface' and not data.get('subSurfaceDeposit', False):
+                supports_all = False
+                break
+            elif mining_type == 'core' and not data.get('core', False):
+                supports_all = False
+                break
+            elif mining_type == 'all':
+                # For 'All', check if the ring supports any mining method
+                if not any([
+                    data.get('surfaceLaserMining', False),
+                    data.get('surfaceDeposit', False),
+                    data.get('subSurfaceDeposit', False),
+                    data.get('core', False)
+                ]):
+                    supports_all = False
+                    break
+        
+        if supports_all:
             valid_ring_types.append(ring_type)
                     
     return valid_ring_types

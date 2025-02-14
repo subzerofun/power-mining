@@ -9,6 +9,12 @@ def build_any_material_query(params, coords, valid_ring_types, where_conditions,
     """Build query specifically for 'Any' material search that respects all filters"""
     rx, ry, rz = coords
     
+    # Debug logging
+    log_message(BLUE, "SEARCH", f"Building any material query with:")
+    log_message(BLUE, "SEARCH", f"- Valid ring types: {valid_ring_types}")
+    log_message(BLUE, "SEARCH", f"- Where conditions: {where_conditions}")
+    log_message(BLUE, "SEARCH", f"- Where params: {where_params}")
+    
     # Use same base CTE as normal search
     query = get_base_cte()
     
@@ -30,12 +36,7 @@ def build_any_material_query(params, coords, valid_ring_types, where_conditions,
         AND CASE 
             WHEN %s = 'Hotspots' THEN ms.mineral_type IS NOT NULL
             WHEN %s = 'Without Hotspots' THEN ms.mineral_type IS NULL
-            WHEN %s NOT IN ('Hotspots', 'Without Hotspots', 'All') THEN ms.ring_type = %s
-            ELSE true
-        END
-        AND CASE
-            WHEN %s != 'All' THEN ms.reserve_level = %s
-            ELSE true
+            ELSE true  -- For 'All' or specific ring type, don't filter on mineral_type
         END
     )
     , station_materials AS (
@@ -60,11 +61,11 @@ def build_any_material_query(params, coords, valid_ring_types, where_conditions,
         JOIN minable_materials mm ON s.id64 = mm.system_id64
         JOIN station_commodities sc ON s.id64 = sc.system_id64 
         AND (
-            -- Case 1: When we have a hotspot, it must match the commodity
+            -- Case 1: Match hotspots directly
             (mm.mineral_type IS NOT NULL AND mm.mineral_type = sc.commodity_name)
             OR
-            -- Case 2: When no hotspot but valid ring type, commodity must be mineable in that ring type
-            (mm.mineral_type IS NULL AND mm.ring_type = ANY(%s::text[]))
+            -- Case 2: Match valid ring types for the commodity
+            (mm.ring_type = ANY(%s::text[]))
         )
         JOIN stations st ON sc.system_id64 = st.system_id64 AND sc.station_name = st.station_name
         WHERE sc.sell_price > 0
@@ -82,7 +83,39 @@ def build_any_material_query(params, coords, valid_ring_types, where_conditions,
             WHEN %s = 'L' THEN st.landing_pad_size = 'L'
             ELSE true
         END
-    )
+    )"""
+    
+    # Build parameters in same order as normal search
+    query_params = [
+        rx, ry, rz,  # Distance calculation
+        rx, ry, rz,  # Distance filter
+        params['max_dist'],
+        # Minable materials params
+        valid_ring_types,  # For ring type check
+        params['ring_type_filter'],  # For hotspots check
+        params['ring_type_filter'],  # For without hotspots check
+        # Station materials params
+        valid_ring_types,  # For ring type matching
+        params['min_demand'], params['max_demand'],  # Zero-zero check
+        params['min_demand'], params['max_demand'],  # Min=0 check
+        params['max_demand'], params['min_demand'],  # Max=0 check
+        params['min_demand'], params['max_demand'],  # Between check
+        params['landing_pad_size'],  # For Any/Unknown case
+        params['landing_pad_size'],  # For S case
+        params['landing_pad_size'],  # For M case
+        params['landing_pad_size']   # For L case
+    ]
+    
+    # Debug logging for parameters
+    log_message(BLUE, "SEARCH", f"Query parameters:")
+    for i, param in enumerate(query_params):
+        log_message(BLUE, "SEARCH", f"Param {i}: {param}")
+    
+    # Add power condition params
+    query_params.extend(where_params)
+    
+    # Rest of query remains the same...
+    query += """
     , best_prices AS (
         SELECT 
             s.id64 as system_id64,
@@ -148,38 +181,10 @@ def build_any_material_query(params, coords, valid_ring_types, where_conditions,
     
     if params.get('limit'):
         query += " LIMIT %s"
-    
-    # Build parameters in same order as normal search
-    query_params = [
-        rx, ry, rz,  # Distance calculation
-        rx, ry, rz,  # Distance filter
-        params['max_dist'],
-        # Minable materials params
-        valid_ring_types,  # For ring type check
-        params['ring_type_filter'],  # For hotspots check
-        params['ring_type_filter'],  # For without hotspots check
-        valid_ring_types,  # For without hotspots ring types
-        params['ring_type_filter'],  # For specific ring type check
-        params['ring_type_filter'],  # For specific ring type value
-        params['reserve_level'],  # For reserve level check
-        params['reserve_level'],  # For reserve level value
-        # Station prices params
-        valid_ring_types,  # For ring type matching
-        params['min_demand'], params['max_demand'],  # Zero-zero check
-        params['min_demand'], params['max_demand'],  # Min=0 check
-        params['max_demand'], params['min_demand'],  # Max=0 check
-        params['min_demand'], params['max_demand'],  # Between check
-        params['landing_pad_size'],  # For Any/Unknown case
-        params['landing_pad_size'],  # For S case
-        params['landing_pad_size'],  # For M case
-        params['landing_pad_size']   # For L case
-    ]
-    
-    # Add power condition params
-    query_params.extend(where_params)
-    
-    # Add limit if specified
-    if params.get('limit'):
         query_params.append(params['limit'])
+    
+    # Final debug logging
+    log_message(BLUE, "SEARCH", f"Final parameter count: {len(query_params)}")
+    log_message(BLUE, "SEARCH", f"Query placeholder count: {query.count('%s')}")
     
     return query, query_params 
