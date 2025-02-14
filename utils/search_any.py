@@ -26,13 +26,10 @@ def build_any_material_query(params, coords, valid_ring_types, where_conditions,
         FROM relevant_systems s
         JOIN mineral_signals ms ON s.id64 = ms.system_id64
         LEFT JOIN station_commodities sc ON s.id64 = sc.system_id64
-        WHERE (
-            ms.mineral_type IS NOT NULL
-            OR (ms.mineral_type IS NULL AND ms.ring_type = ANY(%s::text[]))
-        )
+        WHERE ms.ring_type = ANY(%s::text[])  -- Always apply valid ring types first
         AND CASE 
             WHEN %s = 'Hotspots' THEN ms.mineral_type IS NOT NULL
-            WHEN %s = 'Without Hotspots' THEN ms.mineral_type IS NULL AND ms.ring_type = ANY(%s::text[])
+            WHEN %s = 'Without Hotspots' THEN ms.mineral_type IS NULL
             WHEN %s NOT IN ('Hotspots', 'Without Hotspots', 'All') THEN ms.ring_type = %s
             ELSE true
         END
