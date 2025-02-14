@@ -52,20 +52,20 @@
 
 /* Section layouts */
 .acquisition-table .target-section {
-    width: 45%;
+    width: 42%;
     vertical-align: top;
     padding: 0;
 }
 
 .acquisition-table .mining-section {
-    width: 51%;
+    width: 54%;
     vertical-align: top;
     padding: 0;
 }
 
 /* Column widths */
 .acquisition-table .target-section td:nth-child(1),
-.acquisition-table .target-section th:nth-child(1) { width: 25%; }  /* Target System */
+.acquisition-table .target-section th:nth-child(1) { width: 20%; }  /* Target System */
 
 .acquisition-table .target-section td:nth-child(2),
 .acquisition-table .target-section th:nth-child(2) { width: 20%; }  /* State */
@@ -87,10 +87,10 @@
 }
 
 .acquisition-table .mining-section td:nth-child(2),
-.acquisition-table .mining-section th:nth-child(2) { width: 18%; }  /* Mining System */
+.acquisition-table .mining-section th:nth-child(2) { width: 20%; }  /* Mining System */
 
 .acquisition-table .mining-section td:nth-child(3),
-.acquisition-table .mining-section th:nth-child(3) { width: 39%; }  /* Ring Details */
+.acquisition-table .mining-section th:nth-child(3) { width: 38%; }  /* Ring Details */
 
 .acquisition-table .mining-section td:nth-child(4),
 .acquisition-table .mining-section th:nth-child(4) { width: 14%; }  /* State */

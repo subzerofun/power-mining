@@ -114,20 +114,15 @@ def get_valid_ring_types(material, mining_types):
         return list(material['ring_types'].keys())
         
     for ring_type, data in material['ring_types'].items():
-        if 'All' in mining_types:
-            if any([data.get('surfaceLaserMining', False),
-                   data.get('surfaceDeposit', False),
-                   data.get('subSurfaceDeposit', False),
-                   data.get('core', False)]):
-                valid_ring_types.append(ring_type)
-        else:
-            for mining_type in mining_types:
-                if (mining_type.lower() == 'laser surface' and data.get('surfaceLaserMining', False)) or \
-                   (mining_type.lower() == 'surface' and data.get('surfaceDeposit', False)) or \
-                   (mining_type.lower() == 'subsurface' and data.get('subSurfaceDeposit', False)) or \
-                   (mining_type.lower() == 'core' and data.get('core', False)):
-                    valid_ring_types.append(ring_type)
-                    break
+        # Check if ring type supports ALL selected mining methods
+        for mining_type in mining_types:
+            if (mining_type == 'Laser Surface' and not data.get('surfaceLaserMining', False)) or \
+               (mining_type == 'Surface' and not data.get('surfaceDeposit', False)) or \
+               (mining_type == 'Subsurface' and not data.get('subSurfaceDeposit', False)) or \
+               (mining_type == 'Core' and not data.get('core', False)):
+                break  # Skip if ANY selected method isn't supported
+        else:  # No break - all methods supported
+            valid_ring_types.append(ring_type)
                     
     return valid_ring_types
 
@@ -295,4 +290,4 @@ def format_ring_name(ring_name, system_name):
     """Format ring name by optionally removing system name prefix"""
     if not SYSTEM_IN_RING_NAME and ring_name.startswith(system_name):
         return ring_name[len(system_name):].lstrip()
-    return ring_name 
+    return ring_name

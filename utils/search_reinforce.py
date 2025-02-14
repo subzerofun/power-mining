@@ -15,7 +15,7 @@ from utils.search_common import (
 from utils.search_queries import (
     get_base_cte, get_station_cte, get_ring_join_conditions,
     get_main_select, get_main_joins, get_order_by,
-    build_complete_query
+    build_complete_query, build_optimized_query
 )
 from utils.search_power import build_reinforce_conditions
 from utils.search_any import build_any_material_query
@@ -82,7 +82,13 @@ def search(display_format='full'):
                 where_conditions, where_params
             )
         else:
-            query, query_params = build_complete_query(
+            # Comment out old query builder
+            # query, query_params = build_complete_query(
+            #     params, coords, material, valid_ring_types,
+            #     where_conditions, where_params
+            # )
+            # Use new optimized query builder
+            query, query_params = build_optimized_query(
                 params, coords, material, valid_ring_types,
                 where_conditions, where_params
             )

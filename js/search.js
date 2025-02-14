@@ -673,7 +673,7 @@ class MiningSearch {
                                 ${displayRingName}: ${ring.signals}
                             </div>
                         `}).join('')}
-                        ${unoccupiedSystem.all_signals && unoccupiedSystem.all_signals.length > miningSystem.rings.length ? `
+                        ${miningSystem.all_signals && miningSystem.all_signals.length > 0 ? `
                             <button class="btn btn-small show-all-signals">
                                 Show all signals
                             </button>
@@ -699,7 +699,7 @@ class MiningSearch {
                 // Add click handler for show all signals button
                 const button = miningRow.querySelector('.show-all-signals');
                 if (button) {
-                    button.addEventListener('click', () => toggleAllSignals(button, unoccupiedSystem.all_signals, unoccupiedSystem.name));
+                    button.addEventListener('click', () => toggleAllSignals(button, miningSystem.all_signals, miningSystem.name));
                 }
             });
             

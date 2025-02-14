@@ -103,3 +103,5 @@ json/systemsPopulated_02-07.gz
 /videos
 /img/reddit
 /journal_events
+/database
+utils/search_common_old.py

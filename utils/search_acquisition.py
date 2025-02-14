@@ -87,7 +87,9 @@ def search(display_format='full'):
         valid_ring_types = []
         if mining_types:
             log_message(BLUE, "MINING", f"Processing mining types: {mining_types}")
+            log_message(BLUE, "MINING", f"Ring type filter: {ring_type_filter}")
             for ring_type, data in material['ring_types'].items():
+                log_message(BLUE, "MINING", f"Checking ring type {ring_type} with data: {data}")
                 if 'All' in mining_types:
                     if any([
                         data.get('surfaceLaserMining', False),
@@ -96,32 +98,53 @@ def search(display_format='full'):
                         data.get('core', False)
                     ]):
                         valid_ring_types.append(ring_type)
+                        log_message(BLUE, "MINING", f"Added {ring_type} to valid ring types (All mining types)")
                 else:
+                    # Check if this ring type supports ALL selected mining methods
+                    supports_all = True
                     for mtype in mining_types:
-                        if ((mtype.lower() == 'laser surface' and data.get('surfaceLaserMining', False)) or
-                            (mtype.lower() == 'surface' and data.get('surfaceDeposit', False)) or
-                            (mtype.lower() == 'subsurface' and data.get('subSurfaceDeposit', False)) or
-                            (mtype.lower() == 'core' and data.get('core', False))):
-                            valid_ring_types.append(ring_type)
+                        if mtype.lower() == 'laser surface' and not data.get('surfaceLaserMining', False):
+                            supports_all = False
+                            log_message(YELLOW, "MINING", f"{ring_type} does not support laser surface mining")
                             break
-            log_message(BLUE, "MINING", f"Valid ring types: {valid_ring_types}")
+                        elif mtype.lower() == 'surface' and not data.get('surfaceDeposit', False):
+                            supports_all = False
+                            log_message(YELLOW, "MINING", f"{ring_type} does not support surface mining")
+                            break
+                        elif mtype.lower() == 'subsurface' and not data.get('subSurfaceDeposit', False):
+                            supports_all = False
+                            log_message(YELLOW, "MINING", f"{ring_type} does not support subsurface mining")
+                            break
+                        elif mtype.lower() == 'core' and not data.get('core', False):
+                            supports_all = False
+                            log_message(YELLOW, "MINING", f"{ring_type} does not support core mining")
+                            break
+                    if supports_all:
+                        valid_ring_types.append(ring_type)
+                        log_message(BLUE, "MINING", f"Added {ring_type} to valid ring types (supports all selected mining types)")
+
+            log_message(BLUE, "MINING", f"Final valid ring types: {valid_ring_types}")
             if not valid_ring_types:
                 log_message(RED, "MINING", "No valid ring types found.")
                 return jsonify([])
 
         # 6) Filter ring_type_filter if not Hotspots/Without Hotspots/All
+        where_conditions = []
+        where_params = []
+
         if ring_type_filter not in ['Hotspots', 'Without Hotspots', 'All']:
             if ring_type_filter not in valid_ring_types:
                 log_message(RED, "MINING", f"Ring type {ring_type_filter} invalid.")
                 return jsonify([])
             valid_ring_types = [ring_type_filter]
+            # Add explicit ring type filter to where conditions
+            where_conditions.append("ms.ring_type = %s")
+            where_params.append(ring_type_filter)
 
         # 7) Possibly filter by reserve_level
         reserve_level = request.args.get('reserve_level', 'All')
         log_message(BLUE, "SEARCH", f"Reserve level filter: {reserve_level}")
 
-        where_conditions = []
-        where_params = []
         if reserve_level != 'All':
             where_conditions.append("ms.reserve_level = %s")
             where_params.append(reserve_level)
@@ -130,21 +153,33 @@ def search(display_format='full'):
         join_condition = "s.id64 = ms.system_id64"
         join_params = []
         if ring_type_filter == 'Hotspots':
-            # ms.mineral_type = %s
-            join_condition += " AND ms.mineral_type = %s"
-            join_params.append(signal_type)
+            # ms.mineral_type = %s AND ms.ring_type = ANY(%s::text[])
+            join_condition += " AND ms.mineral_type = %s AND ms.ring_type = ANY(%s::text[])"
+            join_params.extend([signal_type, valid_ring_types])
         elif ring_type_filter == 'Without Hotspots':
             # ms.mineral_type IS NULL AND ms.ring_type = ANY(%s::text[])
             join_condition += " AND ms.mineral_type IS NULL AND ms.ring_type = ANY(%s::text[])"
             join_params.append(valid_ring_types)
         else:
-            # 'All': ms.mineral_type = %s OR (ms.mineral_type IS NULL AND ms.ring_type = ANY(%s::text[]))
-            join_condition += " AND (ms.mineral_type = %s OR (ms.mineral_type IS NULL AND ms.ring_type = ANY(%s::text[])))"
+            # 'All': (ms.mineral_type = %s OR ms.mineral_type IS NULL) AND ms.ring_type = ANY(%s::text[])
+            join_condition += " AND (ms.mineral_type = %s OR ms.mineral_type IS NULL) AND ms.ring_type = ANY(%s::text[])"
             join_params.extend([signal_type, valid_ring_types])
+
+        # Debug logging for ring type filtering
+        log_message(BLUE, "MINING", f"Join condition: {join_condition}")
+        log_message(BLUE, "MINING", f"Join params: {join_params}")
+        log_message(BLUE, "MINING", f"Valid ring types for mining: {valid_ring_types}")
 
         # 9) Build the main SQL query
         base_query = """
-        WITH 
+        WITH
+        all_mining_signals AS (
+          SELECT s.id64, s.name, ms.*
+          FROM systems s
+          JOIN mineral_signals ms ON s.id64 = ms.system_id64
+          WHERE s.power_state IN ('Stronghold', 'Fortified')
+          AND s.controlling_power = %s
+        ),
         control_systems AS (
           SELECT 
             s.id64, s.name, s.x, s.y, s.z, 
@@ -166,34 +201,35 @@ def search(display_format='full'):
             {EXTRA_WHERE}
         ),
         unoccupied_systems AS (
-          SELECT 
-            s.id64, s.name, s.x, s.y, s.z,
-            s.system_state,
-            sc.station_name,
-            sc.sell_price,
-            sc.demand,
-            st.landing_pad_size,
-            st.distance_to_arrival,
-            st.station_type,
-            st.update_time,
-            SQRT(POWER(s.x - %s, 2) + POWER(s.y - %s, 2) + POWER(s.z - %s, 2)) as ref_distance
-          FROM systems s
-          JOIN station_commodities sc ON s.id64 = sc.system_id64
-          LEFT JOIN stations st ON s.id64 = st.system_id64 AND sc.station_name = st.station_name
-          WHERE 
-            s.controlling_power IS NULL
-            AND POWER(s.x - %s, 2) + POWER(s.y - %s, 2) + POWER(s.z - %s, 2) <= POWER(%s, 2)
-            AND sc.commodity_name = %s
-            AND sc.sell_price > 0
-            AND (
-              CASE 
-                WHEN %s = 0 AND %s = 0 THEN sc.demand = 0
-                WHEN %s = 0 THEN sc.demand <= %s
-                WHEN %s = 0 THEN sc.demand >= %s
-                ELSE sc.demand BETWEEN %s AND %s
-              END
-            )
-            {UNOCCUPIED_WHERE}
+            SELECT DISTINCT ON (s.id64)
+                s.id64, s.name, s.x, s.y, s.z,
+                s.system_state,
+                sc.station_name,
+                sc.sell_price,
+                sc.demand,
+                st.landing_pad_size,
+                st.distance_to_arrival,
+                st.station_type,
+                st.update_time,
+                SQRT(POWER(s.x - %s, 2) + POWER(s.y - %s, 2) + POWER(s.z - %s, 2)) as ref_distance
+            FROM systems s
+            JOIN station_commodities sc ON s.id64 = sc.system_id64
+            LEFT JOIN stations st ON s.id64 = st.system_id64 AND sc.station_name = st.station_name
+            WHERE 
+                s.controlling_power IS NULL
+                AND POWER(s.x - %s, 2) + POWER(s.y - %s, 2) + POWER(s.z - %s, 2) <= POWER(%s, 2)
+                AND sc.commodity_name = %s
+                AND sc.sell_price > 0
+                AND (
+                    CASE 
+                        WHEN %s = 0 AND %s = 0 THEN sc.demand = 0
+                        WHEN %s = 0 THEN sc.demand <= %s
+                        WHEN %s = 0 THEN sc.demand >= %s
+                        ELSE sc.demand BETWEEN %s AND %s
+                    END
+                )
+                {UNOCCUPIED_WHERE}
+            ORDER BY s.id64, sc.sell_price DESC
         ),
         valid_pairs AS (
           SELECT 
@@ -256,7 +292,7 @@ def search(display_format='full'):
             powers_acquiring,
             control_distance as mining_system_distance
         FROM valid_pairs
-        WHERE %s = 'Any' OR landing_pad_size = %s
+        WHERE landing_pad_size = %s OR %s = 'Any'
         ORDER BY 
             sell_price DESC,
             ref_distance ASC,
@@ -287,11 +323,15 @@ def search(display_format='full'):
         )
 
         # -- BUILD PARAMS IN THE CORRECT ORDER --
-        # Step 1: Join params for ring/hotspots (0,1, or 2 placeholders)
-        params = []
+        # Step 1: all_mining_signals CTE params
+        params = [
+            controlling_power  # For all_mining_signals power filter
+        ]
+
+        # Step 2: Join params for ring/hotspots
         params.extend(join_params)
 
-        # Step 2: Control systems CTE params
+        # Step 3: Control systems CTE params
         params.extend([
             controlling_power,  # For control systems power filter
             rx, ry, rz,        # Control systems distance calc
@@ -301,7 +341,7 @@ def search(display_format='full'):
         # Step 3: Add any where_params for control systems
         params.extend(where_params)
 
-        # Step 4: Unoccupied systems CTE params
+        # Step 5: Unoccupied systems CTE params
         params.extend([
             rx, ry, rz,         # For ref_distance
             rx, ry, rz,         # For distance filter
@@ -310,16 +350,16 @@ def search(display_format='full'):
             min_demand, max_demand,  # For zero-zero check
             min_demand, max_demand,  # For min=0 check
             max_demand, min_demand,  # For max=0 check
-            min_demand, max_demand,   # For between check
+            min_demand, max_demand   # For between check
         ])
 
-        # Step 4.5: Add unoccupied system state filter params
+        # Step 5.6: Add unoccupied system state filter params
         params.extend(unoccupied_params)
 
-        # Step 4.9: Add landing pad size parameters for final SELECT
+        # Step 5.9: Add landing pad size parameters for final SELECT
         params.extend([landing_pad_size, landing_pad_size])
 
-        # Step 5: Add limit if specified
+        # Step 6: Add limit if specified
         if limit:
             params.append(limit)
 
@@ -380,7 +420,7 @@ def search(display_format='full'):
                 # For ring details, show total signals in system
                 ring_details = ''
                 if total_signals > 0:
-                    ring_details = f"<img src='img/icons/hotspot-2.svg' width='11' height='11'> {total_signals} Hotspot{'s' if total_signals > 1 else ''}"
+                    ring_details = f"<img src='img/icons/hotspot-systemview.svg' width='13' height='13'> {total_signals} Hotspot{'s' if total_signals > 1 else ''}"
                 elif has_mining:
                     ring_details = "Mining Available"
 
@@ -421,7 +461,7 @@ def search(display_format='full'):
                 ph = ','.join(['(%s,%s)'] * len(station_pairs))
                 ps = [x for pair in station_pairs for x in pair]
                 sel_mats = request.args.getlist('selected_materials[]', type=str)
-                log_message(BLUE, "SEARCH", f"Selected materials: {sel_mats}")
+                #log_message(BLUE, "SEARCH", f"Selected materials: {sel_mats}")
 
                 if sel_mats and sel_mats != ['Default']:
                     # Map short->full from mining_materials.json
@@ -429,7 +469,7 @@ def search(display_format='full'):
                         mat_data_json = json.load(f)['materials']
                     short_to_full = {m['short']: m['name'] for m in mat_data_json.values()}
                     full_names = [short_to_full.get(s, s) for s in sel_mats]
-                    log_message(BLUE, "SEARCH", f"Using selected materials filter: {full_names}")
+                    #log_message(BLUE, "SEARCH", f"Using selected materials filter: {full_names}")
 
                     oc.execute(f"""
                         SELECT system_id64, station_name, commodity_name, sell_price, demand
@@ -463,7 +503,9 @@ def search(display_format='full'):
             for row in rows:
                 if cur_sys is None or cur_sys['name'] != row['system_name']:
                     if cur_sys:
-                        pr.append(cur_sys)
+                        # Convert mining_systems dict to list before appending
+                        cur_sys['mining_systems'] = list(cur_sys['mining_systems'].values())
+                        pr.append(cur_sys)  # Only append when switching to new system
 
                     power_info = []
                     if (row['controlling_power'] and 
@@ -485,12 +527,11 @@ def search(display_format='full'):
                         'system_state': row['system_state'],
                         'distance': float(row['distance']),
                         'system_id64': row['system_id64'],
-                        'mining_systems': {},  # Changed from rings to mining_systems
-                        'stations': [],
-                        'all_signals': []  # Keep all_signals for the show all signals button
+                        'mining_systems': {},
+                        'stations': []
                     }
 
-                    # Add station information for unoccupied system
+                    # Add station information
                     if row['station_name']:
                         try:
                             station_name = row['station_name']
@@ -517,13 +558,15 @@ def search(display_format='full'):
                 # Get or create mining system entry
                 mining_system_name = row['mining_system_name']
                 if mining_system_name not in cur_sys['mining_systems']:
-                    # Create new mining system entry with all required fields
+                    log_message(BLUE, "MINING", f"Creating mining system: {mining_system_name}")
                     cur_sys['mining_systems'][mining_system_name] = {
                         'name': mining_system_name,
                         'power_state': row['mining_power_state'],
                         'controlling_power': row['controlling_power'],
                         'powers_acquiring': json.loads(row['powers_acquiring']) if isinstance(row['powers_acquiring'], str) else row['powers_acquiring'],
-                        'rings': []
+                        'rings': [],
+                        'id64': row['mining_id64'],
+                        'all_signals': []  # Add this
                     }
 
                 ring_data = material['ring_types'].get(row['ring_type'], {})
@@ -531,43 +574,9 @@ def search(display_format='full'):
                 if not SYSTEM_IN_RING_NAME and display_ring_name.startswith(row['system_name']):
                     display_ring_name = display_ring_name[len(row['system_name']):].lstrip()
 
-                # If it's the main hotspot
-                if row['mineral_type'] == signal_type:
-                    hotspot_text = ("Hotspot " if row['signal_count'] == 1 else
-                                  "Hotspots " if row['signal_count'] else "")
-                    re = {
-                        'name': display_ring_name,
-                        'body_name': row['body_name'],
-                        'signals': f"<img src='img/icons/hotspot-2.svg' width='11' height='11'> {material['name']}: {row['signal_count'] or ''} {hotspot_text}({row['reserve_level']})"
-                    }
-                    if re not in cur_sys['mining_systems'][mining_system_name]['rings']:
-                        cur_sys['mining_systems'][mining_system_name]['rings'].append(re)
-                elif any([
-                    ring_data.get('surfaceLaserMining', False),
-                    ring_data.get('surfaceDeposit', False),
-                    ring_data.get('subSurfaceDeposit', False),
-                    ring_data.get('core', False)
-                ]):
-                    re = {
-                        'name': display_ring_name,
-                        'body_name': row['body_name'],
-                        'signals': f"{material['name']} ({row['ring_type']}, {row['reserve_level']})"
-                    }
-                    if re not in cur_sys['mining_systems'][mining_system_name]['rings']:
-                        cur_sys['mining_systems'][mining_system_name]['rings'].append(re)
-
-                # all_signals - Keep this for the show all signals button
-                display_ring_name = row['ring_name']
-                if not SYSTEM_IN_RING_NAME and display_ring_name.startswith(row['system_name']):
-                    display_ring_name = display_ring_name[len(row['system_name']):].lstrip()
-
-                if row['mineral_type']:
-                    hotspot_text = ("Hotspot " if row['signal_count'] == 1 else
-                                  "Hotspots " if row['signal_count'] else "")
-                    signal_text = f"<img src='img/icons/hotspot-2.svg' width='11' height='11'> {row['mineral_type']}: {row['signal_count'] or ''} {hotspot_text}({row['reserve_level']})"
-                else:
-                    signal_text = f"{material['name']} ({row['ring_type']}, {row['reserve_level']})"
-
+                signal_text = f"{material['name']}"
+                
+                # Add signal to mining system's all_signals
                 si = {
                     'ring_name': display_ring_name,
                     'mineral_type': row['mineral_type'],
@@ -576,37 +585,95 @@ def search(display_format='full'):
                     'ring_type': row['ring_type'],
                     'signal_text': signal_text
                 }
-                if si not in cur_sys['all_signals']:
-                    cur_sys['all_signals'].append(si)
+                if si not in cur_sys['mining_systems'][mining_system_name]['all_signals']:
+                    #log_message(BLUE, "MINING", f"Adding signal to {mining_system_name}:")
+                    #log_message(BLUE, "MINING", f"- rings: {cur_sys['mining_systems'][mining_system_name]['rings']}")
+                    #log_message(BLUE, "MINING", f"- all_signals: {cur_sys['mining_systems'][mining_system_name]['all_signals']}")
+                    cur_sys['mining_systems'][mining_system_name]['all_signals'].append(si)
 
+                # If it's the main hotspot
+                if row['mineral_type'] == signal_type:
+                    hotspot_text = ("Hotspot " if row['signal_count'] == 1 else
+                                "Hotspots " if row['signal_count'] else "")
+                    re = {
+                        'name': display_ring_name + f" <img src='/img/icons/rings/{row['ring_type'].lower()}.png' width='16' height='16' class='ring-type-icon' alt='{row['ring_type']}' title='Ring Type: {row['ring_type']}' style='vertical-align: middle;'> <svg class='reserve-level-icon' width='14' height='13' style='margin-right: 2px; color: #f5730d'><title>Reserve Level: {row['reserve_level']}</title><use href='img/icons/reserve-level.svg#reserve-level-{row['reserve_level'].lower()}'></use></svg>",
+                        'body_name': row['body_name'],
+                        'signals': f"<img src='img/icons/hotspot-systemview.svg' width='13' height='13'> {material['name']}: {row['signal_count'] or ''} {hotspot_text}"
+                    }
+                    if re not in cur_sys['mining_systems'][mining_system_name]['rings']:
+                        cur_sys['mining_systems'][mining_system_name]['rings'].append(re)
+
+                    # Add signal to mining system's all_signals
+                    if row['mineral_type']:
+                        hotspot_text = ("Hotspot " if row['signal_count'] == 1 else
+                                    "Hotspots " if row['signal_count'] else "")
+                        signal_text = f"Test <img src='img/icons/hotspot-systemview.svg' width='13' height='13'> {row['mineral_type']}: {row['signal_count'] or ''} {hotspot_text}"
+                    else:
+                        signal_text = f"{material['name']}"
+
+                elif any([
+                    ring_data.get('surfaceLaserMining', False),
+                    ring_data.get('surfaceDeposit', False),
+                    ring_data.get('subSurfaceDeposit', False),
+                    ring_data.get('core', False)
+                ]):
+                    re = {
+                        'name': display_ring_name + f" <img src='/img/icons/rings/{row['ring_type'].lower()}.png' width='16' height='16' class='ring-type-icon' alt='{row['ring_type']}' title='Ring Type: {row['ring_type']}' style='vertical-align: middle;'> <svg class='reserve-level-icon' width='14' height='13' style='margin-right: 2px; color: #f5730d'><title>Reserve Level: {row['reserve_level']}</title><use href='img/icons/reserve-level.svg#reserve-level-{row['reserve_level'].lower()}'></use></svg>",
+                        'body_name': row['body_name'],
+                        'signals': f"{material['name']}"
+                    }
+                    if re not in cur_sys['mining_systems'][mining_system_name]['rings']:
+                        cur_sys['mining_systems'][mining_system_name]['rings'].append(re)
+
+                    # Create signal text
+                    if row['mineral_type']:
+                        hotspot_text = ("Hotspot " if row['signal_count'] == 1 else
+                                    "Hotspots " if row['signal_count'] else "")
+                        signal_text = f"<img src='img/icons/hotspot-systemview.svg' width='13' height='13'> {row['mineral_type']}: {row['signal_count'] or ''} {hotspot_text}"
+                    else:
+                        signal_text = f"{material['name']}"
+
+            # Don't forget last system
             if cur_sys:
                 # Convert mining_systems dict to list before appending
+                #log_message(BLUE, "MINING", "Converting mining_systems to list:")
+                #for name, system in cur_sys['mining_systems'].items():
+                    #log_message(BLUE, "MINING", f"- {name}:")
+                    #log_message(BLUE, "MINING", f"  rings: {system['rings']}")
+                    #log_message(BLUE, "MINING", f"  all_signals: {system['all_signals']}")
                 cur_sys['mining_systems'] = list(cur_sys['mining_systems'].values())
                 pr.append(cur_sys)
 
             # Optionally load more signals
             if pr:
-                sys_ids = [s['system_id64'] for s in pr]
-                c.execute("""
-                    SELECT system_id64, ring_name, mineral_type, signal_count, reserve_level, ring_type
-                    FROM mineral_signals
-                    WHERE system_id64 = ANY(%s::bigint[]) AND mineral_type != %s
-                """, [sys_ids, signal_type])
-
-                other_sigs = {}
-                for row3 in c.fetchall():
-                    if row3['system_id64'] not in other_sigs:
-                        other_sigs[row3['system_id64']] = []
-                    other_sigs[row3['system_id64']].append({
-                        'ring_name': row3['ring_name'],
-                        'mineral_type': row3['mineral_type'],
-                        'signal_count': row3['signal_count'] or '',
-                        'reserve_level': row3['reserve_level'],
-                        'ring_type': row3['ring_type']
-                    })
-
                 for s in pr:
-                    s['all_signals'].extend(other_sigs.get(s['system_id64'], []))
+                    for mining_system in s['mining_systems']:  # Already a list, don't use values()
+                        # Only get signals we don't already have
+                        existing_minerals = [sig['mineral_type'] for sig in mining_system['all_signals']]
+                        c.execute("""
+                            SELECT system_id64, ring_name, mineral_type, signal_count, reserve_level, ring_type
+                            FROM mineral_signals
+                            WHERE system_id64 = %s AND mineral_type NOT IN %s
+                        """, [mining_system['id64'], tuple(existing_minerals)])
+
+                        for row3 in c.fetchall():
+                            if row3['mineral_type']:
+                                hotspot_text = ("Hotspot " if row3['signal_count'] == 1 else
+                                            "Hotspots " if row3['signal_count'] else "")
+                                signal_text = f"<img src='img/icons/hotspot-systemview.svg' width='13' height='13'> {row3['mineral_type']}: {row3['signal_count'] or ''} {hotspot_text}"
+                            else:
+                                signal_text = f"{material['name']}"
+
+                            si = {
+                                'ring_name': row3['ring_name'],
+                                'mineral_type': row3['mineral_type'],
+                                'signal_count': row3['signal_count'] or '',
+                                'reserve_level': row3['reserve_level'],
+                                'ring_type': row3['ring_type'],
+                                'signal_text': signal_text
+                            }
+                            if si not in mining_system['all_signals']:
+                                mining_system['all_signals'].append(si)
 
             return jsonify(pr)
 
