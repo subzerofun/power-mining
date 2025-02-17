@@ -19,6 +19,10 @@ PERF_TRACKING = False  # Override for testing
 # Check production mode from environment variable
 IS_PRODUCTION = os.getenv('IS_PRODUCTION', 'false').lower() == 'true'
 
+# Disable performance tracking in production
+if IS_PRODUCTION:
+    PERF_TRACKING = False
+
 # Display constants
 SPINNER_CHARS = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
 ORANGE = '\033[38;5;208m'
@@ -30,7 +34,7 @@ MS_PER_BLOCK = 20  # ms per progress bar block
 MAX_BLOCKS = 50    # maximum number of blocks in progress bar
 
 # Print status on module load
-if PERF_TRACKING and not IS_PRODUCTION:
+if PERF_TRACKING:
     print(f"{ORANGE}[PERF] Performance tracking enabled. Output will be logged to /logs{RESET}")
 else:
     print(f"{ORANGE}[PERF] Performance tracking disabled.{RESET}")
@@ -71,6 +75,8 @@ class ProgressBar:
         
     def update(self, elapsed_ms: float) -> str:
         """Update progress bar with current time"""
+        if not PERF_TRACKING:
+            return ""
         self.current_ms = elapsed_ms
         blocks = min(int(elapsed_ms / MS_PER_BLOCK), self.blocks)
         return f"[{BLOCK_FULL * blocks}{BLOCK_EMPTY * (self.blocks - blocks)}] {elapsed_ms:.1f}ms"
@@ -120,6 +126,9 @@ class QueryTracker:
         
     def reset(self):
         """Reset tracker state for a new search"""
+        if not PERF_TRACKING:
+            return
+            
         self.start_time = time.time()
         self.steps = []
         self.step_counter = 0
@@ -135,14 +144,13 @@ class QueryTracker:
             'commodity_types': 50
         }
         
-        # Create logs directory in project root only if not in production
-        if not IS_PRODUCTION:
-            self.log_dir = 'logs'
-            os.makedirs(self.log_dir, exist_ok=True)
-            
-            # Set log file path
-            self.log_file = os.path.join(self.log_dir, f"perf_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log")
-            print(f"{ORANGE}[PERF] Logging performance data to: {self.log_file}{RESET}")
+        # Create logs directory in project root
+        self.log_dir = 'logs'
+        os.makedirs(self.log_dir, exist_ok=True)
+        
+        # Set log file path
+        self.log_file = os.path.join(self.log_dir, f"perf_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log")
+        print(f"{ORANGE}[PERF] Logging performance data to: {self.log_file}{RESET}")
         
         self.progress = ProgressBar()
         self.spinner = Spinner()
@@ -334,7 +342,7 @@ class QueryTracker:
         
     def _update_display(self, spinner_char: str):
         """Update terminal display with history"""
-        if not sys.stdout.isatty() or self._stop or not self.current_step:
+        if not PERF_TRACKING or not sys.stdout.isatty() or self._stop or not self.current_step:
             return
             
         now = time.time()
@@ -383,7 +391,7 @@ class QueryTracker:
         
     def _write_step_log(self):
         """Write current step to log file"""
-        if not self.current_step or IS_PRODUCTION:
+        if not PERF_TRACKING or not self.current_step:
             return
             
         with open(self.log_file, 'a', encoding='utf-8') as f:
@@ -427,7 +435,7 @@ class QueryTracker:
             
     def show_summary(self):
         """Show final performance summary"""
-        if not self.steps or IS_PRODUCTION:
+        if not PERF_TRACKING or not self.steps:
             return
             
         total_duration = sum(step.duration_ms for step in self.steps)
