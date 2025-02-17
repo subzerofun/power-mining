@@ -6,11 +6,11 @@ export const STORAGE_META_KEY = 'powerplay_meta';
 // Check if local storage is available and has enough space
 export function checkStorageAvailability() {
     try {
-        // Test with a small amount of data first
+        // Test if we can write to localStorage at all
         localStorage.setItem('test', 'test');
         localStorage.removeItem('test');
         
-        // Check available space (rough estimate)
+        // Log current storage usage for debugging
         let totalSpace = 0;
         for (let key in localStorage) {
             if (localStorage.hasOwnProperty(key)) {
@@ -18,9 +18,15 @@ export function checkStorageAvailability() {
             }
         }
         
-        // Most browsers allow 5-10MB per domain. We'll be conservative and check for 20MB free
-        const estimatedFreeSpace = 20 - totalSpace;
-        return estimatedFreeSpace >= 15; // Ensure we have at least 15MB free
+        console.log('%c Storage Space Check:', 'background: #222; color: #bada55; font-size: 14px;', {
+            totalSpaceUsed: totalSpace.toFixed(2) + ' MB',
+            powerplayData: localStorage.getItem(STORAGE_KEY) ? 'Present' : 'Not present',
+            powerplayMeta: localStorage.getItem(STORAGE_META_KEY) ? 'Present' : 'Not present'
+        });
+
+        // If we can write to localStorage, we're good - we'll be replacing existing data
+        return true;
+        
     } catch (e) {
         console.warn('Local storage not available:', e);
         return false;
@@ -48,15 +54,41 @@ export async function loadAndDecompress(url) {
             
             if (storedMeta && storedData) {
                 const meta = JSON.parse(storedMeta);
+                console.log('Stored metadata:', meta);  // Log stored metadata
                 
-                // Fetch only the headers to get file size
+                // Fetch headers to get file size and last modified
                 const response = await fetch(url, { method: 'HEAD' });
                 const currentSize = response.headers.get('content-length');
+                const lastModified = response.headers.get('last-modified');
+                const serverTimestamp = lastModified ? new Date(lastModified).toISOString() : new Date().toISOString();
                 
-                // If sizes match and data exists, use stored data
-                if (meta.size === currentSize) {
+                console.log('Server data:', {  // Log server data
+                    size: currentSize,
+                    timestamp: serverTimestamp,
+                    lastModified: lastModified
+                });
+                
+                // Compare both size and timestamp
+                const sizeMatches = meta.size === currentSize;
+                const storedTime = new Date(meta.timestamp);
+                const serverTime = new Date(serverTimestamp);
+                const isNewer = serverTime > storedTime;
+                
+                console.log('Comparison:', {  // Log comparison details
+                    sizeMatches,
+                    storedTime: storedTime.toISOString(),
+                    serverTime: serverTime.toISOString(),
+                    isNewer,
+                    timeDiff: serverTime - storedTime + ' ms'
+                });
+                
+                // Use cached data only if size matches and server data isn't newer
+                if (sizeMatches && !isNewer) {
                     console.log('Using cached data from local storage');
                     return JSON.parse(storedData);
+                } else {
+                    console.log('Server data is newer or size mismatch, fetching fresh data');
+                    console.log('Reason:', !sizeMatches ? 'Size mismatch' : 'Server data is newer');
                 }
             }
         }
@@ -89,9 +121,11 @@ export async function loadAndDecompress(url) {
         // Store in local storage if enabled and available
         if (USE_LOCAL_STORAGE && checkStorageAvailability()) {
             try {
+                // Get the last-modified header for timestamp
+                const lastModified = response.headers.get('last-modified');
                 const meta = {
                     size: response.headers.get('content-length'),
-                    timestamp: new Date().toISOString()
+                    timestamp: lastModified || new Date().toISOString()  // Use server timestamp if available
                 };
                 
                 localStorage.setItem(STORAGE_META_KEY, JSON.stringify(meta));

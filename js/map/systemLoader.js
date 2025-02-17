@@ -7,6 +7,14 @@ import { PowerVisualizerExtra } from '/js/map/visualizeExtra.js';
 // Constants for data loading
 const DEBUG_LOADING = false;  // Set to false to disable dummy loading
 
+// Debug constants
+console.log('%c Storage Constants:', 'background: #222; color: #ff5555; font-size: 14px;', {
+    USE_LOCAL_STORAGE,
+    STORAGE_KEY,
+    STORAGE_META_KEY,
+    POWER_DATA
+});
+
 // Class to handle system loading and state
 export class SystemsLoader {
     constructor(scene, loadingDiv, circleGeometry, circleMaterial, showPowerIcons = true) {
@@ -34,69 +42,126 @@ export class SystemsLoader {
         this.loadingDiv.style.display = 'block';
         
         try {
-            // Step 1: Downloading
-            const isGzipped = POWER_DATA.toLowerCase().endsWith('.gz');
-            this.loadingDiv.textContent = `Downloading ${isGzipped ? 'compressed' : 'JSON'} data...`;
+            // Step 1: First check the .gz file stats
+            const response = await fetch(POWER_DATA, { method: 'HEAD' });
+            if (!response.ok) {
+                throw new Error(`Failed to get file stats: ${response.status}`);
+            }
             
-            // Try to get from local storage first if enabled
-            if (USE_LOCAL_STORAGE && checkStorageAvailability()) {
-                const storedMeta = localStorage.getItem(STORAGE_META_KEY);
-                const storedData = localStorage.getItem(STORAGE_KEY);
-                
-                if (storedMeta && storedData) {
-                    const meta = JSON.parse(storedMeta);
-                    const response = await fetch(POWER_DATA, { method: 'HEAD' });
-                    const currentSize = response.headers.get('content-length');
-                    
-                    if (meta.size === currentSize) {
-                        console.log('Using cached data from local storage');
+            const fileSize = response.headers.get('content-length');
+            const fileLastModified = response.headers.get('last-modified');
+            
+            console.log('%c Server File Stats:', 'background: #222; color: #bada55; font-size: 14px;', {
+                path: POWER_DATA,
+                size: fileSize + ' bytes',
+                lastModified: fileLastModified
+            });
+
+            // Step 2: Check local storage
+            const storedMeta = localStorage.getItem(STORAGE_META_KEY);
+            let needsUpdate = false;
+            
+            if (storedMeta) {
+                const meta = JSON.parse(storedMeta);
+                console.log('%c Local Storage Status:', 'background: #222; color: #bada55; font-size: 14px;', {
+                    size: meta.size + ' bytes',
+                    timestamp: meta.timestamp
+                });
+
+                // Compare compressed file sizes and dates
+                const sizeMatches = meta.size === fileSize;
+                const storedTime = new Date(meta.timestamp);
+                const fileTime = new Date(fileLastModified);
+                const isNewer = fileTime > storedTime;
+                const daysDiff = Math.floor((fileTime - storedTime) / (1000 * 60 * 60 * 24));
+
+                if (isNewer || !sizeMatches) {
+                    console.log('%c Local Storage outdated:', 'background: #222; color: #ff5555; font-size: 14px;',
+                        `${isNewer ? 'Server file is ' + daysDiff + ' days newer' : 'Size mismatch'}`);
+                    needsUpdate = true;
+                } else {
+                    console.log('%c Local Storage up-to-date:', 'background: #222; color: #bada55; font-size: 14px;',
+                        `Data from ${meta.timestamp}`);
+                    const storedData = localStorage.getItem(STORAGE_KEY);
+                    if (storedData) {
                         const data = JSON.parse(storedData);
-                        this.loadingDiv.textContent = 'Loading cached data...';
                         await this.processSystemData(data.systems);
                         return;
                     }
                 }
-            }
-
-            const response = await fetch(POWER_DATA);
-            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-            
-            let data;
-            if (isGzipped) {
-                // Step 2: Decompression (only for .gz files)
-                this.loadingDiv.textContent = 'Decompressing data...';
-                const compressed = await response.arrayBuffer();
-                const expectedSize = await getUncompressedSize(compressed);
-                const decompressed = pako.inflate(new Uint8Array(compressed), { to: 'string' });
-                
-                if (decompressed.length !== expectedSize) {
-                    console.warn('Decompressed size mismatch! Expected:', expectedSize, 'Got:', decompressed.length);
-                }
-                
-                data = JSON.parse(decompressed);
             } else {
-                data = await response.json();
+                console.log('%c Local Storage empty:', 'background: #222; color: #ff5555; font-size: 14px;',
+                    'First time load');
+                needsUpdate = true;
             }
 
-            // Store in local storage if enabled and available
-            if (USE_LOCAL_STORAGE && checkStorageAvailability()) {
-                try {
-                    const meta = {
-                        size: response.headers.get('content-length'),
-                        timestamp: new Date().toISOString()
-                    };
+            // Step 3: Load new data if needed
+            if (needsUpdate) {
+                console.log('%c Downloading new data from server...', 'background: #222; color: #ff5555; font-size: 14px;');
+                const dataResponse = await fetch(POWER_DATA);
+                if (!dataResponse.ok) throw new Error(`HTTP error! status: ${dataResponse.status}`);
+                
+                let data;
+                if (POWER_DATA.toLowerCase().endsWith('.gz')) {
+                    console.log('%c Decompressing .gz file:', 'background: #222; color: #ff5555; font-size: 14px;');
+                    this.loadingDiv.textContent = 'Decompressing data...';
+                    const compressed = await dataResponse.arrayBuffer();
+                    console.log('- Compressed size:', compressed.byteLength + ' bytes');
                     
-                    localStorage.setItem(STORAGE_META_KEY, JSON.stringify(meta));
-                    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-                    console.log('Data cached in local storage');
-                } catch (e) {
-                    console.warn('Failed to cache in local storage:', e);
+                    const expectedSize = await getUncompressedSize(compressed);
+                    console.log('- Expected uncompressed size:', expectedSize + ' bytes');
+                    
+                    const decompressed = pako.inflate(new Uint8Array(compressed), { to: 'string' });
+                    console.log('- Actual uncompressed size:', decompressed.length + ' bytes');
+                    
+                    if (decompressed.length !== expectedSize) {
+                        console.warn('Decompressed size mismatch! Expected:', expectedSize, 'Got:', decompressed.length);
+                    } else {
+                        console.log('- Decompression successful, sizes match');
+                    }
+                    
+                    data = JSON.parse(decompressed);
+                    console.log('- JSON parsed successfully');
+                } else {
+                    data = await dataResponse.json();
                 }
-            }
 
-            // Step 3: Loading into scene
-            this.loadingDiv.textContent = 'Loading data into scene...';
-            await this.processSystemData(data.systems);
+                // Update local storage with new data
+                if (USE_LOCAL_STORAGE && checkStorageAvailability()) {
+                    console.log('%c Attempting to update local storage:', 'background: #222; color: #ff5555; font-size: 14px;', {
+                        USE_LOCAL_STORAGE,
+                        storageAvailable: checkStorageAvailability(),
+                        dataSize: JSON.stringify(data).length,
+                        fileSize,
+                        fileLastModified
+                    });
+                    
+                    try {
+                        const meta = {
+                            size: fileSize,
+                            timestamp: fileLastModified || new Date().toISOString()
+                        };
+                        
+                        localStorage.setItem(STORAGE_META_KEY, JSON.stringify(meta));
+                        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+                        console.log('%c Local Storage updated successfully:', 'background: #222; color: #bada55; font-size: 14px;',
+                            `New data from ${meta.timestamp}`);
+                    } catch (e) {
+                        console.error('Failed to update local storage:', e);
+                        console.error('Error details:', {
+                            errorName: e.name,
+                            errorMessage: e.message,
+                            errorStack: e.stack
+                        });
+                    }
+                } else {
+                    console.warn('%c Skipping local storage update:', 'background: #222; color: #ff5555; font-size: 14px;',
+                        `USE_LOCAL_STORAGE=${USE_LOCAL_STORAGE}, storageAvailable=${checkStorageAvailability()}`);
+                }
+
+                // Process the new data
+                await this.processSystemData(data.systems);
+            }
             
         } catch (error) {
             console.error('Error loading systems:', error);
