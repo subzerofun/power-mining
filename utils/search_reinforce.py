@@ -4,6 +4,7 @@ from flask import jsonify, request
 from utils.mining_data import get_price_comparison, PRICE_DATA, normalize_commodity_name
 from utils.common import log_message, get_db_connection, YELLOW, RED, BLUE
 from utils import res_data
+from utils.analytics import track_search
 
 # Import our new modular components
 from utils.search_common import (
@@ -26,10 +27,13 @@ def search(display_format='full'):
         display_format (str): 'full' for detailed view or 'highest' for highest prices view
     """
     try:
-
         # Get search parameters
         params = get_search_params()
         params['display_format'] = display_format  # Add display format to params
+        
+        # Track search parameters in GA (non-blocking)
+        track_search(params)
+        
         log_search_params(params)
 
         # Get database connection

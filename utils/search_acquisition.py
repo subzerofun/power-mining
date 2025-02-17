@@ -5,6 +5,7 @@ from flask import jsonify, request
 """from utils.mining_data import get_price_comparison, PRICE_DATA, normalize_commodity_name"""
 from utils.common import log_message, get_db_connection, YELLOW, RED, BLUE
 from utils import res_data
+from utils.analytics import track_search  # Add analytics import
 
 # Constants
 SYSTEM_IN_RING_NAME = False
@@ -42,6 +43,27 @@ def search(display_format='full'):
         min_demand = int(request.args.get('minDemand', '0'))
         max_demand = int(request.args.get('maxDemand', '0'))
         sel_mats = request.args.getlist('selected_materials[]', type=str)
+
+        # Prepare search parameters for tracking
+        search_params = {
+            'ref_system': ref_system,
+            'max_dist': max_dist,
+            'controlling_power': controlling_power,
+            'power_goal': power_goal,
+            'signal_type': signal_type,
+            'landing_pad_size': landing_pad_size,
+            'system_states': system_states,
+            'ring_type_filter': ring_type_filter,
+            'limit': limit,
+            'mining_types': mining_types,
+            'min_demand': min_demand,
+            'max_demand': max_demand,
+            'sel_mats': sel_mats,
+            'display_format': display_format
+        }
+        
+        # Track search parameters in GA (non-blocking)
+        track_search(search_params)
 
         # Logging
         log_message(BLUE, "SEARCH", "Search parameters:")
