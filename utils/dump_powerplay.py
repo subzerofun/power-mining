@@ -25,6 +25,18 @@ POWER_COLORS = {
     'Yuri Grom': (0xff, 0x80, 0x00)
 }
 
+# Valid power states
+VALID_POWER_STATES = {
+    'Stronghold Carrier',
+    'Stronghold',
+    'Fortified',
+    'Exploited',
+    'Contested',
+    'Prepared',
+    'InPrepareRadius',
+    'Expansion'
+}
+
 def get_closest_ansi_color(r, g, b):
     # Direct mapping from debug output
     power_name = next((name for name, color in POWER_COLORS.items() if color == (r, g, b)), None)
@@ -104,6 +116,7 @@ def dump_powerplay_data(db_url, output_file, no_hudson=False):
             systems = []
             hudson_controlling_count = 0
             hudson_acquiring_count = 0
+            invalid_states = set()  # Track any invalid states we find
 
             for row in cur.fetchall():
                 # Handle Hudson filtering if enabled
@@ -150,37 +163,23 @@ def dump_powerplay_data(db_url, output_file, no_hudson=False):
                 # Handle systems with a controlling power
                 if power:
                     if power not in power_stats:
-                        power_stats[power] = {
-                            'Stronghold Carrier': 0,
-                            'Stronghold': 0,
-                            'Fortified': 0,
-                            'Exploited': 0,
-                            'Contested': 0,
-                            'Prepared': 0,
-                            'InPrepareRadius': 0,
-                            'Expansion': 0  # Added Expansion state
-                        }
+                        power_stats[power] = {state: 0 for state in VALID_POWER_STATES}
                     
                     if state and state != 'Unoccupied':  # Skip Unoccupied state
+                        if state not in VALID_POWER_STATES:
+                            # Track invalid state and map it to 'Exploited'
+                            invalid_states.add((power, state, system['name']))
+                            state = 'Exploited'  # Map invalid states to 'Exploited'
                         power_stats[power][state] += 1
                     
                     if system.get('hasStrongholdCarrier'):
                         power_stats[power]['Stronghold Carrier'] += 1
                 
                 # Handle systems in powers_acquiring list
-                elif state in ['Contested', 'Prepared', 'InPrepareRadius', 'Expansion'] and powers_acquiring:  # Added Expansion
+                elif state in VALID_POWER_STATES and powers_acquiring:
                     for acquiring_power in powers_acquiring:
                         if acquiring_power not in power_stats:
-                            power_stats[acquiring_power] = {
-                                'Stronghold Carrier': 0,
-                                'Stronghold': 0,
-                                'Fortified': 0,
-                                'Exploited': 0,
-                                'Contested': 0,
-                                'Prepared': 0,
-                                'InPrepareRadius': 0,
-                                'Expansion': 0  # Added Expansion state
-                            }
+                            power_stats[acquiring_power] = {state: 0 for state in VALID_POWER_STATES}
                         power_stats[acquiring_power][state] += 1
                 
                 # Count unoccupied systems
@@ -213,6 +212,13 @@ def dump_powerplay_data(db_url, output_file, no_hudson=False):
                 print(f"\nZachary Hudson filtered out:")
                 print(f"- Controlling systems: {hudson_controlling_count}")
                 print(f"- Acquiring systems: {hudson_acquiring_count}")
+            
+            # Print any invalid states found
+            if invalid_states:
+                print(f"\n{Fore.RED}WARNING: Invalid power states found:{Style.RESET_ALL}")
+                for power, state, system_name in sorted(invalid_states):
+                    print(f"- Power: {power}, Invalid State: '{state}' in system: {system_name}")
+                print("These systems were counted as 'Exploited' in the statistics.")
             
             print(f"\nSuccessfully dumped {len(systems)} systems to {output_file}")
 
