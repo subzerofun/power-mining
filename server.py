@@ -310,19 +310,6 @@ def serve_loading_js(filename):
         r.headers['Access-Control-Allow-Origin']='*'; return r
     return send_from_directory(os.path.join(BASE_DIR,'img','loading'),filename)
 
-@app.route('/Config.ini')
-def serve_config():
-    try:
-        path = os.path.join(BASE_DIR,'Config.ini')
-        if not os.path.exists(path):
-            with open(path, 'w') as f: f.write("[Defaults]\nsystem = Cubeo\ncontrolling_power = Aisling Duval\nmax_distance = 200\nsearch_results = 30\n")
-        r = send_from_directory(BASE_DIR, 'Config.ini', mimetype='text/plain')
-        r.headers['Cache-Control']='no-cache, no-store, must-revalidate'; r.headers['Pragma']='no-cache'; r.headers['Expires']='0'
-        return r
-    except Exception as e:
-        app.logger.error(f"Error serving Config.ini: {str(e)}")
-        return jsonify({'Defaults':{'system':'Harma','controlling_power':'Archon Delaine','max_distance':'200','search_results':'30'}})
-
 @app.route('/')
 def index(): return render_template('index.html')
 

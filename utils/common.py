@@ -4,6 +4,8 @@ import psycopg2
 from psycopg2.extras import DictCursor
 from flask import current_app
 import math
+from utils.perf_tracker import tracker, PERF_TRACKING
+import inspect
 
 # ANSI color codes
 YELLOW = '\033[93m'
@@ -46,6 +48,35 @@ def get_db_connection():
             
         conn = psycopg2.connect(DATABASE_URL)
         conn.cursor_factory = DictCursor
+        
+        # Add performance tracking wrapper if enabled
+        if PERF_TRACKING:
+            # Get the caller's frame info
+            frame = inspect.currentframe()
+            caller = frame.f_back
+            while caller:
+                if caller.f_code.co_name not in ['get_db_connection', 'cursor']:
+                    file_name = os.path.basename(caller.f_code.co_filename)
+                    func_name = caller.f_code.co_name
+                    break
+                caller = caller.f_back
+            else:
+                file_name = "unknown"
+                func_name = "unknown"
+                
+            # Wrap connection with context
+            conn = tracker.wrap_connection(conn)
+            # Create cursor with context
+            cursor = conn.cursor()
+            cursor.set_context(file_name, func_name)
+            # Replace cursor factory to ensure all new cursors get the context
+            def cursor_factory(*args, **kwargs):
+                c = DictCursor(conn, *args, **kwargs)
+                wrapped = tracker.wrap_cursor(c)
+                wrapped.set_context(file_name, func_name)
+                return wrapped
+            conn.cursor_factory = cursor_factory
+            
         return conn
     except Exception as e:
         log_message(RED, "ERROR", f"Database connection error: {str(e)}", level=1)

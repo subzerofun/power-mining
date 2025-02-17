@@ -26,6 +26,7 @@ def search(display_format='full'):
         display_format (str): 'full' for detailed view or 'highest' for highest prices view
     """
     try:
+
         # Get search parameters
         params = get_search_params()
         params['display_format'] = display_format  # Add display format to params
@@ -99,12 +100,12 @@ def search(display_format='full'):
         rows = c.fetchall()
         
         # Debug log the first row's fields
-        if rows:
-            row_dict = dict(rows[0])
-            log_message(BLUE, "DEBUG", f"Available fields in row: {list(row_dict.keys())}")
-            log_message(BLUE, "DEBUG", f"First row values: {row_dict}")
+        #if rows:
+        #    row_dict = dict(rows[0])
+        #    log_message(BLUE, "DEBUG", f"Available fields in row: {list(row_dict.keys())}")
+        #    log_message(BLUE, "DEBUG", f"First row values: {row_dict}")
         
-        log_message(BLUE, "SEARCH", f"Query returned {len(rows)} rows")
+        #log_message(BLUE, "SEARCH", f"Query returned {len(rows)} rows")
         
         # Process results based on display format
         if display_format == 'highest':

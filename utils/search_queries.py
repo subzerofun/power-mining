@@ -25,14 +25,11 @@ def get_station_cte():
             (%s = 0 AND sc.demand >= %s) OR  -- Only min specified
             (sc.demand >= %s AND sc.demand <= %s)  -- Both min and max specified
         )
-        AND CASE 
-            WHEN %s = 'Any' THEN true  -- Any pad size
-            WHEN st.landing_pad_size = 'Unknown' THEN true  -- Always include Unknown
-            WHEN %s = 'S' THEN st.landing_pad_size = 'S'
-            WHEN %s = 'M' THEN st.landing_pad_size = 'M'
-            WHEN %s = 'L' THEN st.landing_pad_size = 'L'
-            ELSE true  -- Fallback case
-        END
+        AND (
+            %s = 'Any' OR  -- Any pad size
+            st.landing_pad_size = 'Unknown' OR  -- Always include Unknown
+            st.landing_pad_size = %s  -- Match exact pad size
+        )
     )
     """
 
@@ -181,10 +178,8 @@ def build_complete_query(params, coords, material, valid_ring_types, where_condi
             params['min_demand'], params['max_demand'],  # Min=0 check
             params['max_demand'], params['min_demand'],  # Max=0 check
             params['min_demand'], params['max_demand'],  # Between check
-            params['landing_pad_size'],  # For Any/Unknown case
-            params['landing_pad_size'],  # For S case
-            params['landing_pad_size'],  # For M case
-            params['landing_pad_size']   # For L case
+            params['landing_pad_size'],  # For Any case
+            params['landing_pad_size']   # For exact pad size match
         ])
     
     query_params.extend(where_params)
@@ -243,14 +238,11 @@ def build_optimized_query(params, coords, material, valid_ring_types, where_cond
         LEFT JOIN station_commodities sc ON ms.id64 = sc.system_id64 AND st.station_name = sc.station_name
         WHERE TRUE
         """ + ("""
-        AND CASE  -- Landing pad filter
-            WHEN %s = 'Any' THEN true
-            WHEN st.landing_pad_size = 'Unknown' THEN true
-            WHEN %s = 'S' THEN st.landing_pad_size = 'S'
-            WHEN %s = 'M' THEN st.landing_pad_size = 'M'
-            WHEN %s = 'L' THEN st.landing_pad_size = 'L'
-            ELSE true
-        END """ if params['landing_pad_size'] != 'Any' else "") + """
+        AND (
+            %s = 'Any' OR  -- Any pad size
+            st.landing_pad_size = 'Unknown' OR  -- Always include Unknown
+            st.landing_pad_size = %s  -- Match exact pad size
+        )""") + """
         """ + ("""
         AND (%s = 'Any' OR sc.commodity_name = %s)  -- Material sellable check
         AND sc.sell_price > 0  -- Only positive prices
@@ -345,6 +337,12 @@ ORDER BY s.system_rank,
         query_params.append(params['reserve_level'])
     
     
+    # Always add landing pad params
+    query_params.extend([
+        params['landing_pad_size'],  # For Any case
+        params['landing_pad_size']   # For exact pad size match
+    ])
+
     # Add demand params
     if params['min_demand'] > 0 or params['max_demand'] > 0 or (material and material['name']):
         query_params.extend([
@@ -355,15 +353,7 @@ ORDER BY s.system_rank,
             params['max_demand'], params['min_demand'],  # Max=0 check
             params['min_demand'], params['max_demand']   # Between check
         ])
-    
-    # Add landing pad params
-    if params['landing_pad_size'] != 'Any':
-        query_params.extend([
-            params['landing_pad_size'],  # For Any/Unknown case
-            params['landing_pad_size'],  # For S case
-            params['landing_pad_size'],  # For M case
-            params['landing_pad_size']   # For L case
-        ])
+
     
     # Add limit param
     if params['limit'] and params.get('display_format') != 'highest':

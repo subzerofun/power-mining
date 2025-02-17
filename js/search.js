@@ -283,12 +283,14 @@ class MiningSearch {
         // Add main commodity prices and other commodities with consistent structure
         results.forEach(system => {
             system.stations.forEach(station => {
+                // For "Any" search, use the actual commodity name from the station
+                const commodityName = searchType === 'Any' ? station.commodity_name : searchType;
                 allPriceItems.push({
                     price: station.sell_price,
-                    commodity: searchType,
+                    commodity: commodityName,
                     systemId: system.system_id64,
                     stationName: station.name,
-                    commodityName: searchType
+                    commodityName: commodityName
                 });
                 // Add other commodities in the same array
                 station.other_commodities.forEach(commodity => {
@@ -318,7 +320,9 @@ class MiningSearch {
             
             // Create station list HTML
             const stationListItems = system.stations.map(station => {
-                const key = `${system.system_id64}_${station.name}_${searchType}`;
+                // For "Any" search, use the actual commodity name instead of searchType
+                const commodityForPrice = searchType === 'Any' ? station.commodity_name : searchType;
+                const key = `${system.system_id64}_${station.name}_${commodityForPrice}`;
                 const priceComparison = priceDataMap.get(key);
                 const priceSpan = formatPriceSpan(station.sell_price, priceComparison);
                 

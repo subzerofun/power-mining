@@ -12,7 +12,7 @@
 | `y`                 | `DOUBLE PRECISION` | YES      |         | Y coordinate.                                                     |
 | `z`                 | `DOUBLE PRECISION` | YES      |         | Z coordinate.                                                     |
 | `controlling_power` | `TEXT`             | YES      |         | Name of the controlling power (if any).                           |
-| `power_state`       | `TEXT`             | YES      |         | A string indicating the system’s power state (e.g., "Fortified"). |
+| `power_state`       | `TEXT`             | YES      |         | A string indicating the system's power state (e.g., "Fortified"). |
 | `powers_acquiring`  | `JSONB`            | YES      |         | JSON field for additional power-acquisition data.                 |
 | `distance_from_sol` | `DOUBLE PRECISION` | YES      |         | Pre-calculated distance to Sol, if used.                          |
 
@@ -74,23 +74,73 @@
 
 ---
 
-## Table: `station_commodities`
+## Table: `commodity_types`
 
 **Columns:**
 
-| Column           | Type      | Nullable | Default | Description/Notes                                       |
-| ---------------- | --------- | -------- | ------- | ------------------------------------------------------- |
-| `system_id64`    | `BIGINT`  | NO       |         | References `systems(id64)`.                             |
-| `station_id`     | `BIGINT`  | NO       |         | References `stations(station_id)` (with `system_id64`). |
-| `station_name`   | `TEXT`    | NO       |         | Redundant or alternative reference to station name.     |
-| `commodity_name` | `TEXT`    | NO       |         | Name of the commodity (e.g., “Painite”).                |
-| `sell_price`     | `INTEGER` | YES      |         | Sell price (credits).                                   |
-| `demand`         | `INTEGER` | YES      |         | Demand level.                                           |
+| Column         | Type      | Nullable | Default | Description/Notes                                    |
+| -------------- | --------- | -------- | ------- | -------------------------------------------------- |
+| `commodity_id` | `INTEGER` | NO       |         | Primary key for commodity mapping.                  |
+| `commodity_name`| `TEXT`   | NO       |         | Unique commodity name.                              |
 
 **Constraints and Indexes:**
 
-- **Primary Key**: `pk_station_commodities` on `(system_id64, station_id, commodity_name)`
-- **Index**: `idx_station_commodities_price` on `(commodity_name, sell_price DESC)`
+- **Primary Key**: `commodity_types_pkey` on `(commodity_id)`
+- **Unique Constraint**: `commodity_types_commodity_name_key` on `(commodity_name)`
+- **Referenced by**: `station_commodities_mapped(commodity_id)`
+
+---
+
+## Table: `station_commodities_mapped`
+
+**Columns:**
+
+| Column          | Type      | Nullable | Default | Description/Notes                                       |
+| --------------- | --------- | -------- | ------- | ------------------------------------------------------- |
+| `system_id64`   | `BIGINT`  | NO       |         | References `systems(id64)`.                             |
+| `station_id`    | `BIGINT`  | NO       |         | References `stations(station_id)` (with `system_id64`). |
+| `station_name`  | `TEXT`    | NO       |         | Name of the station.                                    |
+| `commodity_id`  | `INTEGER` | NO       |         | References `commodity_types(commodity_id)`.              |
+| `sell_price`    | `INTEGER` | YES      |         | Sell price (credits).                                   |
+| `demand`        | `INTEGER` | YES      |         | Demand level.                                           |
+
+**Constraints and Indexes:**
+
+- **Primary Key**: `pk_station_commodities` on `(system_id64, station_id, commodity_id)`
+- **Index**: `idx_station_commodities_price` on `(commodity_id, sell_price DESC)`
 - **Foreign Keys**:
+  - `fk_station_commodities_commodity` (on `(commodity_id) REFERENCES commodity_types(commodity_id) ON DELETE CASCADE`)
   - `fk_station_commodities_station` (on `(system_id64, station_id) REFERENCES stations(system_id64, station_id) ON DELETE CASCADE`)
   - `fk_station_commodities_system` (on `(system_id64) REFERENCES systems(id64) ON DELETE CASCADE`)
+
+---
+
+## View: `station_commodities`
+
+**Description:**
+A view providing backward compatibility with the original schema, joining the mapped commodities with their names.
+
+**Columns:**
+
+| Column           | Type      | Description/Notes                                       |
+| ---------------- | --------- | ------------------------------------------------------- |
+| `system_id64`    | `BIGINT`  | References `systems(id64)`.                             |
+| `station_id`     | `BIGINT`  | References `stations(station_id)` (with `system_id64`). |
+| `station_name`   | `TEXT`    | Name of the station.                                    |
+| `commodity_name` | `TEXT`    | Name of the commodity from `commodity_types`.            |
+| `sell_price`     | `INTEGER` | Sell price (credits).                                   |
+| `demand`         | `INTEGER` | Demand level.                                           |
+
+**Definition:**
+```sql
+CREATE VIEW station_commodities AS
+SELECT 
+    sc.system_id64, 
+    sc.station_id, 
+    sc.station_name, 
+    ct.commodity_name, 
+    sc.sell_price, 
+    sc.demand
+FROM station_commodities_mapped sc
+JOIN commodity_types ct ON sc.commodity_id = ct.commodity_id;
+```
