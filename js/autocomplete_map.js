@@ -1,4 +1,6 @@
-class MapSystemAutocomplete {
+import { trackSystemSearch } from '/js/map/tracking.js';
+
+export class MapSystemAutocomplete {
     constructor(inputElement, resultsElement) {
         this.input = inputElement;
         this.results = resultsElement;
@@ -240,10 +242,13 @@ class MapSystemAutocomplete {
         this.input.value = element.textContent;
         this.selectedSystem = JSON.parse(element.dataset.system);
         this.hideResults();
+
+        //showSystemInfo(this.selectedSystem);
         
-        // Show system info immediately
+        // Track the search in GA
         if (this.selectedSystem) {
             //showSystemInfo(this.selectedSystem);
+            trackSystemSearch(this.selectedSystem);
         }
     }
 

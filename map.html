@@ -50,7 +50,7 @@
                     <div class="form-group inline-group">
                         <label for="system">Target System:</label>
                         <div id="systemAutocomplete">
-                            <input type="text" id="system" name="system" value="Sol" required>
+                            <input type="text" id="system" name="system" value="Sol" required spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off">
                             <div class="autocomplete-results"></div>
                         </div>
                     </div>
@@ -338,7 +338,7 @@
         </div>
     </div>
 
-    <script src="/js/autocomplete_map.js" type="text/javascript"></script>
+    <script src="/js/autocomplete_map.js" type="module"></script>
     <script src="/img/loading/spinner.js" type="text/javascript"></script>
     <script src="/js/websocket.js" type="text/javascript"></script>
 
@@ -366,7 +366,8 @@
     import { LineSegments2 } from '/js/threejs/jsm/lines/LineSegments2.js';
     import { LineMaterial } from '/js/threejs/jsm/lines/LineMaterial.js';
     import { LineGeometry } from '/js/threejs/jsm/lines/LineGeometry.js';
-    import { initSystems, updateSystemPoints, getChunkKey, loadSystemsInView, updateTextVisibility, isInYBubble, setMovingToTarget, togglePowerStateIcons, showPowerStateIcons, getTextObjectStats, isMovingToTarget, getCircleInstances } from '/js/map/systems.js';
+    import { initSystems, updateSystemPoints, getChunkKey, loadSystemsInView, updateTextVisibility, isInYBubble, setMovingToTarget, togglePowerStateIcons, showPowerStateIcons, getTextObjectStats, isMovingToTarget, getCircleInstances, createPowerStateInstances, updateSpatialIndex } from '/js/map/systems.js';
+    import { trackSystemSearch } from '/js/map/tracking.js';
     import { initGrid, createCustomGrid } from '/js/map/grid.js';
     import { MarchingCubes } from '/js/threejs/jsm/objects/MarchingCubes.js';
     import { initClickHandler, setDragging, setOverContainer, updateDependencies, updateCollisionMeshes } from '/js/map/clickHandler.js';
@@ -380,6 +381,7 @@
     import { initPowerCapitals, updatePowerCapitals } from './js/map/powerStateShapes.js';
     import { initBackgroundToggle } from '/js/map/visualizeMore.js';
     import { initControlsMenu } from '/js/map/menus.js';
+    import { MapSystemAutocomplete } from '/js/autocomplete_map.js';
 
     // Scene and Visualization Constants
     const TARGET_DISTANCE = 60;  // Distance in front of camera in light years
@@ -640,7 +642,8 @@
             const input = document.getElementById('system');
             const results = document.querySelector('.autocomplete-results');
             if (input && results) {
-                window.mapSystemAutocomplete = new MapSystemAutocomplete(input, results);
+                const mapSystemAutocomplete = new MapSystemAutocomplete(input, results);
+                window.mapSystemAutocomplete = mapSystemAutocomplete;  // Store in window if needed
             }
         });
     });
@@ -1110,6 +1113,9 @@
             console.log("Search initiated for system:", system);
 
             if (system) {
+                // Track the search in GA
+                trackSystemSearch(system);
+                
                 // Show system info first
                 showSystemInfo(system);
                 
@@ -1197,6 +1203,9 @@
                 const instanceId = intersects[0].instanceId;
                 const system = Object.values(systems).find(s => s.instanceId === instanceId);
                 if (system) {
+                    // Track the search in GA
+                    trackSystemSearch(system);
+                    
                     // Show marker AND move to system
                     handleSystemClick(system);
                     document.getElementById('system').value = system.name;
@@ -1219,6 +1228,9 @@
                         s.z === textObj.position.z
                     );
                     if (system) {
+                        // Track the search in GA
+                        trackSystemSearch(system);
+                        
                         // Show marker AND move to system
                         handleSystemClick(system);
                         document.getElementById('system').value = system.name;

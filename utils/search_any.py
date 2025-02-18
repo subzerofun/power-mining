@@ -21,33 +21,28 @@ def build_any_material_query(params, coords, valid_ring_types, where_conditions,
     log_message(BLUE, "SEARCH", f"- Landing pad size: {params['landing_pad_size']}")
     log_message(BLUE, "SEARCH", f"- Demand range: {params['min_demand']} - {params['max_demand']}")
     
-    # Use same base CTE as normal search but force materialization
     query = """
     WITH RECURSIVE
-    -- Step 1: Filter by power conditions first (simple index lookup)
+    -- Step 1: Filter by power conditions first
     filtered_by_power AS MATERIALIZED (
         SELECT s.*
         FROM systems s
         WHERE """ + ((" AND ".join(where_conditions)) if where_conditions else "TRUE") + """
-    )
-    -- Step 2: Filter by system state (simple index lookup)
-    , filtered_by_state AS MATERIALIZED (
-        SELECT s.*
+    ),
+    -- Step 2: Calculate distances and apply system state filter
+    filtered_systems AS MATERIALIZED (
+        SELECT s.*, 
+               SQRT(POWER(s.x - %s, 2) + POWER(s.y - %s, 2) + POWER(s.z - %s, 2)) as distance
         FROM filtered_by_power s
         WHERE CASE 
             WHEN %s != 'Any' THEN s.system_state = %s
             ELSE true
         END
-    )
-    -- Step 3: Calculate distance only on remaining systems
-    , relevant_systems AS MATERIALIZED (
-        SELECT s.*, SQRT(POWER(s.x - %s, 2) + POWER(s.y - %s, 2) + POWER(s.z - %s, 2)) as distance
-        FROM filtered_by_state s
-        WHERE POWER(s.x - %s, 2) + POWER(s.y - %s, 2) + POWER(s.z - %s, 2) <= POWER(%s, 2)
-    )
-    -- Step 4: Find valid mining systems (no commodity data yet!)
-    , minable_materials AS MATERIALIZED (
-        SELECT DISTINCT ON (s.id64, ms.mineral_type, ms.ring_type)
+        AND POWER(s.x - %s, 2) + POWER(s.y - %s, 2) + POWER(s.z - %s, 2) <= POWER(%s, 2)
+    ),
+    -- Step 3: Get valid ring signals and what can be mined in them
+    valid_rings AS MATERIALIZED (
+        SELECT 
             s.id64 as system_id64,
             s.name,
             s.controlling_power,
@@ -60,18 +55,33 @@ def build_any_material_query(params, coords, valid_ring_types, where_conditions,
             ms.reserve_level,
             ms.body_name,
             ms.ring_name,
-            ms.signal_count
-        FROM relevant_systems s
+            ms.signal_count,
+            -- For each ring, determine what can be mined there
+            CASE 
+                WHEN ms.mineral_type IS NOT NULL THEN 
+                    ARRAY[ms.mineral_type]  -- Hotspot mineral
+                WHEN ms.ring_type = 'Icy' THEN 
+                    ARRAY['Bromellite', 'Low Temperature Diamonds', 'Void Opal', 'Alexandrite', 'Cryolite', 'Goslarite', 'Lithium Hydroxide', 'Methane Clathrate', 'Methanol Monohydrate Crystals']
+                WHEN ms.ring_type = 'Rocky' THEN 
+                    ARRAY['Alexandrite', 'Benitoite', 'Grandidierite', 'Monazite', 'Musgravite', 'Rhodplumsite', 'Serendibite', 'Bauxite', 'Bertrandite', 'Gallite', 'Indite', 'Jadeite', 'Lepidolite', 'Moissanite', 'Pyrophyllite', 'Rutile', 'Taaffeite', 'Uraninite']
+                WHEN ms.ring_type = 'Metal Rich' THEN 
+                    ARRAY['Alexandrite', 'Benitoite', 'Grandidierite', 'Monazite', 'Musgravite', 'Rhodplumsite', 'Serendibite', 'Painite', 'Platinum', 'Aluminium', 'Beryllium', 'Bismuth', 'Cobalt', 'Coltan', 'Copper', 'Gallium', 'Hafnium 178', 'Indite', 'Indium', 'Lanthanum', 'Lithium', 'Praseodymium', 'Rutile', 'Samarium', 'Silver', 'Tantalum', 'Thallium', 'Thorium', 'Titanium', 'Uranium', 'Uraninite']
+                WHEN ms.ring_type = 'Metallic' THEN 
+                    ARRAY['Monazite', 'Painite', 'Platinum', 'Aluminium', 'Beryllium', 'Bismuth', 'Cobalt', 'Copper', 'Gallite', 'Gallium', 'Gold', 'Hafnium 178', 'Indium', 'Lanthanum', 'Lithium', 'Osmium', 'Palladium', 'Praseodymium', 'Samarium', 'Silver', 'Tantalum', 'Thallium', 'Thorium', 'Titanium', 'Uranium']
+                ELSE 
+                    ARRAY[]::text[]
+            END as minable_materials
+        FROM filtered_systems s
         JOIN mineral_signals ms ON s.id64 = ms.system_id64
-        WHERE ms.ring_type = ANY(%s::text[])  -- Apply valid ring types first
+        WHERE ms.ring_type = ANY(%s::text[])  -- Use valid_ring_types from material data
         AND CASE 
             WHEN %s = 'Hotspots' THEN ms.mineral_type IS NOT NULL
             WHEN %s = 'Without Hotspots' THEN ms.mineral_type IS NULL
-            ELSE true  -- For 'All' or specific ring type, don't filter on mineral_type
+            ELSE true  -- 'All' accepts both
         END
-    )
-    -- Step 5: Only NOW look at stations for valid mining systems
-    , filtered_stations AS MATERIALIZED (
+    ),
+    -- Step 4: Get valid stations with commodity prices
+    valid_stations AS MATERIALIZED (
         SELECT 
             st.system_id64,
             st.station_id,
@@ -86,8 +96,8 @@ def build_any_material_query(params, coords, valid_ring_types, where_conditions,
         FROM stations st
         JOIN station_commodities sc ON st.system_id64 = sc.system_id64 
             AND st.station_id = sc.station_id
-        WHERE sc.sell_price > 0
-        AND EXISTS (SELECT 1 FROM minable_materials mm WHERE mm.system_id64 = st.system_id64)  -- Only look at remaining systems
+        WHERE EXISTS (SELECT 1 FROM filtered_systems fs WHERE fs.id64 = st.system_id64)
+        AND sc.sell_price > 0
         AND (
             (%s = 0 AND %s = 0) OR  -- No demand limits
             (%s = 0 AND sc.demand <= %s) OR  -- Only max
@@ -99,137 +109,102 @@ def build_any_material_query(params, coords, valid_ring_types, where_conditions,
             st.landing_pad_size = 'Unknown' OR  -- Always include Unknown
             st.landing_pad_size = %s  -- Match exact pad size
         )
-    )
-    -- Step 6: Match stations with minerals
-    , station_materials AS MATERIALIZED (
+    ),
+    -- Step 5: Match stations with rings, but ONLY for materials that can be mined there
+    matched_results AS MATERIALIZED (
         SELECT 
-            mm.*,
-            fs.station_id,
-            fs.station_name,
-            fs.landing_pad_size,
-            fs.distance_to_arrival,
-            fs.station_type,
-            fs.update_time,
-            fs.commodity_name,
-            fs.sell_price,
-            fs.demand,
-            -- Prioritize matches between hotspot mineral and commodity
-            ROW_NUMBER() OVER (
-                PARTITION BY mm.system_id64, fs.station_id 
-                ORDER BY 
-                    CASE 
-                        WHEN mm.mineral_type IS NOT NULL AND mm.mineral_type = fs.commodity_name THEN 1
-                        ELSE 0
-                    END DESC,
-                    fs.sell_price DESC NULLS LAST
-            ) as price_rank
-        FROM minable_materials mm
-        LEFT JOIN filtered_stations fs ON mm.system_id64 = fs.system_id64
-    )
-    -- Step 7: Get final results with best prices
-    , best_prices AS MATERIALIZED (
-        SELECT 
-            name as system_name,
+            vr.*,
+            vs.station_id,
+            vs.station_name,
+            vs.landing_pad_size,
+            vs.distance_to_arrival,
+            vs.station_type,
+            vs.update_time,
+            vs.commodity_name,
+            vs.sell_price,
+            vs.demand
+        FROM valid_rings vr
+        JOIN valid_stations vs ON vr.system_id64 = vs.system_id64
+        WHERE vs.commodity_name = ANY(vr.minable_materials)  -- Only match if material can be mined in this ring
+    ),
+    -- Step 6: Get best price per system while maintaining material availability
+    best_matches AS MATERIALIZED (
+        SELECT DISTINCT ON (system_id64)
+            *
+        FROM matched_results
+        ORDER BY 
             system_id64,
-            controlling_power,
-            power_state,
-            powers_acquiring,
-            system_state,
-            distance,
-            CASE
-                WHEN mineral_type IS NOT NULL AND mineral_type = commodity_name THEN mineral_type
-                WHEN mineral_type IS NOT NULL THEN mineral_type || ' (Hotspot)'
-                ELSE commodity_name
-            END as display_name,
-            commodity_name,  -- Keep original commodity_name for price coloring
-            mineral_type,    -- Keep mineral_type for display
-            ring_type,
-            reserve_level,
-            body_name,
-            ring_name,
-            signal_count,
-            station_name,
-            landing_pad_size,
-            distance_to_arrival,
-            station_type,
-            update_time,
-            sell_price,
-            demand,
-            COALESCE(sell_price, 0) as sort_price  -- Add sort price for consistent ordering
-        FROM station_materials
-        WHERE price_rank = 1  -- Only get highest price per station
-        AND (
-            %s != 'Hotspots'  -- Not in Hotspots mode
-            OR (mineral_type IS NOT NULL AND mineral_type = commodity_name)  -- Match hotspot mineral
-        )
-    )"""
+            sell_price DESC  -- Highest price first, but only among minable materials
+    )
+    -- Final selection with proper ordering
+    SELECT 
+        name as system_name,
+        system_id64,
+        controlling_power,
+        power_state,
+        powers_acquiring,
+        system_state,
+        distance,
+        CASE
+            WHEN mineral_type IS NOT NULL 
+            THEN commodity_name || ' (Hotspot)'
+            ELSE commodity_name
+        END as display_name,
+        commodity_name,
+        mineral_type,
+        ring_type,
+        reserve_level,
+        body_name,
+        ring_name,
+        signal_count,
+        station_name,
+        landing_pad_size,
+        distance_to_arrival,
+        station_type,
+        update_time,
+        sell_price,
+        demand
+    FROM best_matches
+    ORDER BY sell_price DESC, distance ASC"""
     
-    # Build parameters in same order as normal search
-    query_params = [
-        # Power condition params first (for filtered_by_power)
-        *where_params,
-        # System state params (for filtered_by_state)
-        params.get('system_state', 'Any'),  # For state comparison
-        params.get('system_state', 'Any'),  # For state value
-        # Distance calculation params (for relevant_systems)
-        rx, ry, rz,  # Distance calculation
-        rx, ry, rz,  # Distance filter
+    # Build parameters list - CORRECT ORDER IS CRUCIAL
+    query_params = []
+    
+    # 1. Add power condition params first if they exist
+    if where_params:
+        query_params.extend(where_params)
+    
+    # 2. Add the rest in correct order
+    query_params.extend([
+        # Distance calculation params
+        rx, ry, rz,
+        # System state params
+        params.get('system_state', 'Any'),
+        params.get('system_state', 'Any'),
+        # Distance filter params
+        rx, ry, rz,
         params['max_dist'],
-        # Minable materials params
-        valid_ring_types,  # For ring type check
-        params['ring_type_filter'],  # For hotspots check
-        params['ring_type_filter'],  # For without hotspots check
-        # Station materials params
+        # Ring type params
+        valid_ring_types,
+        params['ring_type_filter'],
+        params['ring_type_filter'],
+        # Demand filter params
         params['min_demand'], params['max_demand'],  # Zero-zero check
         params['min_demand'], params['max_demand'],  # Min=0 check
         params['max_demand'], params['min_demand'],  # Max=0 check
         params['min_demand'], params['max_demand'],  # Between check
-        params['landing_pad_size'],  # For Any/Unknown case
-        params['landing_pad_size'],  # For S case
-        # Best prices params
-        params['ring_type_filter']  # For hotspot mode check
-    ]
+        # Landing pad params
+        params['landing_pad_size'],
+        params['landing_pad_size']
+    ])
     
-    # Debug logging for parameters
-    #log_message(BLUE, "SEARCH", f"Query parameters:")
-    #for i, param in enumerate(query_params):
-    #    log_message(BLUE, "SEARCH", f"Param {i}: {param}")
-    
-    # Final SELECT with price-based ordering
-    query += """
-    SELECT 
-        bp.system_name,
-        bp.system_id64,
-        bp.controlling_power,
-        bp.power_state,
-        bp.powers_acquiring,
-        bp.system_state,
-        bp.distance,
-        bp.display_name,
-        bp.commodity_name,
-        bp.mineral_type,
-        bp.ring_type,
-        bp.reserve_level,
-        bp.body_name,
-        bp.ring_name,
-        bp.signal_count,
-        bp.station_name,
-        bp.landing_pad_size,
-        bp.distance_to_arrival,
-        bp.station_type,
-        bp.update_time,
-        bp.sell_price,
-        bp.demand
-    FROM best_prices bp
-    ORDER BY bp.sort_price DESC,
-             bp.distance ASC"""
-    
+    # Add limit if specified
     if params.get('limit'):
         query += " LIMIT %s"
         query_params.append(params['limit'])
-    
+
     # Final debug logging
-    #log_message(BLUE, "SEARCH", f"Final parameter count: {len(query_params)}")
-    #log_message(BLUE, "SEARCH", f"Query placeholder count: {query.count('%s')}")
+    log_message(BLUE, "SEARCH", f"Final parameter count: {len(query_params)}")
+    log_message(BLUE, "SEARCH", f"Query placeholder count: {query.count('%s')}")
     
     return query, query_params 

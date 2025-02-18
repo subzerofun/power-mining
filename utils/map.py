@@ -5,6 +5,7 @@ import os
 import json
 import time
 from utils.common import get_db_connection
+from utils.analytics import track_search
 
 map_bp = Blueprint('map', __name__)
 
@@ -570,4 +571,22 @@ def search_systems():
             cur.close()
         if 'conn' in locals():
             conn.close()
+        return jsonify({'error': str(e)}), 500
+
+@map_bp.route('/api/track_search', methods=['POST'])
+def track_map_search():
+    """Track map search analytics"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+            
+        # Add display format if not present
+        if 'display_format' not in data:
+            data['display_format'] = 'map'
+            
+        # Track the search using the existing analytics function
+        track_search(data)
+        return jsonify({'status': 'success'})
+    except Exception as e:
         return jsonify({'error': str(e)}), 500

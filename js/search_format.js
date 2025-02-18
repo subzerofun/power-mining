@@ -87,7 +87,7 @@ function getStationIcon(stationType, onlyIcon = false) {
 
 function getPriceComparison(currentPrice, referencePrice, showIndicators = true) {
     if (currentPrice === 0 || referencePrice === 0) {
-        console.log('Zero price detected:', { currentPrice, referencePrice });
+        //console.log('Zero price detected:', { currentPrice, referencePrice });
         return { color: null, indicator: '' };
     }
     

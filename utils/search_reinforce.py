@@ -32,8 +32,7 @@ def search(display_format='full'):
         params['display_format'] = display_format  # Add display format to params
         
         # Track search parameters in GA (non-blocking)
-        track_search(params)
-        
+        track_search(params)      
         log_search_params(params)
 
         # Get database connection
