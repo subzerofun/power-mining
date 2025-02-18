@@ -79,6 +79,10 @@ def build_any_material_query(params, coords, valid_ring_types, where_conditions,
             WHEN %s = 'Without Hotspots' THEN ms.mineral_type IS NULL
             ELSE true  -- 'All' accepts both
         END
+        AND CASE
+            WHEN %s != 'All' THEN ms.reserve_level = %s
+            ELSE true
+        END
     ),
     -- Step 4: Get valid stations with commodity prices
     valid_stations AS MATERIALIZED (
@@ -188,6 +192,9 @@ def build_any_material_query(params, coords, valid_ring_types, where_conditions,
         valid_ring_types,
         params['ring_type_filter'],
         params['ring_type_filter'],
+        # Reserve level params
+        params.get('reserve_level', 'All'),
+        params.get('reserve_level', 'All'),
         # Demand filter params
         params['min_demand'], params['max_demand'],  # Zero-zero check
         params['min_demand'], params['max_demand'],  # Min=0 check

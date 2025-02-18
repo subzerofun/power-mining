@@ -9,6 +9,7 @@ import { POWER_COLORS,
     formatPriceSpan, 
     getDemandIcon } 
     from '../search_format.js';
+import { trackSystemSearch } from './tracking.js';
 
 
 
@@ -50,6 +51,9 @@ function findBestPrices(stations) {
 }
 
 export async function showSystemInfo(system) {
+    // Track system info view
+    trackSystemSearch(system, 'info_view');
+    
     const systemInfoDiv = document.querySelector('#system-info');
     const systemInfoContent = systemInfoDiv.querySelector('.system-info-content');
     

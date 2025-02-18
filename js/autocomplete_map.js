@@ -248,7 +248,7 @@ export class MapSystemAutocomplete {
         // Track the search in GA
         if (this.selectedSystem) {
             //showSystemInfo(this.selectedSystem);
-            trackSystemSearch(this.selectedSystem);
+            trackSystemSearch(this.selectedSystem, 'autocomplete_select');
         }
     }
 

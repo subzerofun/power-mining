@@ -1,5 +1,5 @@
 // Track system searches in GA via backend
-export function trackSystemSearch(system) {
+export function trackSystemSearch(system, interaction_type = 'click') {
     if (!system) return;
     
     // Use the map endpoint for tracking
@@ -13,7 +13,8 @@ export function trackSystemSearch(system) {
             controlling_power: system.controllingPower || 'Any',
             power_state: system.powerState || 'None',
             system_state: system.systemState || 'None',
-            display_format: 'map'
+            display_format: 'map',
+            interaction_type: interaction_type
         })
     }).catch(error => {
         console.debug('Analytics event failed:', error);

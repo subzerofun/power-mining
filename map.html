@@ -1114,7 +1114,7 @@
 
             if (system) {
                 // Track the search in GA
-                trackSystemSearch(system);
+                trackSystemSearch(system, 'map_search');
                 
                 // Show system info first
                 showSystemInfo(system);
@@ -1204,7 +1204,7 @@
                 const system = Object.values(systems).find(s => s.instanceId === instanceId);
                 if (system) {
                     // Track the search in GA
-                    trackSystemSearch(system);
+                    trackSystemSearch(system, 'map_search');
                     
                     // Show marker AND move to system
                     handleSystemClick(system);
@@ -1229,7 +1229,7 @@
                     );
                     if (system) {
                         // Track the search in GA
-                        trackSystemSearch(system);
+                        trackSystemSearch(system, 'map_search');
                         
                         // Show marker AND move to system
                         handleSystemClick(system);
