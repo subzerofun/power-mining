@@ -35,7 +35,11 @@ from bot_menu import (create_menu_components, create_help_message)
 from bot_common import (color_text, format_price, calculate_control_points)
 import asyncio
 import threading
-import msvcrt  # for Windows keyboard detection
+import platform  # Add platform module to detect OS
+
+# Conditionally import msvcrt only on Windows
+if platform.system() == 'Windows':
+    import msvcrt  # for Windows keyboard detection
 from discord.ui import View, Button
 
 # Constants for API endpoints
@@ -326,14 +330,54 @@ async def on_message(message):
 def keyboard_input():
     """Thread function to detect keyboard input"""
     print("Press 'q' to quit")
-    while True:
-        if msvcrt.kbhit():
-            key = msvcrt.getch().decode().lower()
-            if key == 'q':
-                print("\nQuitting via keyboard command...")
-                should_exit.set()
-                asyncio.run_coroutine_threadsafe(clean_shutdown(), client.loop)
-                break
+    
+    # Different keyboard detection methods based on OS
+    if platform.system() == 'Windows':
+        # Windows implementation using msvcrt
+        while not should_exit.is_set():
+            if msvcrt.kbhit():
+                key = msvcrt.getch().decode().lower()
+                if key == 'q':
+                    print("\nQuitting via keyboard command...")
+                    should_exit.set()
+                    asyncio.run_coroutine_threadsafe(clean_shutdown(), client.loop)
+                    break
+            time.sleep(0.1)  # Small sleep to prevent high CPU usage
+    else:
+        # Linux/Unix implementation using standard input
+        try:
+            import sys, tty, termios
+            fd = sys.stdin.fileno()
+            old_settings = termios.tcgetattr(fd)
+            try:
+                tty.setraw(sys.stdin.fileno())
+                while not should_exit.is_set():
+                    if sys.stdin.isatty():  # Only try to read if connected to a terminal
+                        try:
+                            # Check if data is available to read (non-blocking)
+                            import select
+                            if select.select([sys.stdin], [], [], 0.1)[0]:
+                                key = sys.stdin.read(1).lower()
+                                if key == 'q':
+                                    print("\nQuitting via keyboard command...")
+                                    should_exit.set()
+                                    asyncio.run_coroutine_threadsafe(clean_shutdown(), client.loop)
+                                    break
+                        except (OSError, IOError):
+                            # Handle case where stdin is not available
+                            time.sleep(1)
+                    else:
+                        # If not connected to a terminal, just sleep
+                        time.sleep(1)
+            finally:
+                # Restore terminal settings
+                if sys.stdin.isatty():
+                    termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+        except (ImportError, AttributeError, termios.error):
+            # Fallback for environments where terminal control is not available
+            print("Keyboard detection not available. Use Ctrl+C to exit.")
+            while not should_exit.is_set():
+                time.sleep(1)
 
 # Update interaction handler to parse custom_id
 @client.event
@@ -378,9 +422,13 @@ async def on_interaction(interaction):
         await interaction.followup.send("An error occurred processing this request.", ephemeral=True)
 
 if __name__ == "__main__":
-    # Start keyboard detection thread
-    keyboard_thread = threading.Thread(target=keyboard_input, daemon=True)
-    keyboard_thread.start()
+    # Start keyboard detection thread only if connected to a terminal
+    if sys.stdin.isatty():
+        keyboard_thread = threading.Thread(target=keyboard_input, daemon=True)
+        keyboard_thread.start()
+    else:
+        print("Not connected to a terminal. Keyboard detection disabled.")
+        keyboard_thread = None
     
     try:
         client.run(DISCORD_TOKEN)
@@ -390,6 +438,6 @@ if __name__ == "__main__":
         should_exit.set()
         if not client.is_closed():
             client.close()
-        if keyboard_thread.is_alive():
+        if keyboard_thread and keyboard_thread.is_alive():
             keyboard_thread.join(timeout=1.0)
         sys.exit(0)

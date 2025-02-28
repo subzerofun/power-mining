@@ -283,9 +283,31 @@
                 
                 // Get the hostname of the current page
                 const hostname = window.location.hostname || 'localhost';
-                const wsUrl = `ws://${hostname}:5560`;
                 
+                // Create a list of possible WebSocket URLs to try
+                const possibleUrls = [
+                    `ws://${hostname}:5560`,         // Current hostname
+                    'ws://10.99.1.7:5560',           // Server IP from logs
+                    'ws://localhost:5560',           // Local development
+                    'ws://127.0.0.1:5560'            // Local loopback
+                ];
+                
+                // Try to connect to the first URL
+                tryConnect(possibleUrls, 0);
+            }
+            
+            // Try to connect to a WebSocket URL, with fallback to other URLs if it fails
+            function tryConnect(urls, index) {
+                if (index >= urls.length) {
+                    console.log("Failed to connect to any WebSocket endpoint. Will retry in 5 seconds...");
+                    setStatus('offline', 'Connection Failed');
+                    reconnectTimer = setTimeout(() => connectWebSocket(), 5000);
+                    return;
+                }
+                
+                const wsUrl = urls[index];
                 console.log(`Attempting to connect to WebSocket at ${wsUrl}`);
+                
                 socket = new WebSocket(wsUrl);
                 
                 socket.onopen = function() {
@@ -295,11 +317,18 @@
                 };
                 
                 socket.onclose = function(event) {
-                    console.log(`WebSocket closed. Code: ${event.code}, Reason: ${event.reason || 'No reason provided'}, Clean: ${event.wasClean}`);
-                    setStatus('offline', 'Disconnected');
-                    
-                    // Attempt to reconnect after 5 seconds
-                    reconnectTimer = setTimeout(connectWebSocket, 5000);
+                    // Only log if this was a connection that was initially established
+                    if (event.wasClean) {
+                        console.log(`WebSocket closed. Code: ${event.code}, Reason: ${event.reason || 'No reason provided'}, Clean: ${event.wasClean}`);
+                        setStatus('offline', 'Disconnected');
+                        
+                        // Attempt to reconnect after 5 seconds
+                        reconnectTimer = setTimeout(connectWebSocket, 5000);
+                    } else {
+                        // Try the next URL in the list
+                        console.log(`Failed to connect to ${wsUrl}. Trying next endpoint...`);
+                        tryConnect(urls, index + 1);
+                    }
                 };
                 
                 socket.onerror = function(error) {
