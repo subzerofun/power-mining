@@ -281,16 +281,24 @@
                     socket.close();
                 }
                 
-                // Get the hostname of the current page
+                // Get the protocol (ws or wss based on page protocol)
+                const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
                 const hostname = window.location.hostname || 'localhost';
                 
                 // Create a list of possible WebSocket URLs to try
                 const possibleUrls = [
-                    `ws://${hostname}:5560`,         // Current hostname
-                    'ws://10.99.1.7:5560',           // Server IP from logs
-                    'ws://localhost:5560',           // Local development
-                    'ws://127.0.0.1:5560'            // Local loopback
+                    `${protocol}//${hostname}/ws`,    // Standard /ws endpoint (like in index.html)
+                    `${protocol}//${hostname}:5560`,  // Current hostname with correct protocol
                 ];
+                
+                // Add fallbacks for local development (only if not on https)
+                if (protocol === 'ws:') {
+                    possibleUrls.push('ws://10.99.1.7:5560');    // Server IP from logs
+                    possibleUrls.push('ws://localhost:5560');    // Local development
+                    possibleUrls.push('ws://127.0.0.1:5560');    // Local loopback
+                }
+                
+                console.log("Possible WebSocket URLs:", possibleUrls);
                 
                 // Try to connect to the first URL
                 tryConnect(possibleUrls, 0);
