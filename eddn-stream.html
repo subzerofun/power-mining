@@ -288,11 +288,14 @@
                 // Create a list of possible WebSocket URLs to try
                 const possibleUrls = [];
                 
-                // First try direct connection to port 5560 with appropriate protocol
-                possibleUrls.push(`${protocol}//${hostname}:5560`);
-                
-                // Add fallbacks for local development
-                if (protocol === 'ws:') {
+                if (protocol === 'wss:') {
+                    // For HTTPS, use the standard /ws endpoint that's working with index.html
+                    possibleUrls.push(`${protocol}//${hostname}/ws`);
+                } else {
+                    // For HTTP, try direct connection to port 5560
+                    possibleUrls.push(`${protocol}//${hostname}:5560`);
+                    
+                    // Add fallbacks for local development
                     possibleUrls.push('ws://10.99.1.7:5560');    // Server IP from logs
                     possibleUrls.push('ws://localhost:5560');    // Local development
                     possibleUrls.push('ws://127.0.0.1:5560');    // Local loopback
