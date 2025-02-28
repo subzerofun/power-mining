@@ -281,25 +281,18 @@
                     socket.close();
                 }
                 
-                // Check if we're on HTTPS
-                if (window.location.protocol === 'https:') {
-                    // HTTPS - Display a message that direct connection is not possible
-                    console.log("HTTPS detected. Direct WebSocket connection to zmq_bridge is not possible due to browser security restrictions.");
-                    setStatus('error', 'HTTPS Connection Not Supported');
-                    statusDetails.innerHTML = "Please use <a href='http://" + window.location.host + window.location.pathname + "' style='color:#4a9df8;'>HTTP version</a> for live updates";
-                    return;  // Don't attempt to connect
-                }
+                // Use the same connection approach as index.html
+                const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                const wsHost = window.location.host;  // Use host instead of hostname to include port if any
+                const wsUrl = `${protocol}//${wsHost}/ws`;
                 
-                // For HTTP, connect directly to port 5560
-                const hostname = window.location.hostname || 'localhost';
-                const wsUrl = `ws://${hostname}:5560`;
                 console.log(`Attempting to connect to WebSocket at ${wsUrl}`);
                 
                 socket = new WebSocket(wsUrl);
                 
                 socket.onopen = function() {
                     console.log(`Successfully connected to ${wsUrl}`);
-                    setStatus('online', 'Connected to zmq_bridge');
+                    setStatus('online', 'Connected');
                     clearTimeout(reconnectTimer);
                 };
                 
@@ -315,43 +308,6 @@
                     console.error("WebSocket error:", error);
                     console.log("WebSocket readyState:", socket.readyState);
                     setStatus('error', 'Connection Error');
-                    
-                    // Try localhost as a fallback
-                    if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
-                        console.log("Trying localhost fallback...");
-                        setTimeout(function() {
-                            socket = new WebSocket('ws://localhost:5560');
-                            
-                            socket.onopen = function() {
-                                console.log("Successfully connected to localhost:5560");
-                                setStatus('online', 'Connected to localhost');
-                                clearTimeout(reconnectTimer);
-                            };
-                            
-                            socket.onerror = function() {
-                                console.error("Localhost fallback failed");
-                                // Try 127.0.0.1 as a last resort
-                                setTimeout(function() {
-                                    socket = new WebSocket('ws://127.0.0.1:5560');
-                                    
-                                    socket.onopen = function() {
-                                        console.log("Successfully connected to 127.0.0.1:5560");
-                                        setStatus('online', 'Connected to 127.0.0.1');
-                                        clearTimeout(reconnectTimer);
-                                    };
-                                    
-                                    socket.onerror = function() {
-                                        console.error("127.0.0.1 fallback failed");
-                                        setStatus('offline', 'Connection Failed');
-                                    };
-                                    
-                                    socket.onmessage = handleMessage;
-                                }, 1000);
-                            };
-                            
-                            socket.onmessage = handleMessage;
-                        }, 1000);
-                    }
                 };
                 
                 socket.onmessage = handleMessage;
