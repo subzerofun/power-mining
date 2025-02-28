@@ -538,7 +538,8 @@ class EDDNUpdater:
                 self.log_message("DATABASE", f"Starting database update for system {system_name} (ID64: {system_id64})", level=2)
                 
                 # Get current timestamp and adjust it by subtracting one hour
-                #current_timestamp = datetime.now() - timedelta(hours=1)
+                # current_timestamp = datetime.now(timezone.utc) - timedelta(hours=1)
+                current_timestamp = datetime.now(timezone.utc) - timedelta(hours=1)
                 
                 # Build UPDATE query - always include controlling_power and power_state
                 update_fields = ["controlling_power = %s", "power_state = %s", "last_updated = %s"]

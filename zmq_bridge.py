@@ -5,27 +5,46 @@ import json
 from datetime import datetime, timezone
 import socket as socket_lib  # Rename the socket module import
 import argparse  # Add argparse for command-line arguments
+import logging
+
+# Set up logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='[%(asctime)s] %(levelname)s: %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+logger = logging.getLogger('zmq_bridge')
+
+# Global variables
+active_connections = set()
 
 async def zmq_to_websocket(websocket, path):
-    print(f"\n=== New WebSocket Connection ===")
-    print(f"[{datetime.now()}] Client connected from: {websocket.remote_address}")
+    """Handle a WebSocket connection and forward ZMQ messages to it."""
+    client_id = id(websocket)
+    remote_address = websocket.remote_address if hasattr(websocket, 'remote_address') else 'unknown'
+    
+    logger.info(f"New WebSocket connection from {remote_address} (ID: {client_id})")
+    
+    # Add to active connections
+    active_connections.add(websocket)
     
     # Print network information
     hostname = socket_lib.gethostname()
     try:
         local_ip = socket_lib.gethostbyname(hostname)
-        print(f"Bridge running on: {hostname} ({local_ip})")
+        logger.info(f"Bridge running on: {hostname} ({local_ip})")
     except Exception as e:
-        print(f"Could not get local IP: {e}")
+        logger.error(f"Could not get local IP: {e}")
 
     # Setup ZMQ subscriber
-    print(f"\n=== Setting up ZMQ Subscriber ===")
+    logger.info(f"Setting up ZMQ Subscriber for client {client_id}")
     context = zmq.asyncio.Context()
-    zmq_socket = context.socket(zmq.SUB)  # Renamed from socket to zmq_socket
+    zmq_socket = context.socket(zmq.SUB)
     zmq_socket.setsockopt_string(zmq.SUBSCRIBE, "")
     
     # Try multiple connection addresses
     addresses = [
+        "tcp://powermining-daemon-1:5558",  # Connect to the daemon container by name
         "tcp://powermining-update-1:5559",  # Connect to the update container by name
         "tcp://localhost:5559",             # Fallback to localhost
         "tcp://127.0.0.1:5559",             # Another localhost fallback
@@ -35,61 +54,88 @@ async def zmq_to_websocket(websocket, path):
     connected = False
     for addr in addresses:
         try:
-            print(f"[{datetime.now()}] Attempting to connect to {addr}")
+            logger.info(f"Attempting to connect to {addr}")
             zmq_socket.connect(addr)
-            print(f"[{datetime.now()}] ✓ Successfully connected to {addr}")
+            logger.info(f"✓ Successfully connected to {addr}")
             connected = True
             break
         except Exception as e:
-            print(f"[{datetime.now()}] ✗ Failed to connect to {addr}: {e}")
+            logger.warning(f"✗ Failed to connect to {addr}: {e}")
     
     if not connected:
-        print(f"[{datetime.now()}] ✗ Could not connect to any ZMQ endpoint!")
+        logger.error(f"✗ Could not connect to any ZMQ endpoint!")
+        active_connections.remove(websocket)
         return
 
-    print(f"\n=== Starting Message Loop ===")
+    logger.info(f"Starting message loop for client {client_id}")
     try:
         while True:
             try:
                 # Set a timeout for receiving messages
                 message = await asyncio.wait_for(zmq_socket.recv_string(), timeout=5.0)
-                print(f"[{datetime.now()}] Received ZMQ message")
+                logger.debug(f"Received ZMQ message")
                 
                 try:
                     data = json.loads(message)
                     if 'timestamp' not in data:
                         data['timestamp'] = datetime.now(timezone.utc).isoformat()
                     
-                    # Send to WebSocket
-                    await websocket.send(json.dumps(data))
-                    print(f"[{datetime.now()}] ✓ Forwarded message to WebSocket client")
+                    # Check if the WebSocket is still open before sending
+                    if websocket.open:
+                        await websocket.send(json.dumps(data))
+                        logger.debug(f"✓ Forwarded message to WebSocket client {client_id}")
+                    else:
+                        logger.warning(f"WebSocket for client {client_id} is closed, stopping message loop")
+                        break
                     
                 except json.JSONDecodeError:
-                    print(f"[{datetime.now()}] ✗ Invalid JSON message: {message[:100]}...")
+                    logger.warning(f"✗ Invalid JSON message: {message[:100]}...")
                     continue
                 
             except asyncio.TimeoutError:
-                print(f"[{datetime.now()}] No messages received in last 5 seconds...")
+                # Send a ping to check if the connection is still alive
+                try:
+                    pong_waiter = await websocket.ping()
+                    await asyncio.wait_for(pong_waiter, timeout=2.0)
+                    logger.debug(f"No messages received in last 5 seconds, but connection is alive")
+                except (asyncio.TimeoutError, websockets.exceptions.ConnectionClosed):
+                    logger.warning(f"WebSocket ping failed for client {client_id}, closing connection")
+                    break
                 continue
+            except websockets.exceptions.ConnectionClosed as e:
+                logger.info(f"WebSocket connection closed by client {client_id}: {e}")
+                break
             except Exception as e:
-                print(f"[{datetime.now()}] ✗ Error processing message: {e}")
+                logger.error(f"✗ Error processing message for client {client_id}: {e}")
                 continue
                 
-    except websockets.exceptions.ConnectionClosed:
-        print(f"[{datetime.now()}] WebSocket connection closed by client")
+    except websockets.exceptions.ConnectionClosed as e:
+        logger.info(f"WebSocket connection closed by client {client_id}: {e}")
+    except Exception as e:
+        logger.error(f"Unexpected error for client {client_id}: {e}")
     finally:
+        # Clean up resources
         zmq_socket.close()
         context.term()
-        print(f"[{datetime.now()}] Cleaned up ZMQ connection")
+        
+        # Remove from active connections
+        if websocket in active_connections:
+            active_connections.remove(websocket)
+            
+        logger.info(f"Cleaned up ZMQ connection for client {client_id}, {len(active_connections)} active connections remaining")
 
 async def main():
     # Parse command-line arguments
     parser = argparse.ArgumentParser(description='ZMQ to WebSocket Bridge')
     parser.add_argument('--server', help='Server hostname:ip for the bridge')
+    parser.add_argument('--debug', action='store_true', help='Enable debug logging')
     args = parser.parse_args()
     
-    print(f"\n=== Starting WebSocket Bridge ===")
-    print(f"[{datetime.now()}] Initializing...")
+    # Set log level
+    if args.debug:
+        logger.setLevel(logging.DEBUG)
+    
+    logger.info("Starting WebSocket Bridge")
     
     # Get server information
     hostname = socket_lib.gethostname()
@@ -102,40 +148,42 @@ async def main():
             if len(server_parts) == 2:
                 hostname = server_parts[0]
                 local_ip = server_parts[1]
-                print(f"Using provided server information: hostname={hostname}, IP={local_ip}")
+                logger.info(f"Using provided server information: hostname={hostname}, IP={local_ip}")
             else:
-                print(f"Invalid server format. Expected format: hostname:ip")
-                print(f"Falling back to automatic detection")
+                logger.warning(f"Invalid server format. Expected format: hostname:ip")
+                logger.warning(f"Falling back to automatic detection")
         
         # If IP wasn't provided or was invalid, try to detect it
         if not local_ip:
             local_ip = socket_lib.gethostbyname(hostname)
     except Exception as e:
-        print(f"Could not get local IP: {e}")
+        logger.error(f"Could not get local IP: {e}")
         local_ip = "0.0.0.0"  # Fallback
     
     try:
         server = await websockets.serve(
             zmq_to_websocket,
-            "0.0.0.0",  # Changed from localhost to allow external connections
+            "0.0.0.0",  # Listen on all interfaces
             5560,
-            ping_interval=None
+            ping_interval=30,  # Send ping every 30 seconds
+            ping_timeout=10,   # Wait 10 seconds for pong response
+            close_timeout=5    # Wait 5 seconds for close handshake
         )
-        print(f"[{datetime.now()}] ✓ WebSocket server running on ws://0.0.0.0:5560")
+        logger.info(f"✓ WebSocket server running on ws://0.0.0.0:5560")
         
         # Print network information
-        print(f"Server hostname: {hostname}")
-        print(f"Server IP: {local_ip}")
+        logger.info(f"Server hostname: {hostname}")
+        logger.info(f"Server IP: {local_ip}")
             
         await server.wait_closed()
         
     except Exception as e:
-        print(f"[{datetime.now()}] ✗ Failed to start server: {e}")
+        logger.error(f"✗ Failed to start server: {e}")
 
 if __name__ == "__main__":
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        print(f"[{datetime.now()}] Shutting down by user request...")
+        logger.info("Shutting down by user request...")
     except Exception as e:
-        print(f"[{datetime.now()}] Fatal error: {e}")
+        logger.error(f"Fatal error: {e}")
