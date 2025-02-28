@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EDDN Update Monitor</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #0f1117;
+            color: #e0e0e0;
+            margin: 0;
+            padding: 20px;
+        }
+        
+        h1 {
+            color: #4a9df8;
+            border-bottom: 1px solid #384b70;
+            padding-bottom: 10px;
+            margin-top: 0;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .status-bar {
+            background-color: #1a1a2e;
+            padding: 10px 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 10px;
+        }
+        
+        .status-online {
+            background-color: #4caf50;
+        }
+        
+        .status-offline {
+            background-color: #f44336;
+        }
+        
+        .status-error {
+            background-color: #ff9800;
+        }
+        
+        .event-container {
+            max-height: calc(100vh - 150px);
+            overflow-y: auto;
+            background-color: #1a1a2e;
+            border-radius: 5px;
+            padding: 10px;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        th {
+            text-align: left;
+            padding: 10px;
+            background-color: #252547;
+            position: sticky;
+            top: 0;
+        }
+        
+        td {
+            padding: 8px 10px;
+            border-bottom: 1px solid #33334d;
+            vertical-align: top;
+        }
+        
+        .event-row {
+            transition: background-color 0.3s;
+        }
+        
+        .event-row:hover {
+            background-color: #252547;
+        }
+        
+        .event-row.new {
+            background-color: rgba(74, 157, 248, 0.2);
+            animation: fadeOut 3s forwards;
+        }
+        
+        .event-type {
+            font-weight: bold;
+        }
+        
+        .timestamp {
+            font-size: 0.85em;
+            color: #a0a0a0;
+            white-space: nowrap;
+        }
+        
+        .event-journal {
+            color: #4caf50;
+        }
+        
+        .event-commodity {
+            color: #ff9800;
+        }
+        
+        .event-mining {
+            color: #f44336;
+        }
+        
+        .event-system {
+            color: #4a9df8;
+        }
+        
+        .system-name {
+            font-weight: bold;
+        }
+        
+        .change-data {
+            display: inline-block;
+            background-color: rgba(74, 157, 248, 0.1);
+            padding: 2px 5px;
+            border-radius: 3px;
+            margin: 2px 0;
+        }
+        
+        .change-old {
+            text-decoration: line-through;
+            color: #ff6b6b;
+            margin-right: 5px;
+        }
+        
+        .change-new {
+            color: #4caf50;
+        }
+        
+        .no-events {
+            text-align: center;
+            padding: 40px;
+            color: #a0a0a0;
+        }
+        
+        .filter-container {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .filter-btn {
+            background-color: #1a1a2e;
+            border: 1px solid #384b70;
+            color: #e0e0e0;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .filter-btn:hover {
+            background-color: #252547;
+        }
+        
+        .filter-btn.active {
+            background-color: #384b70;
+            border-color: #4a9df8;
+        }
+        
+        .event-details {
+            max-width: 500px;
+            overflow-wrap: break-word;
+        }
+        
+        .event-power {
+            color: #e91e63;  /* Pink for power events */
+        }
+        
+        .event-colony {
+            color: #ff9800;  /* Orange for colony events */
+        }
+        
+        .event-saa_signals {
+            color: #f44336;  /* Red for SAA signals events */
+        }
+        
+        .event-hematite {
+            color: #f44336;  /* Red for Hematite events */
+        }
+        
+        @keyframes fadeOut {
+            from { background-color: rgba(74, 157, 248, 0.2); }
+            to { background-color: transparent; }
+        }
+        
+        @media (max-width: 768px) {
+            .timestamp {
+                font-size: 0.75em;
+            }
+            
+            th, td {
+                padding: 6px 8px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>EDDN Update Monitor</h1>
+        
+        <div class="status-bar">
+            <div>
+                <span class="status-indicator status-offline" id="status-dot"></span>
+                <span id="status-text">Disconnected</span>
+            </div>
+            <div id="status-details">
+                Last update: Never
+            </div>
+        </div>
+        
+        <div class="filter-container">
+            <button class="filter-btn active" data-filter="all">All Events</button>
+            <button class="filter-btn" data-filter="journal">Journal</button>
+            <button class="filter-btn" data-filter="commodity">Commodity</button>
+            <button class="filter-btn" data-filter="system">System</button>
+            <button class="filter-btn" data-filter="mining">Mining</button>
+            <button class="filter-btn" data-filter="power">Power</button>
+            <button class="filter-btn" data-filter="colony">Colony</button>
+            <button class="filter-btn" data-filter="hematite">Haematite</button>
+            <span style="flex-grow: 1;"></span>
+            <button id="clear-btn" class="filter-btn">Clear Events</button>
+        </div>
+        
+        <div class="event-container">
+            <table id="events-table">
+                <thead>
+                    <tr>
+                        <th width="15%">Timestamp</th>
+                        <th width="15%">Event Type</th>
+                        <th width="70%">Details</th>
+                    </tr>
+                </thead>
+                <tbody id="events-body">
+                    <tr>
+                        <td colspan="3" class="no-events">
+                            Waiting for events...
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Variables
+            const statusDot = document.getElementById('status-dot');
+            const statusText = document.getElementById('status-text');
+            const statusDetails = document.getElementById('status-details');
+            const eventsBody = document.getElementById('events-body');
+            const filterButtons = document.querySelectorAll('.filter-btn');
+            const clearButton = document.getElementById('clear-btn');
+            
+            let currentFilter = 'all';
+            let socket = null;
+            let reconnectTimer = null;
+            let events = [];
+            const MAX_EVENTS = 1000;
+            
+            // Initialize WebSocket connection
+            function connectWebSocket() {
+                if (socket) {
+                    socket.close();
+                }
+                
+                // Get the hostname of the current page
+                const hostname = window.location.hostname || 'localhost';
+                const wsUrl = `ws://${hostname}:5560`;
+                
+                console.log(`Attempting to connect to WebSocket at ${wsUrl}`);
+                socket = new WebSocket(wsUrl);
+                
+                socket.onopen = function() {
+                    console.log(`Successfully connected to ${wsUrl}`);
+                    setStatus('online', 'Connected');
+                    clearTimeout(reconnectTimer);
+                };
+                
+                socket.onclose = function(event) {
+                    console.log(`WebSocket closed. Code: ${event.code}, Reason: ${event.reason || 'No reason provided'}, Clean: ${event.wasClean}`);
+                    setStatus('offline', 'Disconnected');
+                    
+                    // Attempt to reconnect after 5 seconds
+                    reconnectTimer = setTimeout(connectWebSocket, 5000);
+                };
+                
+                socket.onerror = function(error) {
+                    console.error("WebSocket error:", error);
+                    console.log("WebSocket readyState:", socket.readyState);
+                    setStatus('error', 'Connection Error');
+                };
+                
+                socket.onmessage = function(e) {
+                    console.log("Received message:", e.data.substring(0, 100) + "...");
+                    try {
+                        const data = JSON.parse(e.data);
+                        
+                        if (data.type === 'status') {
+                            // Handle status update
+                            handleStatusUpdate(data);
+                        } else {
+                            // Handle event
+                            addEvent(data);
+                        }
+                    } catch (error) {
+                        console.error("Error processing message:", error);
+                    }
+                };
+            }
+            
+            // Set connection status
+            function setStatus(status, text) {
+                statusDot.className = 'status-indicator status-' + status;
+                statusText.textContent = text;
+            }
+            
+            // Handle status update
+            function handleStatusUpdate(data) {
+                if (data.timestamp) {
+                    statusDetails.textContent = `Last update: ${formatTime(new Date(data.timestamp))}`;
+                }
+                
+                if (data.state) {
+                    switch (data.state) {
+                        case 'running':
+                            setStatus('online', 'Connected - Running');
+                            break;
+                        case 'updating':
+                            setStatus('online', 'Connected - Updating Database');
+                            break;
+                        case 'error':
+                            setStatus('error', 'Error');
+                            break;
+                        case 'offline':
+                            setStatus('offline', 'Service Offline');
+                            break;
+                        default:
+                            setStatus('online', `Connected - ${data.state}`);
+                    }
+                }
+            }
+            
+            // Add a new event to the table
+            function addEvent(event) {
+                // Add event to our array
+                events.unshift(event);
+                
+                // Limit the number of stored events
+                if (events.length > MAX_EVENTS) {
+                    events = events.slice(0, MAX_EVENTS);
+                }
+                
+                // Refresh the table with the new event
+                renderEvents();
+            }
+            
+            // Render events based on current filter
+            function renderEvents() {
+                let html = '';
+                
+                const filteredEvents = events.filter(event => {
+                    if (currentFilter === 'all') return true;
+                    return event.type === currentFilter;
+                });
+                
+                if (filteredEvents.length === 0) {
+                    html = `<tr><td colspan="3" class="no-events">No ${currentFilter === 'all' ? '' : currentFilter} events yet...</td></tr>`;
+                } else {
+                    filteredEvents.forEach((event, index) => {
+                        const isNew = index === 0;
+                        html += renderEventRow(event, isNew);
+                    });
+                }
+                
+                eventsBody.innerHTML = html;
+            }
+            
+            // Render a single event row
+            function renderEventRow(event, isNew) {
+                const eventClass = `event-${event.type}`;
+                const rowClass = `event-row ${isNew ? 'new' : ''} ${eventClass}`;
+                
+                let detailsHtml = '';
+                
+                switch (event.type) {
+                    case 'journal':
+                        detailsHtml = renderJournalDetails(event.data);
+                        break;
+                    case 'commodity':
+                        detailsHtml = renderCommodityDetails(event.data);
+                        break;
+                    case 'system':
+                        detailsHtml = renderSystemDetails(event.data);
+                        break;
+                    case 'mining':
+                        detailsHtml = renderMiningDetails(event.data);
+                        break;
+                    case 'power':
+                        detailsHtml = renderPowerDetails(event.data);
+                        break;
+                    case 'colony':
+                        detailsHtml = renderColonyDetails(event.data);
+                        break;
+                    case 'hematite':
+                        detailsHtml = renderHematiteDetails(event.data);
+                        break;
+                    default:
+                        detailsHtml = `<pre>${JSON.stringify(event.data, null, 2)}</pre>`;
+                }
+                
+                return `
+                    <tr class="${rowClass}">
+                        <td class="timestamp">${formatTime(new Date(event.timestamp))}</td>
+                        <td class="event-type ${eventClass}">${capitalizeFirstLetter(event.type)}</td>
+                        <td class="event-details">${detailsHtml}</td>
+                    </tr>
+                `;
+            }
+            
+            // Render system update details
+            function renderSystemDetails(data) {
+                let html = `<span class="system-name">${data.system_name}</span> (ID64: ${data.system_id64})`;
+                
+                if (data.changes && data.changes.length) {
+                    html += '<ul style="margin: 5px 0; padding-left: 20px;">';
+                    data.changes.forEach(change => {
+                        const parts = change.split(':');
+                        if (parts.length !== 2) return;
+                        
+                        const field = parts[0].trim();
+                        const values = parts[1].trim();
+                        
+                        const valueParts = values.split('→');
+                        if (valueParts.length !== 2) return;
+                        
+                        const oldValue = valueParts[0].trim();
+                        const newValue = valueParts[1].trim();
+                        
+                        html += `
+                            <li>
+                                ${field}: 
+                                <span class="change-data">
+                                    <span class="change-old">${oldValue || 'None'}</span>
+                                    <span class="change-new">${newValue || 'None'}</span>
+                                </span>
+                            </li>
+                        `;
+                    });
+                    html += '</ul>';
+                }
+                
+                return html;
+            }
+            
+            // Render commodity details
+            function renderCommodityDetails(data) {
+                let html = `<span class="system-name">${data.station_name}</span> in ${data.system_name}`;
+                
+                if (data.summary) {
+                    html += `
+                        <div class="change-data" style="margin-top: 5px;">
+                            ${data.summary.updated} commodities updated: 
+                            ${data.summary.added} added, 
+                            ${data.summary.removed} removed
+                        </div>
+                    `;
+                }
+                
+                return html;
+            }
+            
+            // Render journal details
+            function renderJournalDetails(data) {
+                if (data.event_type) {
+                    let html = `<strong>${data.event_type}</strong>`;
+                    
+                    if (data.data) {
+                        const dataStr = JSON.stringify(data.data);
+                        if (dataStr.length > 200) {
+                            html += `: ${dataStr.substring(0, 200)}...`;
+                        } else {
+                            html += `: ${dataStr}`;
+                        }
+                    }
+                    
+                    return html;
+                }
+                return `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+            }
+            
+            // Render mining details
+            function renderMiningDetails(data) {
+                let html = `<strong>${data.event_type}</strong>`;
+                
+                if (data.data) {
+                    const dataStr = JSON.stringify(data.data);
+                    if (dataStr.length > 200) {
+                        html += `: ${dataStr.substring(0, 200)}...`;
+                    } else {
+                        html += `: ${dataStr}`;
+                    }
+                }
+                
+                return html;
+            }
+            
+            // Render power details
+            function renderPowerDetails(data) {
+                let html = `<span class="system-name">${data.system_name}</span> (ID64: ${data.system_id64})`;
+                
+                if (data.controlling_power || data.power_state || data.powers_acquiring) {
+                    html += '<div class="change-data" style="margin-top: 5px;">';
+                    if (data.controlling_power) {
+                        html += `Controlling Power: ${data.controlling_power}<br>`;
+                    }
+                    if (data.power_state) {
+                        html += `Power State: ${data.power_state}<br>`;
+                    }
+                    if (data.powers_acquiring && data.powers_acquiring.length) {
+                        html += `Powers Acquiring: ${data.powers_acquiring.join(', ')}<br>`;
+                    }
+                    html += '</div>';
+                }
+
+                if (data.changes && data.changes.length) {
+                    html += '<ul style="margin: 5px 0; padding-left: 20px;">';
+                    data.changes.forEach(change => {
+                        const parts = change.split(':');
+                        if (parts.length !== 2) return;
+                        
+                        const field = parts[0].trim();
+                        const values = parts[1].trim();
+                        
+                        const valueParts = values.split('→');
+                        if (valueParts.length !== 2) return;
+                        
+                        const oldValue = valueParts[0].trim();
+                        const newValue = valueParts[1].trim();
+                        
+                        html += `
+                            <li>
+                                ${field}: 
+                                <span class="change-data">
+                                    <span class="change-old">${oldValue || 'None'}</span>
+                                    <span class="change-new">${newValue || 'None'}</span>
+                                </span>
+                            </li>
+                        `;
+                    });
+                    html += '</ul>';
+                }
+                
+                return html;
+            }
+            
+            // Render colony details
+            function renderColonyDetails(data) {
+                let html = `<span class="system-name">${data.system_name}</span> (ID64: ${data.system_id64})`;
+                
+                html += `<div class="change-data" style="margin-top: 5px;">`;
+                html += `Event: <strong>${data.event_type}</strong><br>`;
+                html += `Station: <strong>${data.station_name}</strong><br>`;
+                
+                if (data.event_type === 'Docked') {
+                    // Display Docked event specific fields
+                    if (data.station_type) html += `Station Type: ${data.station_type}<br>`;
+                    if (data.station_id) html += `Market ID: ${data.station_id}<br>`;
+                    if (data.station_government) html += `Government: ${data.station_government}<br>`;
+                    if (data.economy) html += `Economy: ${data.economy}<br>`;
+                    
+                    // Display landing pads if available
+                    if (data.landing_pads) {
+                        const pads = data.landing_pads;
+                        html += `Landing Pads: `;
+                        if (pads.Small) html += `Small: ${pads.Small} `;
+                        if (pads.Medium) html += `Medium: ${pads.Medium} `;
+                        if (pads.Large) html += `Large: ${pads.Large}`;
+                        html += `<br>`;
+                    }
+                    
+                    // Display faction if available
+                    if (data.station_faction && data.station_faction.Name) {
+                        html += `Faction: ${data.station_faction.Name}<br>`;
+                    }
+                } else if (data.event_type === 'FSSSignalDiscovered') {
+                    // Display FSSSignalDiscovered event specific fields
+                    if (data.signal_type) html += `Signal Type: ${data.signal_type}<br>`;
+                }
+                
+                html += `</div>`;
+                
+                return html;
+            }
+            
+            // Render Hematite details
+            function renderHematiteDetails(data) {
+                let html = `<span class="system-name">${data.system_name}</span> (ID64: ${data.system_id64})`;
+                
+                html += `<div class="change-data" style="margin-top: 5px;">`;
+                html += `Body: <strong>${data.body_name}</strong><br>`;
+                html += `<span style="color: #f44336; font-weight: bold;">Haematite Found: ${data.hematite_count} signals</span><br>`;
+                
+                // Display all signals
+                if (data.signals && data.signals.length > 0) {
+                    html += `<strong>All Signals:</strong><br>`;
+                    html += `<ul style="margin: 5px 0; padding-left: 20px;">`;
+                    data.signals.forEach(signal => {
+                        const isHematite = ['Haematite', 'Hematite', 'Hamaetite', 'Hemaetite'].includes(signal.Type);
+                        html += `<li style="${isHematite ? 'color: #f44336; font-weight: bold;' : ''}">
+                            ${signal.Type}: ${signal.Count} signals
+                        </li>`;
+                    });
+                    html += `</ul>`;
+                }
+                
+                html += `</div>`;
+                
+                return html;
+            }
+            
+            // Format timestamp
+            function formatTime(timestamp) {
+                const date = new Date(timestamp);
+                return date.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit', second: '2-digit'});
+            }
+            
+            // Capitalize first letter
+            function capitalizeFirstLetter(string) {
+                return string.charAt(0).toUpperCase() + string.slice(1);
+            }
+            
+            // Set up filter buttons
+            filterButtons.forEach(button => {
+                if (button.id === 'clear-btn') return;
+                
+                button.addEventListener('click', function() {
+                    const filter = this.dataset.filter;
+                    
+                    // Update active button
+                    filterButtons.forEach(btn => {
+                        if (btn.id !== 'clear-btn') {
+                            btn.classList.remove('active');
+                        }
+                    });
+                    this.classList.add('active');
+                    
+                    // Apply filter
+                    currentFilter = filter;
+                    renderEvents();
+                });
+            });
+            
+            // Set up clear button
+            clearButton.addEventListener('click', function() {
+                events = [];
+                renderEvents();
+            });
+            
+            // Connect on page load
+            connectWebSocket();
+        });
+    </script>
+</body>
+</html>

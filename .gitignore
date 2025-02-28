@@ -106,3 +106,23 @@ json/systemsPopulated_02-07.gz
 /database
 utils/search_common_old.py
 /ideas
+/kumocrew
+/refactor
+schema/eddn_msgtypes.txt
+schema/discord_message.md
+schema/discord.md
+schema/database_schema.md
+schema/database_schema.md
+schema/coloring.txt
+schema/api_system_response.json
+schema/api_acquire_from_response.json
+schema/api_acquire_for_response.json
+/sql
+/query
+json/edsm_stations_02-23.json
+json/edsm_stations_sample.json
+json/galaxy_populated_02-23.json
+json/samples structure.md
+/img/discord
+/.clean_coder
+.coderrules

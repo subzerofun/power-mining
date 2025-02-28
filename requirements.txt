@@ -13,3 +13,8 @@ flask-sock==0.7.0
 Flask-SQLAlchemy==3.1.1
 colorama==0.4.6
 requests==2.31.0
+discord.py>=2.0.0
+table2ascii>=0.1.5
+prettytable>=2.5.0
+python-dotenv>=1.0.0
+aiohttp>=3.8.0

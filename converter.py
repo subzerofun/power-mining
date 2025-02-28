@@ -248,7 +248,8 @@ def convert_json_to_sqlite(json_file: str, db_file: str, max_distance: float, ex
         processed = 0
         skipped_distance = 0
         skipped_carriers_stations = 0
-        skipped_no_market = 0
+        stations_with_market = 0
+        stations_without_market = 0
         system_stations = 0  # Running total of system-level stations
         body_stations = 0    # Running total of body-level stations
         total_root_stations_processed = 0  # Total stations seen at system level
@@ -292,12 +293,13 @@ def convert_json_to_sqlite(json_file: str, db_file: str, max_distance: float, ex
             stats.append(f"Station entries: {system_stations:,}\n")
             stats.append(f"Body station entries: {body_stations:,}\n")
             stats.append(f"Total stations: {total_stations:,}\n")
+            stats.append(f"Stations with market: {stations_with_market:,}\n")
+            stats.append(f"Stations without market: {stations_without_market:,}\n")
             
             stats.append("\nSkipped Entries:\n", style="bold yellow")
             stats.append(f"Distance skipped: {skipped_distance:,}\n")
             if exclude_carriers:
                 stats.append(f"Carriers skipped: {skipped_carriers_stations:,}\n")
-            stats.append(f"No market: {skipped_no_market:,}\n")
             if trim_entries:
                 stats.append(f"Trimmed shipyard: {trimmed_shipyard:,}\n")
                 stats.append(f"Trimmed outfitting: {trimmed_outfitting:,}\n")
@@ -323,24 +325,22 @@ def convert_json_to_sqlite(json_file: str, db_file: str, max_distance: float, ex
                 # Process stations from both system level and bodies
                 all_stations = []
                 
-                # Add system-level stations with market
+                # Add system-level stations
                 if 'stations' in system:
                     total_root_stations_processed += len(system['stations'])
-                    valid_stations = [(station, None) for station in system['stations'] if 'market' in station]
+                    valid_stations = [(station, None) for station in system['stations']]
                     all_stations.extend(valid_stations)
                     system_stations += len(valid_stations)  # Add to running total
-                    skipped_no_market += len([s for s in system['stations'] if 'market' not in s])
-                
-                # Add stations from bodies with market
+
+                # Add stations from bodies
                 if 'bodies' in system:
                     for body in system['bodies']:
                         if 'stations' in body:
                             total_body_stations_processed += len(body['stations'])
-                            valid_stations = [(station, body['name']) for station in body['stations'] if 'market' in station]
+                            valid_stations = [(station, body['name']) for station in body['stations']]
                             all_stations.extend(valid_stations)
                             body_stations += len(valid_stations)  # Add to running total
-                            skipped_no_market += len([s for s in body['stations'] if 'market' not in s])
-                
+
                 # Filter out carriers if requested
                 if exclude_carriers:
                     original_count = len(all_stations)
@@ -427,19 +427,26 @@ def convert_json_to_sqlite(json_file: str, db_file: str, max_distance: float, ex
                 for station, body_name in all_stations:
                     if station.get('type') == 'Drake-Class Carrier' or 'carrierName' in station:
                         continue
-                    for commodity in extract_station_commodities(conn, station):  # Pass conn to the function
-                        c.execute('''
-                            INSERT INTO station_commodities_mapped 
-                            (system_id64, station_id, station_name, commodity_id, sell_price, demand)
-                            VALUES (?, ?, ?, ?, ?, ?)
-                        ''', (
-                            system['id64'],
-                            station.get('id'),
-                            commodity['station_name'],
-                            commodity['commodity_id'],  # Use ID instead of name
-                            commodity['sell_price'],
-                            commodity['demand']
-                        ))
+                    # Track market statistics
+                    if 'market' in station:
+                        stations_with_market += 1
+                    else:
+                        stations_without_market += 1
+                    # Only process commodities if station has a market
+                    if 'market' in station:
+                        for commodity in extract_station_commodities(conn, station):
+                            c.execute('''
+                                INSERT INTO station_commodities_mapped 
+                                (system_id64, station_id, station_name, commodity_id, sell_price, demand)
+                                VALUES (?, ?, ?, ?, ?, ?)
+                            ''', (
+                                system['id64'],
+                                station.get('id'),
+                                commodity['station_name'],
+                                commodity['commodity_id'],  # Use ID instead of name
+                                commodity['sell_price'],
+                                commodity['demand']
+                            ))
                 
                 # Update total stations
                 total_stations = system_stations + body_stations
@@ -469,7 +476,6 @@ def convert_json_to_sqlite(json_file: str, db_file: str, max_distance: float, ex
         table.add_row("Distance skipped", f"{skipped_distance:,}")
         if exclude_carriers:
             table.add_row("Carriers skipped", f"{skipped_carriers_stations:,}")
-        table.add_row("No market", f"{skipped_no_market:,}")
         
         if trim_entries:
             table.add_row("Trimmed shipyard", f"{trimmed_shipyard:,}")

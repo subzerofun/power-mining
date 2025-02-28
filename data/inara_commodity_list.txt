@@ -1,0 +1,269 @@
+﻿Commodity;Avg sell;Avg buy;Avg profit;Max sell;Min buy;Max profit
+Chemicals;;;;;;
+Agronomic Treatment;3,966 Cr;3,392 Cr;574 Cr;35,779 Cr;251 Cr;35,528 Cr
+Explosives;636 Cr;383 Cr;253 Cr;2,085 Cr;13 Cr;2,072 Cr
+Hydrogen Fuel;99 Cr;94 Cr;5 Cr;187 Cr;8 Cr;179 Cr
+Hydrogen Peroxide;3,076 Cr;0 Cr;3,076 Cr;3,301 Cr;0 Cr;3,301 Cr
+Liquid oxygen;1,504 Cr;781 Cr;723 Cr;4,201 Cr;44 Cr;4,157 Cr
+Mineral Oil;772 Cr;296 Cr;476 Cr;1,483 Cr;9 Cr;1,474 Cr
+Nerve Agents;13,215 Cr;11,829 Cr;1,386 Cr;14,489 Cr;1,199 Cr;13,290 Cr
+Pesticides;494 Cr;188 Cr;306 Cr;1,678 Cr;17 Cr;1,661 Cr
+Rockforth Fertiliser;0 Cr;0 Cr;0 Cr;0 Cr;0 Cr;0 Cr
+Surface Stabilisers;705 Cr;571 Cr;134 Cr;2,908 Cr;33 Cr;2,875 Cr
+Synthetic Reagents;7,134 Cr;5,927 Cr;1,207 Cr;7,851 Cr;593 Cr;7,258 Cr
+Tritium;52,967 Cr;51,129 Cr;1,838 Cr;61,839 Cr;40,670 Cr;21,169 Cr
+Water;494 Cr;46 Cr;448 Cr;3,947 Cr;2 Cr;3,945 Cr
+Consumer Items;;;;;;
+Clothing;743 Cr;364 Cr;379 Cr;3,552 Cr;26 Cr;3,526 Cr
+Consumer Technology;7,234 Cr;5,738 Cr;1,496 Cr;7,851 Cr;531 Cr;7,320 Cr
+Domestic Appliances;922 Cr;539 Cr;383 Cr;1,216 Cr;42 Cr;1,174 Cr
+Evacuation Shelter;646 Cr;297 Cr;349 Cr;4,095 Cr;35 Cr;4,060 Cr
+Survival Equipment;749 Cr;555 Cr;194 Cr;10,382 Cr;272 Cr;10,110 Cr
+Legal Drugs;;;;;;
+Beer;615 Cr;200 Cr;415 Cr;30,485 Cr;11 Cr;30,474 Cr
+Bootleg Liquor;650 Cr;0 Cr;650 Cr;5,319 Cr;0 Cr;5,319 Cr
+Liquor;1,021 Cr;655 Cr;366 Cr;51,375 Cr;48 Cr;51,327 Cr
+Narcotics;9,525 Cr;8,111 Cr;1,414 Cr;11,350 Cr;783 Cr;10,567 Cr
+Onionhead Gamma Strain;5,226 Cr;2,542 Cr;2,684 Cr;7,070 Cr;248 Cr;6,822 Cr
+Tobacco;5,343 Cr;4,337 Cr;1,006 Cr;6,964 Cr;380 Cr;6,584 Cr
+Wine;685 Cr;322 Cr;363 Cr;33,953 Cr;18 Cr;33,935 Cr
+Foods;;;;;;
+Algae;530 Cr;89 Cr;441 Cr;2,180 Cr;4 Cr;2,176 Cr
+Animal Meat;1,831 Cr;1,312 Cr;519 Cr;4,762 Cr;107 Cr;4,655 Cr
+Coffee;1,777 Cr;1,266 Cr;511 Cr;3,037 Cr;105 Cr;2,932 Cr
+Fish;883 Cr;478 Cr;405 Cr;8,800 Cr;29 Cr;8,771 Cr
+Food Cartridges;370 Cr;77 Cr;293 Cr;4,189 Cr;4 Cr;4,185 Cr
+Fruit and Vegetables;743 Cr;360 Cr;383 Cr;12,142 Cr;19 Cr;12,123 Cr
+Grain;628 Cr;230 Cr;398 Cr;13,505 Cr;10 Cr;13,495 Cr
+Synthetic Meat;672 Cr;228 Cr;444 Cr;4,850 Cr;19 Cr;4,831 Cr
+Tea;1,986 Cr;1,439 Cr;547 Cr;3,043 Cr;105 Cr;2,938 Cr
+Industrial Materials;;;;;;
+Ceramic Composites;991 Cr;330 Cr;661 Cr;10,601 Cr;78 Cr;10,523 Cr
+CMM Composite;6,691 Cr;5,626 Cr;1,065 Cr;23,948 Cr;4,796 Cr;19,152 Cr
+Insulating Membrane;11,119 Cr;9,943 Cr;1,176 Cr;20,594 Cr;8,653 Cr;11,941 Cr
+Meta-Alloys;199,011 Cr;271,014 Cr;-72,003 Cr;271,000 Cr;271,014 Cr;-14 Cr
+Micro-weave Cooling Hoses;1,874 Cr;0 Cr;1,874 Cr;6,208 Cr;0 Cr;6,208 Cr
+Neofabric Insulation;5,997 Cr;4,397 Cr;1,600 Cr;20,017 Cr;4,011 Cr;16,006 Cr
+Polymers;513 Cr;172 Cr;341 Cr;9,209 Cr;5 Cr;9,204 Cr
+Semiconductors;1,222 Cr;901 Cr;321 Cr;2,018 Cr;69 Cr;1,949 Cr
+Superconductors;6,910 Cr;6,129 Cr;781 Cr;10,638 Cr;5,186 Cr;5,452 Cr
+Machinery;;;;;;
+Articulation Motors;7,443 Cr;0 Cr;7,443 Cr;7,851 Cr;0 Cr;7,851 Cr
+Atmospheric Processors;513 Cr;371 Cr;142 Cr;1,849 Cr;31 Cr;1,818 Cr
+Building Fabricators;2,275 Cr;2,044 Cr;231 Cr;4,334 Cr;158 Cr;4,176 Cr
+Crop Harvesters;2,111 Cr;1,954 Cr;157 Cr;3,708 Cr;165 Cr;3,543 Cr
+Emergency Power Cells;2,868 Cr;1,956 Cr;912 Cr;6,660 Cr;1,785 Cr;4,875 Cr
+Energy Grid Assembly;3,163 Cr;2,258 Cr;905 Cr;6,860 Cr;2,089 Cr;4,771 Cr
+Exhaust Manifold;2,286 Cr;1,407 Cr;879 Cr;2,507 Cr;1,362 Cr;1,145 Cr
+Geological Equipment;1,849 Cr;1,656 Cr;193 Cr;2,875 Cr;137 Cr;2,738 Cr
+Heatsink Interlink;2,537 Cr;1,707 Cr;830 Cr;2,764 Cr;1,547 Cr;1,217 Cr
+HN Shock Mount;1,781 Cr;1,561 Cr;220 Cr;2,634 Cr;133 Cr;2,501 Cr
+Ion Distributor;2,791 Cr;1,933 Cr;858 Cr;3,053 Cr;1,688 Cr;1,365 Cr
+Magnetic Emitter Coil;1,735 Cr;1,095 Cr;640 Cr;1,922 Cr;924 Cr;998 Cr
+Marine Equipment;3,919 Cr;3,727 Cr;192 Cr;5,508 Cr;322 Cr;5,186 Cr
+Microbial Furnaces;623 Cr;164 Cr;459 Cr;1,941 Cr;16 Cr;1,925 Cr
+Mineral Extractors;901 Cr;591 Cr;310 Cr;2,647 Cr;41 Cr;2,606 Cr
+Modular Terminals;2,418 Cr;0 Cr;2,418 Cr;2,634 Cr;0 Cr;2,634 Cr
+Power Converter;1,862 Cr;1,146 Cr;716 Cr;6,187 Cr;1,008 Cr;5,179 Cr
+Power Generators;2,766 Cr;2,218 Cr;548 Cr;9,864 Cr;1,644 Cr;8,220 Cr
+Power Transfer Bus;2,648 Cr;1,706 Cr;942 Cr;6,460 Cr;1,647 Cr;4,813 Cr
+Radiation Baffle;2,167 Cr;1,336 Cr;831 Cr;2,396 Cr;1,249 Cr;1,147 Cr
+Reinforced Mounting Plate;2,864 Cr;2,003 Cr;861 Cr;3,212 Cr;1,858 Cr;1,354 Cr
+Skimmer Components;1,048 Cr;858 Cr;190 Cr;1,703 Cr;77 Cr;1,626 Cr
+Thermal Cooling Units;3,710 Cr;3,433 Cr;277 Cr;4,952 Cr;311 Cr;4,641 Cr
+Water Purifiers;729 Cr;407 Cr;322 Cr;3,131 Cr;64 Cr;3,067 Cr
+Medicines;;;;;;
+Advanced Medicines;1,731 Cr;1,135 Cr;596 Cr;4,805 Cr;109 Cr;4,696 Cr
+Agri-Medicines;1,316 Cr;895 Cr;421 Cr;1,771 Cr;113 Cr;1,658 Cr
+Basic Medicines;635 Cr;339 Cr;296 Cr;5,258 Cr;23 Cr;5,235 Cr
+Combat Stabilisers;3,250 Cr;2,338 Cr;912 Cr;4,664 Cr;243 Cr;4,421 Cr
+Performance Enhancers;7,357 Cr;6,056 Cr;1,301 Cr;7,859 Cr;533 Cr;7,326 Cr
+Progenitor Cells;7,300 Cr;6,074 Cr;1,226 Cr;7,875 Cr;531 Cr;7,344 Cr
+Metals;;;;;;
+Aluminium;597 Cr;326 Cr;271 Cr;2,158 Cr;12 Cr;2,146 Cr
+Beryllium;8,368 Cr;7,489 Cr;879 Cr;9,564 Cr;715 Cr;8,849 Cr
+Bismuth;2,717 Cr;2,005 Cr;712 Cr;3,511 Cr;188 Cr;3,323 Cr
+Cobalt;4,844 Cr;3,681 Cr;1,163 Cr;19,821 Cr;238 Cr;19,583 Cr
+Copper;715 Cr;447 Cr;268 Cr;2,756 Cr;28 Cr;2,728 Cr
+Gallium;5,321 Cr;4,617 Cr;704 Cr;6,427 Cr;423 Cr;6,004 Cr
+Gold;48,272 Cr;44,558 Cr;3,714 Cr;67,704 Cr;4,001 Cr;63,703 Cr
+Hafnium 178;0 Cr;0 Cr;0 Cr;0 Cr;0 Cr;0 Cr
+Indium;5,976 Cr;5,259 Cr;717 Cr;7,249 Cr;489 Cr;6,760 Cr
+Lanthanum;9,122 Cr;7,844 Cr;1,278 Cr;10,161 Cr;776 Cr;9,385 Cr
+Lithium;1,870 Cr;1,422 Cr;448 Cr;2,765 Cr;120 Cr;2,645 Cr
+Osmium;62,728 Cr;0 Cr;62,728 Cr;260,808 Cr;0 Cr;260,808 Cr
+Palladium;52,080 Cr;47,898 Cr;4,182 Cr;71,373 Cr;4,687 Cr;66,686 Cr
+Platinum;79,488 Cr;0 Cr;79,488 Cr;294,711 Cr;0 Cr;294,711 Cr
+Praseodymium;8,533 Cr;0 Cr;8,533 Cr;11,472 Cr;0 Cr;11,472 Cr
+Samarium;28,296 Cr;0 Cr;28,296 Cr;48,530 Cr;0 Cr;48,530 Cr
+Silver;38,228 Cr;34,202 Cr;4,026 Cr;49,426 Cr;3,031 Cr;46,395 Cr
+Tantalum;4,173 Cr;3,525 Cr;648 Cr;5,263 Cr;324 Cr;4,939 Cr
+Thallium;4,078 Cr;3,198 Cr;880 Cr;4,924 Cr;305 Cr;4,619 Cr
+Thorium;11,976 Cr;10,361 Cr;1,615 Cr;12,878 Cr;1,031 Cr;11,847 Cr
+Titanium;1,254 Cr;915 Cr;339 Cr;2,205 Cr;71 Cr;2,134 Cr
+Uranium;2,947 Cr;2,401 Cr;546 Cr;3,902 Cr;209 Cr;3,693 Cr
+Minerals;;;;;;
+Alexandrite;213,575 Cr;0 Cr;213,575 Cr;760,226 Cr;0 Cr;760,226 Cr
+Bauxite;2,565 Cr;1,769 Cr;796 Cr;30,526 Cr;590 Cr;29,936 Cr
+Benitoite;159,529 Cr;0 Cr;159,529 Cr;663,886 Cr;0 Cr;663,886 Cr
+Bertrandite;18,831 Cr;16,194 Cr;2,637 Cr;23,719 Cr;1,465 Cr;22,254 Cr
+Bromellite;40,509 Cr;0 Cr;40,509 Cr;116,126 Cr;0 Cr;116,126 Cr
+Coltan;6,348 Cr;4,979 Cr;1,369 Cr;8,796 Cr;450 Cr;8,346 Cr
+Cryolite;15,787 Cr;11,107 Cr;4,680 Cr;29,780 Cr;7,200 Cr;22,580 Cr
+Gallite;12,067 Cr;10,313 Cr;1,754 Cr;15,426 Cr;934 Cr;14,492 Cr
+Goslarite;8,245 Cr;4,690 Cr;3,555 Cr;15,922 Cr;379 Cr;15,543 Cr
+Grandidierite;200,969 Cr;0 Cr;200,969 Cr;934,376 Cr;0 Cr;934,376 Cr
+Indite;11,580 Cr;9,680 Cr;1,900 Cr;14,848 Cr;728 Cr;14,120 Cr
+Jadeite;43,908 Cr;0 Cr;43,908 Cr;214,081 Cr;0 Cr;214,081 Cr
+Lepidolite;1,939 Cr;1,221 Cr;718 Cr;7,785 Cr;41 Cr;7,744 Cr
+Lithium Hydroxide;5,595 Cr;0 Cr;5,595 Cr;7,693 Cr;0 Cr;7,693 Cr
+Low Temperature Diamonds;127,547 Cr;0 Cr;127,547 Cr;552,208 Cr;0 Cr;552,208 Cr
+Methane Clathrate;1,591 Cr;0 Cr;1,591 Cr;1,740 Cr;0 Cr;1,740 Cr
+Methanol Monohydrate Crystals;2,546 Cr;0 Cr;2,546 Cr;3,717 Cr;0 Cr;3,717 Cr
+Moissanite;31,435 Cr;0 Cr;31,435 Cr;205,280 Cr;0 Cr;205,280 Cr
+Monazite;264,759 Cr;0 Cr;264,759 Cr;792,224 Cr;0 Cr;792,224 Cr
+Musgravite;215,910 Cr;0 Cr;215,910 Cr;903,118 Cr;0 Cr;903,118 Cr
+Painite;55,780 Cr;0 Cr;55,780 Cr;271,635 Cr;0 Cr;271,635 Cr
+Pyrophyllite;15,274 Cr;10,252 Cr;5,022 Cr;28,927 Cr;874 Cr;28,053 Cr
+Rhodplumsite;182,399 Cr;0 Cr;182,399 Cr;865,724 Cr;0 Cr;865,724 Cr
+Rutile;3,257 Cr;2,523 Cr;734 Cr;20,728 Cr;1,305 Cr;19,423 Cr
+Serendibite;178,325 Cr;0 Cr;178,325 Cr;575,245 Cr;0 Cr;575,245 Cr
+Taaffeite;54,039 Cr;0 Cr;54,039 Cr;263,022 Cr;0 Cr;263,022 Cr
+Uraninite;3,086 Cr;2,253 Cr;833 Cr;4,731 Cr;162 Cr;4,569 Cr
+Void Opal;136,608 Cr;0 Cr;136,608 Cr;826,903 Cr;0 Cr;826,903 Cr
+Salvage;;;;;;
+AI Relics;184,334 Cr;0 Cr;184,334 Cr;0 Cr;0 Cr;0 Cr
+Ancient Artefact;9,611 Cr;0 Cr;9,611 Cr;0 Cr;0 Cr;0 Cr
+Ancient Key;29,357 Cr;0 Cr;29,357 Cr;29,357 Cr;0 Cr;29,357 Cr
+Anomaly Particles;0 Cr;0 Cr;0 Cr;0 Cr;0 Cr;0 Cr
+Antimatter Containment Unit;77,196 Cr;0 Cr;77,196 Cr;0 Cr;0 Cr;0 Cr
+Antique Jewellery;143,778 Cr;0 Cr;143,778 Cr;0 Cr;0 Cr;0 Cr
+Antiquities;89,350 Cr;0 Cr;89,350 Cr;0 Cr;0 Cr;0 Cr
+Assault Plans;812 Cr;0 Cr;812 Cr;0 Cr;0 Cr;0 Cr
+Black Box;30,872 Cr;0 Cr;30,872 Cr;31,953 Cr;0 Cr;31,953 Cr
+Bone Fragments;0 Cr;0 Cr;0 Cr;0 Cr;0 Cr;0 Cr
+Caustic Tissue Sample;270,720 Cr;0 Cr;270,720 Cr;0 Cr;0 Cr;0 Cr
+Commercial Samples;316 Cr;0 Cr;316 Cr;0 Cr;0 Cr;0 Cr
+Coral Sap;647,815 Cr;0 Cr;647,815 Cr;0 Cr;0 Cr;0 Cr
+Cyst Specimen;0 Cr;0 Cr;0 Cr;0 Cr;0 Cr;0 Cr
+Damaged Escape Pod;17,082 Cr;0 Cr;17,082 Cr;68,103 Cr;0 Cr;68,103 Cr
+Data Core;6,892 Cr;0 Cr;6,892 Cr;0 Cr;0 Cr;0 Cr
+Diplomatic Bag;491 Cr;0 Cr;491 Cr;0 Cr;0 Cr;0 Cr
+Earth Relics;21,867 Cr;0 Cr;21,867 Cr;0 Cr;0 Cr;0 Cr
+Encrypted Correspondence;339 Cr;0 Cr;339 Cr;0 Cr;0 Cr;0 Cr
+Encrypted Data Storage;691 Cr;0 Cr;691 Cr;0 Cr;0 Cr;0 Cr
+Experimental Chemicals;16,710 Cr;0 Cr;16,710 Cr;16,710 Cr;0 Cr;16,710 Cr
+Fossil Remnants;11,199 Cr;0 Cr;11,199 Cr;0 Cr;0 Cr;0 Cr
+Gene Bank;12,703 Cr;0 Cr;12,703 Cr;0 Cr;0 Cr;0 Cr
+Geological Samples;382 Cr;0 Cr;382 Cr;0 Cr;0 Cr;0 Cr
+Guardian Casket;16,010 Cr;0 Cr;16,010 Cr;16,010 Cr;0 Cr;16,010 Cr
+Guardian Orb;17,110 Cr;0 Cr;17,110 Cr;17,110 Cr;0 Cr;17,110 Cr
+Guardian Relic;24,534 Cr;0 Cr;24,534 Cr;24,534 Cr;0 Cr;24,534 Cr
+Guardian Tablet;17,110 Cr;0 Cr;17,110 Cr;17,110 Cr;0 Cr;17,110 Cr
+Guardian Totem;20,090 Cr;0 Cr;20,090 Cr;20,090 Cr;0 Cr;20,090 Cr
+Guardian Urn;14,599 Cr;0 Cr;14,599 Cr;14,599 Cr;0 Cr;14,599 Cr
+Hostages;34,401 Cr;0 Cr;34,401 Cr;36,149 Cr;0 Cr;36,149 Cr
+Impure Spire Mineral;159,930 Cr;0 Cr;159,930 Cr;0 Cr;0 Cr;0 Cr
+Large Survey Data Cache;154,752 Cr;0 Cr;154,752 Cr;0 Cr;0 Cr;0 Cr
+Military Intelligence;64,579 Cr;0 Cr;64,579 Cr;0 Cr;0 Cr;0 Cr
+Military Plans;8,660 Cr;0 Cr;8,660 Cr;0 Cr;0 Cr;0 Cr
+Mollusc Brain Tissue;47,106 Cr;0 Cr;47,106 Cr;0 Cr;0 Cr;0 Cr
+Mollusc Fluid;7,926 Cr;0 Cr;7,926 Cr;0 Cr;0 Cr;0 Cr
+Mollusc Membrane;25,727 Cr;0 Cr;25,727 Cr;0 Cr;0 Cr;0 Cr
+Mollusc Mycelium;46,449 Cr;0 Cr;46,449 Cr;0 Cr;0 Cr;0 Cr
+Mollusc Soft Tissue;20,760 Cr;0 Cr;20,760 Cr;0 Cr;0 Cr;0 Cr
+Mollusc Spores;8,199 Cr;0 Cr;8,199 Cr;0 Cr;0 Cr;0 Cr
+Mysterious Idol;14,282 Cr;0 Cr;14,282 Cr;0 Cr;0 Cr;0 Cr
+Occupied Escape Pod;30,211 Cr;0 Cr;30,211 Cr;47,136 Cr;0 Cr;47,136 Cr
+Organ Sample;0 Cr;0 Cr;0 Cr;0 Cr;0 Cr;0 Cr
+Personal Effects;9,475 Cr;0 Cr;9,475 Cr;9,996 Cr;0 Cr;9,996 Cr
+Pod Core Tissue;47,800 Cr;0 Cr;47,800 Cr;0 Cr;0 Cr;0 Cr
+Pod Dead Tissue;133,610 Cr;0 Cr;133,610 Cr;0 Cr;0 Cr;0 Cr
+Pod Mesoglea;270,090 Cr;0 Cr;270,090 Cr;0 Cr;0 Cr;0 Cr
+Pod Outer Tissue;72,100 Cr;0 Cr;72,100 Cr;0 Cr;0 Cr;0 Cr
+Pod Shell Tissue;519,200 Cr;0 Cr;519,200 Cr;0 Cr;0 Cr;0 Cr
+Pod Surface Tissue;288,190 Cr;0 Cr;288,190 Cr;0 Cr;0 Cr;0 Cr
+Pod Tissue;125,460 Cr;0 Cr;125,460 Cr;0 Cr;0 Cr;0 Cr
+Political Prisoners;3,776 Cr;0 Cr;3,776 Cr;0 Cr;0 Cr;0 Cr
+Precious Gems;123,656 Cr;0 Cr;123,656 Cr;0 Cr;0 Cr;0 Cr
+Prohibited Research Materials;131,452 Cr;0 Cr;131,452 Cr;0 Cr;0 Cr;0 Cr
+Protective Membrane Scrap;0 Cr;0 Cr;0 Cr;0 Cr;0 Cr;0 Cr
+Prototype Tech;19,874 Cr;0 Cr;19,874 Cr;0 Cr;0 Cr;0 Cr
+Rare Artwork;27,045 Cr;0 Cr;27,045 Cr;151,151 Cr;0 Cr;151,151 Cr
+Rebel Transmissions;15,971 Cr;0 Cr;15,971 Cr;15,971 Cr;0 Cr;15,971 Cr
+SAP 8 Core Container;49,911 Cr;0 Cr;49,911 Cr;0 Cr;0 Cr;0 Cr
+Scientific Research;1,705 Cr;0 Cr;1,705 Cr;0 Cr;0 Cr;0 Cr
+Scientific Samples;1,679 Cr;0 Cr;1,679 Cr;0 Cr;0 Cr;0 Cr
+Semi-Refined Spire Mineral;792,105 Cr;0 Cr;792,105 Cr;0 Cr;0 Cr;0 Cr
+Small Survey Data Cache;7,080 Cr;0 Cr;7,080 Cr;0 Cr;0 Cr;0 Cr
+Space Pioneer Relics;14,354 Cr;0 Cr;14,354 Cr;0 Cr;0 Cr;0 Cr
+Tactical Data;779 Cr;0 Cr;779 Cr;0 Cr;0 Cr;0 Cr
+Technical Blueprints;16,490 Cr;0 Cr;16,490 Cr;16,490 Cr;0 Cr;16,490 Cr
+Thargoid Basilisk Tissue Sample;181,046 Cr;0 Cr;181,046 Cr;0 Cr;0 Cr;0 Cr
+Thargoid Bio-storage Capsule;149,003 Cr;0 Cr;149,003 Cr;150,882 Cr;0 Cr;150,882 Cr
+Thargoid Biological Matter;205,472 Cr;0 Cr;205,472 Cr;0 Cr;0 Cr;0 Cr
+Thargoid Cyclops Tissue Sample;158,660 Cr;0 Cr;158,660 Cr;0 Cr;0 Cr;0 Cr
+Thargoid Glaive Tissue Sample;71,600 Cr;0 Cr;71,600 Cr;72,827 Cr;0 Cr;72,827 Cr
+Thargoid Heart;1,374,677 Cr;0 Cr;1,374,677 Cr;0 Cr;0 Cr;0 Cr
+Thargoid Hydra Tissue Sample;269,388 Cr;0 Cr;269,388 Cr;0 Cr;0 Cr;0 Cr
+Thargoid Link;102,694 Cr;0 Cr;102,694 Cr;0 Cr;0 Cr;0 Cr
+Thargoid Medusa Tissue Sample;206,643 Cr;0 Cr;206,643 Cr;0 Cr;0 Cr;0 Cr
+Thargoid Orthrus Tissue Sample;0 Cr;0 Cr;0 Cr;0 Cr;0 Cr;0 Cr
+Thargoid Probe;442,480 Cr;0 Cr;442,480 Cr;447,229 Cr;0 Cr;447,229 Cr
+Thargoid Resin;196,950 Cr;0 Cr;196,950 Cr;0 Cr;0 Cr;0 Cr
+Thargoid Scout Tissue Sample;59,609 Cr;0 Cr;59,609 Cr;0 Cr;0 Cr;0 Cr
+Thargoid Scythe Tissue Sample;60,344 Cr;0 Cr;60,344 Cr;0 Cr;0 Cr;0 Cr
+Thargoid Sensor;305,282 Cr;0 Cr;305,282 Cr;308,683 Cr;0 Cr;308,683 Cr
+Thargoid Technology Samples;197,247 Cr;0 Cr;197,247 Cr;0 Cr;0 Cr;0 Cr
+Time Capsule;4,810 Cr;0 Cr;4,810 Cr;0 Cr;0 Cr;0 Cr
+Titan Deep Tissue Sample;498,097 Cr;0 Cr;498,097 Cr;502,015 Cr;0 Cr;502,015 Cr
+Titan Drive Component;339,264 Cr;0 Cr;339,264 Cr;0 Cr;0 Cr;0 Cr
+Titan Maw Deep Tissue Sample;668,608 Cr;0 Cr;668,608 Cr;0 Cr;0 Cr;0 Cr
+Titan Maw Partial Tissue Sample;298,182 Cr;0 Cr;298,182 Cr;0 Cr;0 Cr;0 Cr
+Titan Maw Tissue Sample;446,407 Cr;0 Cr;446,407 Cr;0 Cr;0 Cr;0 Cr
+Titan Partial Tissue Sample;139,377 Cr;0 Cr;139,377 Cr;141,179 Cr;0 Cr;141,179 Cr
+Titan Tissue Sample;272,202 Cr;0 Cr;272,202 Cr;274,894 Cr;0 Cr;274,894 Cr
+Trade Data;14,340 Cr;0 Cr;14,340 Cr;14,340 Cr;0 Cr;14,340 Cr
+Trinkets of Hidden Fortune;2,632 Cr;0 Cr;2,632 Cr;0 Cr;0 Cr;0 Cr
+Unclassified Relic;23,750 Cr;0 Cr;23,750 Cr;0 Cr;0 Cr;0 Cr
+Unoccupied Escape Pod;4,108 Cr;0 Cr;4,108 Cr;4,418 Cr;0 Cr;4,418 Cr
+Unstable Data Core;4,882 Cr;0 Cr;4,882 Cr;0 Cr;0 Cr;0 Cr
+Wreckage Components;8,946 Cr;0 Cr;8,946 Cr;9,406 Cr;0 Cr;9,406 Cr
+Slaves;;;;;;
+Imperial Slaves;16,887 Cr;16,192 Cr;695 Cr;18,445 Cr;1,467 Cr;16,978 Cr
+Slaves;13,458 Cr;9,558 Cr;3,900 Cr;15,189 Cr;8,950 Cr;6,239 Cr
+Technology;;;;;;
+Advanced Catalysers;3,414 Cr;2,431 Cr;983 Cr;3,756 Cr;221 Cr;3,535 Cr
+Animal Monitors;707 Cr;386 Cr;321 Cr;4,551 Cr;26 Cr;4,525 Cr
+Aquaponic Systems;955 Cr;436 Cr;519 Cr;2,745 Cr;22 Cr;2,723 Cr
+Auto-Fabricators;4,248 Cr;3,324 Cr;924 Cr;5,234 Cr;297 Cr;4,937 Cr
+Bioreducing Lichen;1,463 Cr;851 Cr;612 Cr;1,703 Cr;78 Cr;1,625 Cr
+Computer Components;698 Cr;540 Cr;158 Cr;3,100 Cr;309 Cr;2,791 Cr
+H.E. Suits;804 Cr;262 Cr;542 Cr;2,270 Cr;119 Cr;2,151 Cr
+Hardware Diagnostic Sensor;7,486 Cr;6,211 Cr;1,275 Cr;8,035 Cr;5,855 Cr;2,180 Cr
+Land Enrichment Systems;5,146 Cr;4,276 Cr;870 Cr;8,732 Cr;469 Cr;8,263 Cr
+Medical Diagnostic Equipment;3,063 Cr;2,582 Cr;481 Cr;7,488 Cr;301 Cr;7,187 Cr
+Micro Controllers;6,087 Cr;4,951 Cr;1,136 Cr;6,802 Cr;4,310 Cr;2,492 Cr
+Muon Imager;6,742 Cr;5,629 Cr;1,113 Cr;7,445 Cr;516 Cr;6,929 Cr
+Nanobreakers;2,310 Cr;0 Cr;2,310 Cr;2,511 Cr;0 Cr;2,511 Cr
+Resonating Separators;6,531 Cr;5,207 Cr;1,324 Cr;7,500 Cr;474 Cr;7,026 Cr
+Robotics;2,405 Cr;1,751 Cr;654 Cr;3,714 Cr;1,023 Cr;2,691 Cr
+Structural Regulators;2,175 Cr;1,696 Cr;479 Cr;7,732 Cr;1,371 Cr;6,361 Cr
+Telemetry Suite;3,138 Cr;0 Cr;3,138 Cr;3,381 Cr;0 Cr;3,381 Cr
+Textiles;;;;;;
+Conductive Fabrics;945 Cr;559 Cr;386 Cr;5,058 Cr;31 Cr;5,027 Cr
+Leather;609 Cr;193 Cr;416 Cr;2,330 Cr;11 Cr;2,319 Cr
+Military Grade Fabrics;1,104 Cr;1,024 Cr;80 Cr;13,833 Cr;56 Cr;13,777 Cr
+Natural Fabrics;940 Cr;557 Cr;383 Cr;3,422 Cr;31 Cr;3,391 Cr
+Synthetic Fabrics;569 Cr;259 Cr;310 Cr;4,424 Cr;7 Cr;4,417 Cr
+Waste;;;;;;
+Biowaste;111 Cr;80 Cr;31 Cr;1,122 Cr;2 Cr;1,120 Cr
+Chemical Waste;661 Cr;0 Cr;661 Cr;5,280 Cr;0 Cr;5,280 Cr
+Scrap;285 Cr;134 Cr;151 Cr;799 Cr;15 Cr;784 Cr
+Toxic Waste;0 Cr;0 Cr;0 Cr;0 Cr;0 Cr;0 Cr
+Weapons;;;;;;
+Battle Weapons;6,145 Cr;5,876 Cr;269 Cr;8,999 Cr;534 Cr;8,465 Cr
+Landmines;4,418 Cr;3,617 Cr;801 Cr;6,384 Cr;3,186 Cr;3,198 Cr
+Non-Lethal Weapons;2,212 Cr;1,623 Cr;589 Cr;5,526 Cr;140 Cr;5,386 Cr
+Personal Weapons;4,400 Cr;3,742 Cr;658 Cr;6,146 Cr;2,937 Cr;3,209 Cr
+Reactive Armour;2,501 Cr;1,864 Cr;637 Cr;2,963 Cr;167 Cr;2,796 Cr

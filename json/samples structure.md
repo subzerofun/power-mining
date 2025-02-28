@@ -1,4 +1,4 @@
-galaxy_sample_station.json (includes all stations and bodies in a system)
+spansh dump of "galaxy_stations.json" (includes all stations and bodies in a system)
 
 id64: id64-number
 name: system name
@@ -56,6 +56,9 @@ bodies:
 				updateTime: YYYY-MM-DD HH:MM:SS+XX
 			1:
 				...
+		stations: 
+			0: (same as stations entry below, on root level)
+			1: (same as stations entry below, on root level)
 		updateTime: YYYY-MM-DD HH:MM:SS+XX
 	1:
 		...

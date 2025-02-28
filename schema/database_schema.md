@@ -4,17 +4,21 @@
 
 **Columns:**
 
-| Column              | Type               | Nullable | Default | Description/Notes                                                 |
-| ------------------- | ------------------ | -------- | ------- | ----------------------------------------------------------------- |
-| `id64`              | `BIGINT`           | NO       |         | Primary key (unique system identifier).                           |
-| `name`              | `TEXT`             | NO       |         | Unique system name.                                               |
-| `x`                 | `DOUBLE PRECISION` | YES      |         | X coordinate.                                                     |
-| `y`                 | `DOUBLE PRECISION` | YES      |         | Y coordinate.                                                     |
-| `z`                 | `DOUBLE PRECISION` | YES      |         | Z coordinate.                                                     |
-| `controlling_power` | `TEXT`             | YES      |         | Name of the controlling power (if any).                           |
-| `power_state`       | `TEXT`             | YES      |         | A string indicating the system's power state (e.g., "Fortified"). |
-| `powers_acquiring`  | `JSONB`            | YES      |         | JSON field for additional power-acquisition data.                 |
-| `distance_from_sol` | `DOUBLE PRECISION` | YES      |         | Pre-calculated distance to Sol, if used.                          |
+| Column              | Type                          | Nullable | Default | Description/Notes                                                 |
+| ------------------- | ----------------------------- | -------- | ------- | ----------------------------------------------------------------- |
+| `id64`              | `BIGINT`                      | NO       |         | Primary key (unique system identifier).                           |
+| `name`              | `TEXT`                        | NO       |         | Unique system name.                                               |
+| `x`                 | `DOUBLE PRECISION`            | YES      |         | X coordinate.                                                     |
+| `y`                 | `DOUBLE PRECISION`            | YES      |         | Y coordinate.                                                     |
+| `z`                 | `DOUBLE PRECISION`            | YES      |         | Z coordinate.                                                     |
+| `controlling_power` | `TEXT`                        | YES      |         | Name of the controlling power (if any).                           |
+| `power_state`       | `TEXT`                        | YES      |         | A string indicating the system's power state (e.g., "Fortified"). |
+| `powers_acquiring`  | `JSONB`                       | YES      |         | JSON field for additional power-acquisition data.                 |
+| `distance_from_sol` | `DOUBLE PRECISION`            | YES      |         | Pre-calculated distance to Sol, if used.                          |
+| `primary_economy`   | `TEXT`                        | YES      |         | Primary economy type of the system.                               |
+| `secondary_economy` | `TEXT`                        | YES      |         | Secondary economy type of the system.                             |
+| `security`          | `TEXT`                        | YES      |         | Security level of the system.                                     |
+| `last_updated`      | `TIMESTAMP WITHOUT TIME ZONE` | YES      |         | Timestamp of when the system data was last updated.               |
 
 **Constraints and Indexes:**
 
@@ -24,6 +28,7 @@
   - `idx_systems_coords` (btree on `(x, y, z)`)
   - `idx_systems_name` (btree on `(name)`)
   - `idx_systems_powers_acquiring` (GIN on `(powers_acquiring)`)
+  - `idx_systems_last_updated` (btree on `(last_updated)`)
 - **Foreign-Key References**:
   - Referenced by `mineral_signals(system_id64)`, `station_commodities(system_id64)`, and `stations(system_id64)`.
 
@@ -65,6 +70,8 @@
 | `distance_to_arrival` | `DOUBLE PRECISION`            | YES      |         | Distance from the main star in LS (light-seconds).                   |
 | `landing_pad_size`    | `TEXT`                        | YES      |         | E.g., Small, Medium, Large, or None.                                 |
 | `update_time`         | `TIMESTAMP WITHOUT TIME ZONE` | YES      |         | Last update timestamp.                                               |
+| `economies`           | `JSONB`                       | YES      |         | JSON array of all economy types at the station.                      |
+| `has_market`          | `BOOLEAN`                     | YES      | false   | Whether the station has a commodity market.                          |
 
 **Constraints and Indexes:**
 

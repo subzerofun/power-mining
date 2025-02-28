@@ -1,0 +1,101 @@
+-- Core and/or laser mining
+('Icy', 'Bromellite'),         -- both
+('Icy', 'Low Temperature Diamonds'), -- both
+-- Core only
+('Icy', 'Void Opal'),          -- core only
+('Icy', 'Alexandrite'),        -- core only
+-- Laser only
+('Icy', 'Bertrandite'),        -- laser only
+('Icy', 'Cryolite'),           -- laser only
+('Icy', 'Goslarite'),          -- laser only
+('Icy', 'Hydrogen Peroxide'),   -- laser only
+('Icy', 'Liquid Oxygen'),       -- laser only
+('Icy', 'Lithium Hydroxide'),   -- laser only
+('Icy', 'Methane Clathrate'),   -- laser only
+('Icy', 'Methanol Monohydrate Crystals'), -- laser only
+('Icy', 'Tritium'),            -- laser only
+('Icy', 'Water');              -- laser only
+
+-- Core only
+('Rocky', 'Alexandrite'),       -- core only
+('Rocky', 'Benitoite'),         -- core only
+('Rocky', 'Grandidierite'),     -- core only
+('Rocky', 'Monazite'),          -- core only
+('Rocky', 'Musgravite'),        -- core only
+('Rocky', 'Rhodplumsite'),      -- core only
+('Rocky', 'Serendibite'),       -- core only
+-- Laser only
+('Rocky', 'Bauxite'),           -- laser only
+('Rocky', 'Bertrandite'),       -- laser only
+('Rocky', 'Gallite'),           -- laser only
+('Rocky', 'Indite'),            -- laser only
+('Rocky', 'Jadeite'),           -- laser only
+('Rocky', 'Lepidolite'),        -- laser only
+('Rocky', 'Moissanite'),        -- laser only
+('Rocky', 'Pyrophyllite'),      -- laser only
+('Rocky', 'Rutile'),            -- laser only
+('Rocky', 'Taaffeite'),         -- laser only
+('Rocky', 'Uraninite');         -- laser only
+
+-- Core only
+('Metal Rich', 'Alexandrite'),    -- core only
+('Metal Rich', 'Benitoite'),      -- core only
+('Metal Rich', 'Grandidierite'),  -- core only
+('Metal Rich', 'Monazite'),       -- core only
+('Metal Rich', 'Musgravite'),     -- core only
+('Metal Rich', 'Rhodplumsite'),   -- core only
+('Metal Rich', 'Serendibite'),    -- core only
+('Metal Rich', 'Painite'),        -- core only
+('Metal Rich', 'Platinum'),       -- core only
+-- Laser only
+('Metal Rich', 'Aluminium'),      -- laser only
+('Metal Rich', 'Beryllium'),      -- laser only
+('Metal Rich', 'Bismuth'),        -- laser only
+('Metal Rich', 'Cobalt'),         -- laser only
+('Metal Rich', 'Coltan'),         -- laser only
+('Metal Rich', 'Copper'),         -- laser only
+('Metal Rich', 'Gallium'),        -- laser only
+('Metal Rich', 'Hafnium 178'),    -- laser only
+('Metal Rich', 'Indite'),         -- laser only
+('Metal Rich', 'Indium'),         -- laser only
+('Metal Rich', 'Lanthanum'),      -- laser only
+('Metal Rich', 'Lithium'),        -- laser only
+('Metal Rich', 'Praseodymium'),   -- laser only
+('Metal Rich', 'Rutile'),         -- laser only
+('Metal Rich', 'Samarium'),       -- laser only
+('Metal Rich', 'Silver'),         -- laser only
+('Metal Rich', 'Tantalum'),       -- laser only
+('Metal Rich', 'Thallium'),       -- laser only
+('Metal Rich', 'Thorium'),        -- laser only
+('Metal Rich', 'Titanium'),       -- laser only
+('Metal Rich', 'Uranium'),        -- laser only
+('Metal Rich', 'Uraninite');      -- laser only
+
+-- Core and/or laser mining
+('Metallic', 'Painite'),          -- both
+('Metallic', 'Platinum'),         -- both
+-- Core only
+('Metallic', 'Monazite'),         -- core only
+-- Laser only
+('Metallic', 'Aluminium'),        -- laser only
+('Metallic', 'Beryllium'),        -- laser only
+('Metallic', 'Bismuth'),          -- laser only
+('Metallic', 'Cobalt'),           -- laser only
+('Metallic', 'Copper'),           -- laser only
+('Metallic', 'Gallite'),          -- laser only
+('Metallic', 'Gallium'),          -- laser only
+('Metallic', 'Gold'),             -- laser only
+('Metallic', 'Hafnium 178'),      -- laser only
+('Metallic', 'Indium'),           -- laser only
+('Metallic', 'Lanthanum'),        -- laser only
+('Metallic', 'Lithium'),          -- laser only
+('Metallic', 'Osmium'),           -- laser only
+('Metallic', 'Palladium'),        -- laser only
+('Metallic', 'Praseodymium'),     -- laser only
+('Metallic', 'Samarium'),         -- laser only
+('Metallic', 'Silver'),           -- laser only
+('Metallic', 'Tantalum'),         -- laser only
+('Metallic', 'Thallium'),         -- laser only
+('Metallic', 'Thorium'),          -- laser only
+('Metallic', 'Titanium'),         -- laser only
+('Metallic', 'Uranium');          -- laser only
