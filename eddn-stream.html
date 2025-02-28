@@ -281,42 +281,17 @@
                     socket.close();
                 }
                 
-                // Get the protocol (ws or wss based on page protocol)
-                const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-                const hostname = window.location.hostname || 'localhost';
-                
-                // Create a list of possible WebSocket URLs to try
-                const possibleUrls = [];
-                
-                // For HTTP, try direct connection to port 5560
-                if (protocol === 'ws:') {
-                    possibleUrls.push(`${protocol}//${hostname}:5560`);
-                    possibleUrls.push('ws://10.99.1.7:5560');    // Server IP from logs
-                    possibleUrls.push('ws://localhost:5560');    // Local development
-                    possibleUrls.push('ws://127.0.0.1:5560');    // Local loopback
-                } else {
-                    // For HTTPS, we need a secure endpoint for the bridge
-                    // This might not be available, but we'll try a few options
-                    possibleUrls.push(`${protocol}//${hostname}/bridge`);  // Try a potential secure endpoint
-                    possibleUrls.push(`${protocol}//${hostname}/zmq`);     // Another potential endpoint
+                // Check if we're on HTTPS
+                if (window.location.protocol === 'https:') {
+                    // HTTPS - Display a message that direct connection is not possible
+                    console.log("HTTPS detected. Direct WebSocket connection to zmq_bridge is not possible due to browser security restrictions.");
+                    setStatus('error', 'HTTPS Connection Not Supported');
+                    statusDetails.textContent = "Please use HTTP version instead: http://" + window.location.host + window.location.pathname;
+                    return;  // Don't attempt to connect
                 }
                 
-                console.log("Possible WebSocket URLs:", possibleUrls);
-                
-                // Try to connect to the first URL
-                tryConnect(possibleUrls, 0);
-            }
-            
-            // Try to connect to a WebSocket URL, with fallback to other URLs if it fails
-            function tryConnect(urls, index) {
-                if (index >= urls.length) {
-                    console.log("Failed to connect to any WebSocket endpoint. Will retry in 5 seconds...");
-                    setStatus('offline', 'Connection Failed');
-                    reconnectTimer = setTimeout(() => connectWebSocket(), 5000);
-                    return;
-                }
-                
-                const wsUrl = urls[index];
+                // For HTTP, connect directly to port 5560
+                const wsUrl = 'ws://' + window.location.hostname + ':5560';
                 console.log(`Attempting to connect to WebSocket at ${wsUrl}`);
                 
                 socket = new WebSocket(wsUrl);
@@ -328,37 +303,70 @@
                 };
                 
                 socket.onclose = function(event) {
-                    // Only log if this was a connection that was initially established
-                    if (event.wasClean) {
-                        console.log(`WebSocket closed. Code: ${event.code}, Reason: ${event.reason || 'No reason provided'}, Clean: ${event.wasClean}`);
-                        setStatus('offline', 'Disconnected');
-                        
-                        // Attempt to reconnect after 5 seconds
-                        reconnectTimer = setTimeout(connectWebSocket, 5000);
-                    } else {
-                        // Try the next URL in the list
-                        console.log(`Failed to connect to ${wsUrl}. Trying next endpoint...`);
-                        tryConnect(urls, index + 1);
-                    }
+                    console.log(`WebSocket closed. Code: ${event.code}, Reason: ${event.reason || 'No reason provided'}, Clean: ${event.wasClean}`);
+                    setStatus('offline', 'Disconnected');
+                    
+                    // Attempt to reconnect after 5 seconds
+                    reconnectTimer = setTimeout(connectWebSocket, 5000);
                 };
                 
                 socket.onerror = function(error) {
                     console.error("WebSocket error:", error);
                     console.log("WebSocket readyState:", socket.readyState);
                     setStatus('error', 'Connection Error');
-                };
-                
-                socket.onmessage = function(e) {
-                    console.log("Received message:", e.data.substring(0, 100) + "...");
-                    try {
-                        const data = JSON.parse(e.data);
-                        
-                        // Handle event data
-                        addEvent(data);
-                    } catch (error) {
-                        console.error("Error processing message:", error);
+                    
+                    // Try localhost as a fallback
+                    if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+                        console.log("Trying localhost fallback...");
+                        setTimeout(function() {
+                            socket = new WebSocket('ws://localhost:5560');
+                            
+                            socket.onopen = function() {
+                                console.log("Successfully connected to localhost:5560");
+                                setStatus('online', 'Connected to localhost');
+                                clearTimeout(reconnectTimer);
+                            };
+                            
+                            socket.onerror = function() {
+                                console.error("Localhost fallback failed");
+                                // Try 127.0.0.1 as a last resort
+                                setTimeout(function() {
+                                    socket = new WebSocket('ws://127.0.0.1:5560');
+                                    
+                                    socket.onopen = function() {
+                                        console.log("Successfully connected to 127.0.0.1:5560");
+                                        setStatus('online', 'Connected to 127.0.0.1');
+                                        clearTimeout(reconnectTimer);
+                                    };
+                                    
+                                    socket.onerror = function() {
+                                        console.error("127.0.0.1 fallback failed");
+                                        setStatus('offline', 'Connection Failed');
+                                    };
+                                    
+                                    socket.onmessage = handleMessage;
+                                }, 1000);
+                            };
+                            
+                            socket.onmessage = handleMessage;
+                        }, 1000);
                     }
                 };
+                
+                socket.onmessage = handleMessage;
+            }
+            
+            // Handle incoming WebSocket messages
+            function handleMessage(e) {
+                console.log("Received message:", e.data.substring(0, 100) + "...");
+                try {
+                    const data = JSON.parse(e.data);
+                    
+                    // This is an event
+                    addEvent(data);
+                } catch (error) {
+                    console.error("Error processing message:", error);
+                }
             }
             
             // Set connection status
