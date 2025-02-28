@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WebSocket Test</title>
+</head>
+<body>
+    <h1>WebSocket Test</h1>
+    <div id="status">Connecting...</div>
+    <div id="messages"></div>
+
+    <script>
+        const statusDiv = document.getElementById('status');
+        const messagesDiv = document.getElementById('messages');
+        
+        // Connect to your WebSocket endpoint
+        const socket = new WebSocket('wss://meritminer.cc/zmq');
+        
+        socket.onopen = function() {
+            statusDiv.textContent = 'Connected!';
+            statusDiv.style.color = 'green';
+            console.log('WebSocket connection established');
+        };
+        
+        socket.onclose = function(event) {
+            statusDiv.textContent = 'Disconnected: ' + event.code + ' ' + event.reason;
+            statusDiv.style.color = 'red';
+            console.log('WebSocket connection closed', event);
+        };
+        
+        socket.onerror = function(error) {
+            statusDiv.textContent = 'Error';
+            statusDiv.style.color = 'red';
+            console.error('WebSocket error', error);
+        };
+        
+        socket.onmessage = function(event) {
+            console.log('Received message', event.data);
+            const message = document.createElement('div');
+            message.textContent = 'Received: ' + event.data;
+            messagesDiv.appendChild(message);
+        };
+    </script>
+</body>
+</html>

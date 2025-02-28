@@ -1,4 +1,24 @@
 <!DOCTYPE html>
+<!--
+EDDN Update Monitor
+
+This page connects to the ZMQ bridge to display EDDN events.
+
+Server Setup Requirements:
+1. For this page to work on HTTPS, the server must have a WebSocket proxy endpoint at /zmq
+   that forwards to the ZMQ bridge on port 5560.
+2. This can be done with nginx by adding a location block like:
+
+   location /zmq {
+       proxy_pass http://localhost:5560;
+       proxy_http_version 1.1;
+       proxy_set_header Upgrade $http_upgrade;
+       proxy_set_header Connection "upgrade";
+       proxy_set_header Host $host;
+   }
+
+3. For local development, the page will connect directly to port 5560.
+-->
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -281,27 +301,22 @@
                     socket.close();
                 }
                 
-                // Check if we're on HTTPS
-                if (window.location.protocol === 'https:') {
-                    console.log("HTTPS detected. Direct WebSocket connection to ZMQ bridge is not possible due to browser security restrictions.");
-                    setStatus('error', 'HTTPS Not Supported');
-                    statusDetails.innerHTML = "Direct connection to ZMQ bridge is not possible over HTTPS. Please use <a href='http://" + 
-                        window.location.host + window.location.pathname + 
-                        "' style='color:#4a9df8;'>HTTP version</a> instead.";
-                    return;  // Don't attempt to connect
-                }
+                // Use the exact same approach as index.html/websocket.js
+                const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                const wsHost = window.location.host;  // Use host instead of hostname to include port if any
                 
-                // ONLY connect to port 5560 for ZMQ bridge messages
-                const hostname = window.location.hostname || 'localhost';
-                const wsUrl = `ws://${hostname}:5560`;
+                // When on the server, use /zmq endpoint (which should be set up on the server)
+                // When local, connect directly to port 5560
+                const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+                const wsUrl = isLocalhost ? `ws://${window.location.hostname}:5560` : `${protocol}//${wsHost}/zmq`;
                 
-                console.log(`Attempting to connect to ZMQ bridge at ${wsUrl}`);
+                console.log(`Connecting to WebSocket at ${wsUrl}`);
                 
                 socket = new WebSocket(wsUrl);
                 
                 socket.onopen = function() {
-                    console.log(`Successfully connected to ZMQ bridge at ${wsUrl}`);
-                    setStatus('online', 'Connected to ZMQ Bridge');
+                    console.log(`Successfully connected to ${wsUrl}`);
+                    setStatus('online', 'Connected');
                     clearTimeout(reconnectTimer);
                 };
                 
@@ -318,62 +333,32 @@
                     console.log("WebSocket readyState:", socket.readyState);
                     setStatus('error', 'Connection Error');
                     
-                    // Try localhost as a fallback
-                    if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
-                        console.log("Trying localhost fallback...");
-                        setTimeout(function() {
-                            socket = new WebSocket('ws://localhost:5560');
-                            
-                            socket.onopen = function() {
-                                console.log("Successfully connected to localhost:5560");
-                                setStatus('online', 'Connected to localhost');
-                                clearTimeout(reconnectTimer);
-                            };
-                            
-                            socket.onerror = function() {
-                                console.error("Localhost fallback failed");
-                                // Try 127.0.0.1 as a last resort
-                                setTimeout(function() {
-                                    socket = new WebSocket('ws://127.0.0.1:5560');
-                                    
-                                    socket.onopen = function() {
-                                        console.log("Successfully connected to 127.0.0.1:5560");
-                                        setStatus('online', 'Connected to 127.0.0.1');
-                                        clearTimeout(reconnectTimer);
-                                    };
-                                    
-                                    socket.onerror = function() {
-                                        console.error("127.0.0.1 fallback failed");
-                                        setStatus('offline', 'Connection Failed');
-                                        statusDetails.innerHTML = "Failed to connect to ZMQ bridge. Make sure it's running on port 5560.";
-                                    };
-                                    
-                                    socket.onmessage = handleMessage;
-                                }, 1000);
-                            };
-                            
-                            socket.onmessage = handleMessage;
-                        }, 1000);
-                    } else if (hostname === 'localhost') {
-                        // Try 127.0.0.1 as a fallback
-                        console.log("Trying 127.0.0.1 fallback...");
-                        setTimeout(function() {
-                            socket = new WebSocket('ws://127.0.0.1:5560');
-                            
-                            socket.onopen = function() {
-                                console.log("Successfully connected to 127.0.0.1:5560");
-                                setStatus('online', 'Connected to 127.0.0.1');
-                                clearTimeout(reconnectTimer);
-                            };
-                            
-                            socket.onerror = function() {
-                                console.error("127.0.0.1 fallback failed");
-                                setStatus('offline', 'Connection Failed');
-                                statusDetails.innerHTML = "Failed to connect to ZMQ bridge. Make sure it's running on port 5560.";
-                            };
-                            
-                            socket.onmessage = handleMessage;
-                        }, 1000);
+                    if (!isLocalhost) {
+                        statusDetails.innerHTML = "Connection error. The server may not have the /zmq endpoint configured. Please contact the administrator.";
+                    } else {
+                        // Try 127.0.0.1 as a fallback for localhost
+                        if (window.location.hostname === 'localhost') {
+                            console.log("Trying 127.0.0.1 fallback...");
+                            setTimeout(function() {
+                                socket = new WebSocket('ws://127.0.0.1:5560');
+                                
+                                socket.onopen = function() {
+                                    console.log("Successfully connected to 127.0.0.1:5560");
+                                    setStatus('online', 'Connected to 127.0.0.1');
+                                    clearTimeout(reconnectTimer);
+                                };
+                                
+                                socket.onerror = function() {
+                                    console.error("127.0.0.1 fallback failed");
+                                    setStatus('offline', 'Connection Failed');
+                                    statusDetails.innerHTML = "Failed to connect to ZMQ bridge. Make sure it's running on port 5560.";
+                                };
+                                
+                                socket.onmessage = handleMessage;
+                            }, 1000);
+                        } else {
+                            statusDetails.innerHTML = "Failed to connect to ZMQ bridge. Make sure it's running on port 5560.";
+                        }
                     }
                 };
                 
