@@ -275,7 +275,7 @@
             let events = [];
             const MAX_EVENTS = 1000;
             
-            // Initialize WebSocket connection
+            // Initialize WebSocket connection to the bridge
             function connectWebSocket() {
                 if (socket) {
                     socket.close();
@@ -288,17 +288,17 @@
                 // Create a list of possible WebSocket URLs to try
                 const possibleUrls = [];
                 
-                if (protocol === 'wss:') {
-                    // For HTTPS, use the standard /ws endpoint that's working with index.html
-                    possibleUrls.push(`${protocol}//${hostname}/ws`);
-                } else {
-                    // For HTTP, try direct connection to port 5560
+                // For HTTP, try direct connection to port 5560
+                if (protocol === 'ws:') {
                     possibleUrls.push(`${protocol}//${hostname}:5560`);
-                    
-                    // Add fallbacks for local development
                     possibleUrls.push('ws://10.99.1.7:5560');    // Server IP from logs
                     possibleUrls.push('ws://localhost:5560');    // Local development
                     possibleUrls.push('ws://127.0.0.1:5560');    // Local loopback
+                } else {
+                    // For HTTPS, we need a secure endpoint for the bridge
+                    // This might not be available, but we'll try a few options
+                    possibleUrls.push(`${protocol}//${hostname}/bridge`);  // Try a potential secure endpoint
+                    possibleUrls.push(`${protocol}//${hostname}/zmq`);     // Another potential endpoint
                 }
                 
                 console.log("Possible WebSocket URLs:", possibleUrls);
@@ -353,13 +353,8 @@
                     try {
                         const data = JSON.parse(e.data);
                         
-                        if (data.type === 'status') {
-                            // Handle status update
-                            handleStatusUpdate(data);
-                        } else {
-                            // Handle event
-                            addEvent(data);
-                        }
+                        // Handle event data
+                        addEvent(data);
                     } catch (error) {
                         console.error("Error processing message:", error);
                     }
@@ -370,32 +365,6 @@
             function setStatus(status, text) {
                 statusDot.className = 'status-indicator status-' + status;
                 statusText.textContent = text;
-            }
-            
-            // Handle status update
-            function handleStatusUpdate(data) {
-                if (data.timestamp) {
-                    statusDetails.textContent = `Last update: ${formatTime(new Date(data.timestamp))}`;
-                }
-                
-                if (data.state) {
-                    switch (data.state) {
-                        case 'running':
-                            setStatus('online', 'Connected - Running');
-                            break;
-                        case 'updating':
-                            setStatus('online', 'Connected - Updating Database');
-                            break;
-                        case 'error':
-                            setStatus('error', 'Error');
-                            break;
-                        case 'offline':
-                            setStatus('offline', 'Service Offline');
-                            break;
-                        default:
-                            setStatus('online', `Connected - ${data.state}`);
-                    }
-                }
             }
             
             // Add a new event to the table
@@ -715,7 +684,7 @@
                 renderEvents();
             });
             
-            // Connect on page load
+            // Initialize connection when the page loads
             connectWebSocket();
         });
     </script>
