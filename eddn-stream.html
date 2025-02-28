@@ -281,30 +281,25 @@
                     socket.close();
                 }
                 
-                // Get the protocol and host
-                const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-                const hostname = window.location.hostname || 'localhost';
-                const wsHost = window.location.host;  // Includes port if any
-                
-                let wsUrl;
-                
-                // For HTTPS, use the /ws endpoint that works in index.html
-                if (protocol === 'wss:') {
-                    wsUrl = `${protocol}//${wsHost}/ws`;
-                    console.log("HTTPS detected, using secure WebSocket endpoint: " + wsUrl);
-                } else {
-                    // For HTTP, connect directly to port 5560
-                    wsUrl = `ws://${hostname}:5560`;
-                    console.log("HTTP detected, connecting directly to zmq_bridge: " + wsUrl);
+                // Check if we're on HTTPS
+                if (window.location.protocol === 'https:') {
+                    // HTTPS - Display a message that direct connection is not possible
+                    console.log("HTTPS detected. Direct WebSocket connection to zmq_bridge is not possible due to browser security restrictions.");
+                    setStatus('error', 'HTTPS Connection Not Supported');
+                    statusDetails.innerHTML = "Please use <a href='http://" + window.location.host + window.location.pathname + "' style='color:#4a9df8;'>HTTP version</a> for live updates";
+                    return;  // Don't attempt to connect
                 }
                 
+                // For HTTP, connect directly to port 5560
+                const hostname = window.location.hostname || 'localhost';
+                const wsUrl = `ws://${hostname}:5560`;
                 console.log(`Attempting to connect to WebSocket at ${wsUrl}`);
                 
                 socket = new WebSocket(wsUrl);
                 
                 socket.onopen = function() {
                     console.log(`Successfully connected to ${wsUrl}`);
-                    setStatus('online', 'Connected');
+                    setStatus('online', 'Connected to zmq_bridge');
                     clearTimeout(reconnectTimer);
                 };
                 
@@ -321,8 +316,8 @@
                     console.log("WebSocket readyState:", socket.readyState);
                     setStatus('error', 'Connection Error');
                     
-                    // For HTTP, try localhost as a fallback
-                    if (protocol === 'ws:' && hostname !== 'localhost' && hostname !== '127.0.0.1') {
+                    // Try localhost as a fallback
+                    if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
                         console.log("Trying localhost fallback...");
                         setTimeout(function() {
                             socket = new WebSocket('ws://localhost:5560');
