@@ -25,9 +25,10 @@ async def zmq_to_websocket(websocket, path):
     
     # Try multiple connection addresses
     addresses = [
-        "tcp://localhost:5559",
-        "tcp://127.0.0.1:5559",
-        "tcp://0.0.0.0:5559"
+        "tcp://powermining-update-1:5559",  # Connect to the update container by name
+        "tcp://localhost:5559",             # Fallback to localhost
+        "tcp://127.0.0.1:5559",             # Another localhost fallback
+        "tcp://0.0.0.0:5559"                # Final fallback
     ]
     
     connected = False
