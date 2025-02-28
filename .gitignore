@@ -127,3 +127,4 @@ json/samples structure.md
 /.clean_coder
 .coderrules
 /server
+private_ssh_key
