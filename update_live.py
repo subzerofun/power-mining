@@ -17,11 +17,11 @@ import platform
 # ANSI color codes
 YELLOW = '\033[93m'  # Default color
 BLUE = '\033[94m'
-GREEN = '\033[92m'
+MAGENTA = '\033[92m'
 RED = '\033[91m'
-CYAN = '\033[96m'  # For database operations
+CYAN = '\033[96m' 
 ORANGE = '\033[38;5;208m'
-MAGENTA = '\033[95m'  # For system state tracking
+GREEN = '\033[95m'  
 RESET = '\033[0m'
 
 # Debug levels
@@ -40,12 +40,40 @@ DB_UPDATE_INTERVAL = 20
 # Debug flag for detailed commodity changes
 DEBUG = False
 
+# Icon Mapping
+ICONS = {
+    "COLONY": "🚩",
+    "DOCKED": "🚢",
+    "UNDOCKED": "🚤",
+    "UNKNOWN": "❓",
+    "POWER": "🔻",
+    "HEMATITE": "💎",
+    "STATE": "🏛️",
+    "DATABASE": "💾",
+    "STATUS": "📊",
+    "ERROR": "❌",
+    "COMMODITY": "📦",
+    "INIT": "🚀",
+    "STOPPING": "🛑",
+    "CONNECTED": "🔌",
+    "MODE": "⚙️",
+    "TERMINATED": "🏁",
+    "DEBUG": "🔍",
+    "JOURNAL": "📓",
+    "ROUTER": "🔀"
+}
+
 # Global state
 running = True
 commodity_buffer = {}
 commodity_map = {}
 reverse_map = {}
 
+
+def format_tag(tag):
+    """Format a tag with its icon if available - returns [ICON TAG]"""
+    icon = ICONS.get(tag, "")
+    return f"[{icon} {tag}]" if icon else f"[{tag}]"
 
 # Global commodity ID mapping
 def get_commodity_ids(conn):
@@ -71,10 +99,15 @@ def log_message(tag, message, level=2):
         color = RED
     elif tag == "DATABASE":
         color = CYAN
+    elif tag == "COLONY":
+        color = YELLOW
+    elif tag == "POWER":
+        color = MAGENTA        
     elif tag == "ERROR":
         color = RED
     
-    print(f"{color}[{timestamp}] [{os.getpid()}] [{tag}] {message}{RESET}", flush=True)
+    formatted_tag = format_tag(tag)
+    print(f"{color}[{timestamp}] [{os.getpid()}] {formatted_tag} {message}{RESET}", flush=True)
 
 # ZMQ setup
 zmq_context = zmq.Context()
@@ -323,13 +356,13 @@ def handle_power_data(message):
         return
 
     # Log that we found a FSDJump event
-    log_message("POWER-DEBUG", ORANGE + f"Processing {event} event", level=2)
+    log_message("POWER", ORANGE + f"Processing {event} event", level=2)
 
     # Get system info
     system_name = message.get("StarSystem", "")
     system_id64 = message.get("SystemAddress")
     if not system_name or not system_id64:
-        log_message("POWER-DEBUG", GREEN + f"Missing system info - Name: {system_name}, ID64: {system_id64}", level=2)
+        log_message("POWER", MAGENTA + f"Missing system info - Name: {system_name}, ID64: {system_id64}", level=2)
         return
 
     # Get current values from database first
@@ -344,7 +377,7 @@ def handle_power_data(message):
             row = cur.fetchone()
             
             if not row:
-                log_message("POWER-DEBUG", GREEN + f"System not found in database: {system_name}", level=2)
+                log_message("POWER", MAGENTA + f"System not found in database: {system_name}", level=2)
                 return
                 
             current_power, current_state, current_powers = row
@@ -365,20 +398,20 @@ def handle_power_data(message):
             if isinstance(powers, str):
                 powers = [powers]
             elif not isinstance(powers, list):
-                log_message("POWER-DEBUG", GREEN + f"Powers has unexpected type: {type(powers)}", level=2)
+                log_message("POWER", MAGENTA + f"Powers has unexpected type: {type(powers)}", level=2)
                 powers = current_powers
 
             # Filter out controlling power from powers array if it exists there
             if controlling_power and controlling_power in powers:
                 powers = [p for p in powers if p != controlling_power]
-                log_message("POWER-DEBUG", GREEN + f"Removed controlling power {controlling_power} from powers_acquiring array", level=2)
+                log_message("POWER", MAGENTA + f"Removed controlling power {controlling_power} from powers_acquiring array", level=2)
 
             # Log the power data we found
-            log_message("POWER-DEBUG", GREEN + "Power data found:", level=2)
-            log_message("POWER-DEBUG", GREEN + f"  System: {system_name} (ID64: {system_id64})", level=2)
-            log_message("POWER-DEBUG", GREEN + f"  Controlling Power: {controlling_power} {'(from message)' if has_controlling_power else '(unchanged)'}", level=2)
-            log_message("POWER-DEBUG", GREEN + f"  Power State: {power_state} {'(from message)' if has_power_state else '(unchanged)'}", level=2)
-            log_message("POWER-DEBUG", GREEN + f"  Powers Acquiring: {powers} {'(from message)' if has_powers else '(unchanged)'}", level=2)
+            log_message("POWER", MAGENTA + "Power data found:", level=2)
+            log_message("POWER", MAGENTA + f"  System: {system_name} (ID64: {system_id64})", level=2)
+            log_message("POWER", MAGENTA + f"  Controlling Power: {controlling_power} {'(from message)' if has_controlling_power else '(unchanged)'}", level=2)
+            log_message("POWER", MAGENTA + f"  Power State: {power_state} {'(from message)' if has_power_state else '(unchanged)'}", level=2)
+            log_message("POWER", MAGENTA + f"  Powers Acquiring: {powers} {'(from message)' if has_powers else '(unchanged)'}", level=2)
 
             # Check if there are actual changes, considering NULL values
             power_changed = has_controlling_power and current_power != controlling_power and not (current_power is None and controlling_power is None)
@@ -422,22 +455,22 @@ def handle_power_data(message):
                 updated_timestamp = result[1] if result and len(result) > 1 else None
                 
                 if changes:
-                    log_message("POWER-DEBUG", GREEN + f"✓ Updated power status for {system_name}: {', '.join(changes)}", level=1)
+                    log_message("POWER", MAGENTA + f"✓ Updated power status for {system_name}: {', '.join(changes)}", level=1)
                 else:
-                    log_message("POWER-DEBUG", GREEN + f"✓ Refreshed power status for {system_name} (no changes detected)", level=1)
+                    log_message("POWER", MAGENTA + f"✓ Refreshed power status for {system_name} (no changes detected)", level=1)
                 
                 # Log the timestamp update
                 if updated_timestamp:
-                    log_message("POWER-DEBUG", GREEN + f"System {system_name} last_updated timestamp set to: {updated_timestamp}", level=2)
+                    log_message("POWER", MAGENTA + f"System {system_name} last_updated timestamp set to: {updated_timestamp}", level=2)
                 
                 conn.commit()
             else:
-                log_message("POWER-DEBUG", GREEN + f"No rows updated for system {system_name}", level=1)
+                log_message("POWER", MAGENTA + f"No rows updated for system {system_name}", level=1)
                 
     except Exception as e:
-        log_message("POWER-DEBUG", GREEN + f"Failed to update power status: {e}", level=1)
+        log_message("POWER", MAGENTA + f"Failed to update power status: {e}", level=1)
         import traceback
-        log_message("POWER-DEBUG", GREEN + f"Traceback: {traceback.format_exc()}", level=1)
+        log_message("POWER", MAGENTA + f"Traceback: {traceback.format_exc()}", level=1)
 
 def handle_system_state(data):
     """Handle system state updates from FSDJump events"""
@@ -449,7 +482,7 @@ def handle_system_state(data):
         if not system_faction:
             return
             
-        log_message("STATE", MAGENTA + f"Detecting controlling faction: {system_faction}", level=2)
+        log_message("STATE", GREEN + f"Detecting controlling faction: {system_faction}", level=2)
         
         # Find the controlling faction in the factions list
         current_state = None
@@ -458,11 +491,11 @@ def handle_system_state(data):
                 if 'ActiveStates' in faction and faction['ActiveStates']:
                     # Take the first active state
                     current_state = faction['ActiveStates'][0]['State']
-                    log_message("STATE", MAGENTA + f"Detecting state: {current_state}", level=2)
+                    log_message("STATE", GREEN + f"Detecting state: {current_state}", level=2)
                 break
         
         if current_state is None:
-            log_message("STATE", MAGENTA + "No active state found for controlling faction", level=2)
+            log_message("STATE", GREEN + "No active state found for controlling faction", level=2)
             return
             
         # Check current state in database
@@ -476,29 +509,29 @@ def handle_system_state(data):
             
             row = cursor.fetchone()
             if not row:
-                log_message("STATE", MAGENTA + f"System {data['StarSystem']} not found in database", level=2)
+                log_message("STATE", GREEN + f"System {data['StarSystem']} not found in database", level=2)
                 return
                 
             db_state = row[0]
-            log_message("STATE", MAGENTA + f"Comparing state: DB='{db_state}' vs Current='{current_state}'", level=2)
+            log_message("STATE", GREEN + f"Comparing state: DB='{db_state}' vs Current='{current_state}'", level=2)
             
             # Update if states differ
             if db_state != current_state:
-                log_message("STATE", MAGENTA + f"Updating state from '{db_state}' to '{current_state}'", level=2)
+                log_message("STATE", GREEN + f"Updating state from '{db_state}' to '{current_state}'", level=2)
                 cursor.execute("""
                     UPDATE systems 
                     SET system_state = %s 
                     WHERE id64 = %s
                 """, (current_state, data['SystemAddress']))
                 conn.commit()
-                log_message("STATE", MAGENTA + f"Writing to database: system_state = '{current_state}'", level=2)
+                log_message("STATE", GREEN + f"Writing to database: system_state = '{current_state}'", level=2)
             else:
-                log_message("STATE", MAGENTA + "Disregarding state update - no change", level=2)
+                log_message("STATE", GREEN + "Disregarding state update - no change", level=2)
                 
     except Exception as e:
-        log_message("STATE", MAGENTA + f"Error updating system state: {str(e)}", level=1)
+        log_message("STATE", GREEN + f"Error updating system state: {str(e)}", level=1)
         import traceback
-        log_message("STATE", MAGENTA + f"Traceback: {traceback.format_exc()}", level=1)
+        log_message("STATE", GREEN + f"Traceback: {traceback.format_exc()}", level=1)
 
 def handle_colony_ship_event(message, event_type):
     """Process colony ship events (Docked and FSSSignalDiscovered)"""
@@ -519,7 +552,7 @@ def handle_colony_ship_event(message, event_type):
         # Extract common fields
         system_id64 = message.get('SystemAddress')
         if not system_id64:
-            log_message("COLONY", f"Missing SystemAddress in {event_type} event", level=1)
+            log_message("COLONY", YELLOW + f"Missing SystemAddress in {event_type} event", level=1)
             return
         
         # Get system name from database
@@ -560,13 +593,13 @@ def handle_colony_ship_event(message, event_type):
             economies = message.get('StationEconomies')
             landing_pads = message.get('LandingPads')
             
-            log_message("COLONY", f"✓ Docked at colony ship in {system_name or 'Unknown System'} (ID64: {system_id64})", level=1)
+            log_message("COLONY", YELLOW + f"✓ Docked at colony ship in {system_name or 'Unknown System'} (ID64: {system_id64})", level=1)
         elif event_type == 'FSSSignalDiscovered':
             # Extract FSSSignalDiscovered event specific fields
             station_name = message.get('SignalName')
             signal_type = message.get('SignalType')
             
-            log_message("COLONY", f"✓ Discovered colony ship in {system_name or 'Unknown System'} (ID64: {system_id64})", level=1)
+            log_message("COLONY", YELLOW + f"✓ Discovered colony ship in {system_name or 'Unknown System'} (ID64: {system_id64})", level=1)
         
         # Save to database
         save_colony_ship_to_db(
@@ -606,50 +639,8 @@ def save_colony_ship_to_db(system_id64, station_name, station_id=None, station_t
             cursor = conn.cursor()
             cursor.execute("BEGIN")
             
-            # Check if this colony ship already exists in the database
-            cursor.execute("""
-                SELECT id, first_seen
-                FROM colony_systems
-                WHERE system_id64 = %s AND station_name = %s
-            """, (system_id64, station_name))
-            
-            existing_record = cursor.fetchone()
-            
-            if existing_record:
-                # Update existing record
-                colony_id, first_seen = existing_record
-                log_message("COLONY", f"Updating existing colony ship record (ID: {colony_id})", level=2)
-                
-                # Update with new information, preserving first_seen
-                cursor.execute("""
-                    UPDATE colony_systems
-                    SET 
-                        station_id = COALESCE(%s, station_id),
-                        station_type = COALESCE(%s, station_type),
-                        station_faction = COALESCE(%s::jsonb, station_faction),
-                        station_government = COALESCE(%s, station_government),
-                        economy = COALESCE(%s, economy),
-                        economies = COALESCE(%s::jsonb, economies),
-                        landing_pads = COALESCE(%s::jsonb, landing_pads),
-                        signal_type = COALESCE(%s, signal_type),
-                        last_updated = NOW()
-                    WHERE id = %s
-                    RETURNING id
-                """, (
-                    station_id, station_type, station_faction_json, station_government,
-                    economy, economies_json, landing_pads_json, signal_type, colony_id
-                ))
-                
-                if cursor.rowcount == 0:
-                    log_message("ERROR", f"Failed to update colony ship record", level=1)
-                    cursor.execute("ROLLBACK")
-                    return False
-                
-                log_message("COLONY", f"✓ Updated colony ship record in database", level=1)
-            else:
-                # Insert new record
-                log_message("COLONY", f"Creating new colony ship record", level=2)
-                
+            try:
+                # Use an UPSERT pattern with ON CONFLICT to handle duplicates
                 cursor.execute("""
                     INSERT INTO colony_systems (
                         system_id64, station_id, station_name, station_type,
@@ -662,71 +653,230 @@ def save_colony_ship_to_db(system_id64, station_name, station_id=None, station_t
                         %s::jsonb, %s::jsonb, %s,
                         NOW(), NOW()
                     )
-                    RETURNING id
+                    ON CONFLICT (system_id64, station_name)
+                    DO UPDATE SET 
+                        station_id = COALESCE(EXCLUDED.station_id, colony_systems.station_id),
+                        station_type = COALESCE(EXCLUDED.station_type, colony_systems.station_type),
+                        station_faction = COALESCE(EXCLUDED.station_faction, colony_systems.station_faction),
+                        station_government = COALESCE(EXCLUDED.station_government, colony_systems.station_government),
+                        economy = COALESCE(EXCLUDED.economy, colony_systems.economy),
+                        economies = COALESCE(EXCLUDED.economies, colony_systems.economies),
+                        landing_pads = COALESCE(EXCLUDED.landing_pads, colony_systems.landing_pads),
+                        signal_type = COALESCE(EXCLUDED.signal_type, colony_systems.signal_type),
+                        last_updated = NOW()
+                    RETURNING id, (xmax = 0) AS is_insert
                 """, (
                     system_id64, station_id, station_name, station_type,
                     station_faction_json, station_government, economy,
                     economies_json, landing_pads_json, signal_type
                 ))
                 
-                new_id = cursor.fetchone()[0]
-                log_message("COLONY", f"✓ Created new colony ship record in database (ID: {new_id})", level=1)
-            
-            # Commit transaction
-            conn.commit()
-            return True
-            
+                # Get the result to determine if this was an insert or update
+                result = cursor.fetchone()
+                if result:
+                    record_id, is_insert = result
+                    if is_insert:
+                        log_message("COLONY", YELLOW + f"✓ Created new colony ship record in database (ID: {record_id})", level=1)
+                    else:
+                        log_message("COLONY", YELLOW + f"✓ Updated existing colony ship record in database (ID: {record_id})", level=1)
+                else:
+                    log_message("ERROR", "Failed to insert/update colony ship record - no result returned", level=1)
+                    cursor.execute("ROLLBACK")
+                    return False
+                
+                # Commit transaction
+                conn.commit()
+                return True
+                
+            except Exception as e:
+                log_message("ERROR", f"Database error saving colony ship: {str(e)}", level=1)
+                import traceback
+                log_message("ERROR", f"Traceback: {traceback.format_exc()}", level=1)
+                cursor.execute("ROLLBACK")
+                return False
+                
     except Exception as e:
-        log_message("ERROR", f"Database error saving colony ship: {str(e)}", level=1)
+        log_message("ERROR", f"Error saving colony ship to database: {str(e)}", level=1)
         import traceback
         log_message("ERROR", f"Traceback: {traceback.format_exc()}", level=1)
-        try:
-            conn.rollback()
-        except:
-            pass
         return False
 
 def process_journal_message(message):
-    """Process journal messages for power data"""
+    """
+    Process journal messages and route to appropriate handlers based on event type.
+    
+    Args:
+        message (dict): Journal message from EDDN
+        
+    Returns:
+        bool: True if message was processed successfully
+    """
     try:
         # Get the inner message object
         msg_data = message.get("message")
         if not msg_data:
-            log_message("POWER-DEBUG", GREEN + "Missing message field", level=1)
+            log_message("ERROR", "Missing message field in journal data", level=1)
             return False
             
-        # Check for FSDJump event and process power data
-        message_type = msg_data.get("event")
-        if message_type == 'FSDJump':
-            #log_message("POWER-DEBUG", GREEN + f"Processing {message_type} event", level=1)
+        # Extract event type for routing
+        event_type = msg_data.get("event")
+        if not event_type:
+            log_message("ERROR", "Missing event type in journal data", level=1)
+            return False
+        
+        #log_message("JOURNAL", GREEN + f"Processing {event_type} event", level=2)
+        
+        # Route based on event type
+        if event_type == 'FSDJump':
+            # Process power data
             handle_power_data(msg_data)
+            # Process system state
             handle_system_state(msg_data)
             return True
         # Process colony ship events
-        elif message_type == 'Docked' or message_type == 'FSSSignalDiscovered':
-            handle_colony_ship_event(msg_data, message_type)
+        elif event_type == 'Docked' or event_type == 'FSSSignalDiscovered':
+            handle_colony_ship_event(msg_data, event_type)
             return True
+        # Process signals events
+        elif event_type == 'SAASignalsFound':
+            # Process SAASignalsFound events
+            handle_saa_signals(msg_data)
+            return True
+        else:
+            # Unknown or unhandled event type
+            #log_message("JOURNAL", GREEN + f"Unhandled event type: {event_type}", level=3)
+            return False
             
-        return False
     except Exception as e:
-        log_message("POWER-DEBUG", GREEN + f"Error processing journal message: {str(e)}", level=1)
+        log_message("ERROR", f"Error processing journal message: {str(e)}", level=1)
         import traceback
-        log_message("POWER-DEBUG", GREEN + f"Traceback: {traceback.format_exc()}", level=1)
+        log_message("ERROR", f"Traceback: {traceback.format_exc()}", level=1)
         return False
 
-def process_message(message, commodity_map):
-    """Process a single EDDN message"""
+def handle_saa_signals(message):
+    """Process SAASignalsFound events to track Haematite signals"""
     try:
-        # Check schema type and get inner message
-        schema_ref = message.get("$schemaRef", "").lower()
-        msg_data = message.get("message", {})
+        # Extract basic information
+        timestamp = message.get("timestamp")
+        body_name = message.get("BodyName")
+        system_id64 = message.get("SystemAddress")
+        body_id = message.get("BodyID")
+        signals = message.get("Signals", [])
+        
+        # Validate required fields
+        if not all([timestamp, body_name, system_id64, body_id, signals]):
+            log_message("ERROR", f"Missing required fields in SAASignalsFound event", level=1)
+            return False
+        
+        # Check if any signals are Haematite/Hematite (with various spellings)
+        hematite_signals = []
+        for signal in signals:
+            signal_type = signal.get("Type", "")
+            if signal_type.lower() in ["haematite", "hematite", "hamaetite", "hemaetite"]:
+                hematite_signals.append(signal)
+        
+        # Only proceed if we found Hematite signals
+        if not hematite_signals:
+            log_message("DEBUG", f"No Haematite signals found in {body_name}", level=3)
+            return False
+        
+        # Get system name from database
+        system_name = None
+        try:
+            with psycopg2.connect(DATABASE_URL) as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT name FROM systems WHERE id64 = %s", (system_id64,))
+                result = cursor.fetchone()
+                if result:
+                    system_name = result[0]
+        except Exception as e:
+            log_message("ERROR", f"Error fetching system name: {str(e)}", level=1)
+        
+        if not system_name:
+            system_name = f"Unknown System ({system_id64})"
+        
+        # Process hematite signals
+        total_count = sum(signal.get("Count", 0) for signal in hematite_signals)
+        log_message("HEMATITE", RED + f"Found {total_count} Haematite signals on {body_name} in {system_name}", level=1)
+        
+        # Save each hematite signal to the database
+        for signal in hematite_signals:
+            signal_type = signal.get("Type", "")
+            signal_count = signal.get("Count", 0)
             
-        # Continue with existing commodity processing
+            # Standardize to Haematite
+            if signal_type.lower() in ["haematite", "hematite", "hamaetite", "hemaetite"]:
+                signal_type = "Haematite"
+            
+            try:
+                with psycopg2.connect(DATABASE_URL) as conn:
+                    cursor = conn.cursor()
+                    cursor.execute("BEGIN")
+                    
+                    # Check if signal exists already
+                    cursor.execute("""
+                        SELECT id, signal_count 
+                        FROM haematite_signals 
+                        WHERE system_id64 = %s AND body_name = %s AND mineral_type = %s
+                    """, (system_id64, body_name, signal_type))
+                    
+                    result = cursor.fetchone()
+                    if result:
+                        # Signal exists, update if count has changed
+                        signal_id, existing_count = result
+                        if existing_count != signal_count:
+                            cursor.execute("""
+                                UPDATE haematite_signals 
+                                SET signal_count = %s, last_updated = NOW()
+                                WHERE id = %s
+                            """, (signal_count, signal_id))
+                            log_message("HEMATITE", RED + f"Updated {signal_type} count for {body_name} from {existing_count} to {signal_count}", level=2)
+                    else:
+                        # New signal, insert it
+                        cursor.execute("""
+                            INSERT INTO haematite_signals 
+                            (system_id64, body_name, mineral_type, signal_count, first_seen, last_updated)
+                            VALUES (%s, %s, %s, %s, NOW(), NOW())
+                        """, (system_id64, body_name, signal_type, signal_count))
+                        log_message("HEMATITE", RED + f"Added new {signal_type} signal for {body_name} with count {signal_count}", level=2)
+                    
+                    conn.commit()
+            except Exception as e:
+                log_message("ERROR", f"Error saving Haematite signal to database: {str(e)}", level=1)
+                import traceback
+                log_message("ERROR", f"Traceback: {traceback.format_exc()}", level=1)
+                try:
+                    conn.rollback()
+                except:
+                    pass
+        
+        return True
+        
+    except Exception as e:
+        log_message("ERROR", f"Error processing SAASignalsFound event: {str(e)}", level=1)
+        import traceback
+        log_message("ERROR", f"Traceback: {traceback.format_exc()}", level=1)
+        return False
+
+def process_commodity_message(message, commodity_map):
+    """
+    Process commodity messages from EDDN.
+    
+    Args:
+        message (dict): Commodity message from EDDN
+        commodity_map (dict): Mapping of commodity IDs to names
+        
+    Returns:
+        tuple: ((system_id64, station_name), (commodities, timestamp)) or (None, None) if no relevant data
+    """
+    try:
+        # Skip Fleet Carrier data
         if message.get("stationType") == "FleetCarrier" or \
            (message.get("economies") and message["economies"][0].get("name") == "Carrier"):
             log_message("DEBUG", f"Skipped Fleet Carrier Data: {message.get('stationName')}", level=2)
             return None, None
             
+        # Extract basic info
         station_name = message.get("stationName")
         system_name = message.get("systemName", "Unknown")
         market_id = message.get("marketId")
@@ -734,6 +884,7 @@ def process_message(message, commodity_map):
         
         log_message("DEBUG", f"Processing station {station_name} in {system_name} (timestamp: {timestamp})", level=2)
         
+        # Validate required fields
         if not timestamp:
             log_message("ERROR", "Message missing timestamp", level=1)
             return None, None
@@ -781,9 +932,9 @@ def process_message(message, commodity_map):
                 continue
                 
             demand = commodity.get("demand", 0)
-            log_message("DEBUG", f"Processing commodity: {name} (price: {sell_price}, demand: {demand})", level=3)
+            #log_message("DEBUG", f"Processing commodity: {name} (price: {sell_price}, demand: {demand})", level=3)
             station_commodities[commodity_map[name]] = (sell_price, demand, market_id)
-            log_message("COMMODITY", f"✓ {commodity_map[name]} at {station_name}: {sell_price:,} cr (demand: {demand:,})", level=3)
+            #log_message("COMMODITY", f"✓ {commodity_map[name]} at {station_name}: {sell_price:,} cr (demand: {demand:,})", level=3)
             
         if station_commodities:
             log_message("COMMODITY", f"Added {len(station_commodities)} mining commodities to buffer for {station_name}", level=2)
@@ -795,11 +946,52 @@ def process_message(message, commodity_map):
             log_message("DEBUG", f"No relevant commodities found at {station_name}", level=2)
             
     except Exception as e:
-        log_message("ERROR", f"Error processing message: {str(e)}", level=1)
+        log_message("ERROR", f"Error processing commodity message: {str(e)}", level=1)
         import traceback
         log_message("ERROR", f"Traceback: {traceback.format_exc()}", level=1)
         
     return None, None
+
+# Define the router function before the processors
+def router_process_message(data, commodity_map):
+    """
+    Central router function for all EDDN messages.
+    Routes messages to appropriate handlers based on schema.
+    
+    Args:
+        data (dict): The raw EDDN message
+        commodity_map (dict): Mapping of commodity IDs to names
+        
+    Returns:
+        tuple: Result of message processing, depends on message type
+    """
+    try:
+        # Extract schema and message data
+        schema_ref = data.get("$schemaRef", "").lower()
+        
+        # Route based on schema
+        if "journal" in schema_ref:
+            # This is a journal event
+            #log_message("ROUTER", f"Routing journal message with schema: {schema_ref}", level=3)
+            result = process_journal_message(data)
+            return "journal", result
+            
+        elif "commodity" in schema_ref:
+            # This is a commodity event
+            #log_message("ROUTER", f"Routing commodity message with schema: {schema_ref}", level=3)
+            msg_data = data.get("message", {})
+            return "commodity", process_commodity_message(msg_data, commodity_map)
+            
+        else:
+            # Unknown schema
+            #log_message("ROUTER", f"Unknown schema: {schema_ref}", level=2)
+            return "unknown", None
+            
+    except Exception as e:
+        log_message("ERROR", f"Error in message router: {str(e)}", level=1)
+        import traceback
+        log_message("ERROR", f"Traceback: {traceback.format_exc()}", level=1)
+        return "error", None
 
 def main():
     """Main function"""
@@ -908,33 +1100,20 @@ def main():
                 except zmq.error.Again:
                     continue  # Timeout, continue loop
                 
+                # Decompress and decode message
                 message = zlib.decompress(raw_msg)
                 data = decoder.decode(message)
                 
-                # Route messages based on schema
-                schema_ref = data.get("$schemaRef", "").lower()
-                msg_data = data.get("message", {})
-
-                # Handle journal messages first
-                if "journal" in schema_ref:
-                    #log_message("JOURNAL", BLUE + f"Processing Journal message", level=2)
-                    #log_message("JOURNAL", BLUE + f"Journal Message schema: {schema_ref}", level=2)
-                    process_journal_message(data)
-                    continue
-
-                # Continue with commodity processing
-                if "commodity" in schema_ref:
-                    commodity_messages += 1
-                    log_message("DEBUG", f"Processing commodity message {commodity_messages}", level=2)
-                    log_message("DEBUG", f"Commodity Message schema: {schema_ref}", level=2)
-                else:
-                    continue
-
-                # Process commodity message
-                station_name, commodities = process_message(data.get("message", {}), commodity_map)
-                if station_name and commodities:
-                    commodity_buffer[station_name] = commodities
+                # Process message using the central router
+                message_type, result = router_process_message(data, commodity_map)
+                
+                # Handle results based on message type
+                if message_type == "commodity" and result and result[0]:
+                    # This is a commodity message with data
+                    station_key, commodities = result
+                    commodity_buffer[station_key] = commodities
                     messages_processed += 1
+                    commodity_messages += 1
                     log_message("DEBUG", f"Buffer now contains {len(commodity_buffer)} stations", level=2)
                     
                     # Print status every 100 messages
@@ -947,8 +1126,9 @@ def main():
                         log_message("DEBUG", f"Time since last flush: {current_time - last_flush:.1f}s", level=2)
                         if commodity_buffer:
                             log_message("DATABASE", f"Writing to Database starting... ({len(commodity_buffer)} stations in buffer)", level=2)
-                            for station, commodities in commodity_buffer.items():
-                                log_message("DATABASE", f"Station {station}: {len(commodities)} commodities buffered", level=2)
+                            for station, commodity_data in commodity_buffer.items():
+                                station_commodities, timestamp = commodity_data
+                                log_message("DATABASE", f"Station {station}: {len(station_commodities)} commodities buffered", level=2)
                             publish_status("updating", datetime.now(timezone.utc))
                             stations, commodities = flush_commodities_to_db(conn, commodity_buffer)
                             if stations > 0:
